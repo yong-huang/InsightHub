@@ -1,4 +1,4 @@
-# DocHub - 系统设计文档
+# InsightHub - 系统设计文档
 
 **版本**: v1.0
 **日期**: 2026-03-29
@@ -515,12 +515,12 @@ function gradeQuestion(question: Question, userAnswer: string): number {
 // services/storageService.ts
 
 const STORAGE_KEYS = {
-  PREFERENCES: 'dochub:preferences',
-  READ_RECORDS: 'dochub:read-records',
-  TAGS: 'dochub:tags',
-  DOCUMENT_TAGS: 'dochub:document-tags',
-  QUIZZES: 'dochub:quizzes',
-  SEARCH_HISTORY: 'dochub:search-history',
+  PREFERENCES: 'insighthub:preferences',
+  READ_RECORDS: 'insighthub:read-records',
+  TAGS: 'insighthub:tags',
+  DOCUMENT_TAGS: 'insighthub:document-tags',
+  QUIZZES: 'insighthub:quizzes',
+  SEARCH_HISTORY: 'insighthub:search-history',
 } as const;
 
 class StorageService {
@@ -549,7 +549,7 @@ class StorageService {
     let total = 0;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith('dochub:')) {
+      if (key?.startsWith('insighthub:')) {
         total += (localStorage.getItem(key) || '').length;
       }
     }

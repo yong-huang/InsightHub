@@ -7,7 +7,6 @@ interface SearchState {
   query: string
   results: SearchResult[]
   isSearching: boolean
-  suggestions: string[]
   showDialog: boolean
   searchHistory: string[]
 
@@ -25,7 +24,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   query: '',
   results: [],
   isSearching: false,
-  suggestions: [],
   showDialog: false,
   searchHistory: [],
 

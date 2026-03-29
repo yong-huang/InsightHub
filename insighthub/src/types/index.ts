@@ -50,12 +50,11 @@ export interface SearchFilters {
 }
 
 // ========== Quiz Types ==========
-export type QuestionType = 'choice' | 'truefalse' | 'short_answer'
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
 export interface Question {
   id: string
-  type: QuestionType
+  type: 'choice' | 'truefalse' | 'short_answer'
   difficulty: Difficulty
   text: string
   options?: string[] // for choice questions
@@ -93,11 +92,3 @@ export interface UserPreferences {
   sidebarCollapsed: boolean
 }
 
-// ========== Category ==========
-export interface CategoryInfo {
-  key: string
-  label: string
-  source: 'mindinsight' | 'techinsight'
-  icon: string
-  count: number
-}

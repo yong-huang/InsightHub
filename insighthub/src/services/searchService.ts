@@ -138,6 +138,3 @@ export function clearIndex(): void {
   searchIndex = null
 }
 
-export function isIndexReady(): boolean {
-  return searchIndex !== null
-}

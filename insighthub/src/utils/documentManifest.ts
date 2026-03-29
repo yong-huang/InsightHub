@@ -1,5 +1,3 @@
-import type { DocumentManifestEntry } from '@/types'
-
 export interface DocumentManifestEntry {
   id: string
   filePath: string

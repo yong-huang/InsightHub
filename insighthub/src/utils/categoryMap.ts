@@ -1,5 +1,3 @@
-import type { CategoryInfo } from '@/types'
-
 export interface CategoryEntry {
   key: string
   label: string

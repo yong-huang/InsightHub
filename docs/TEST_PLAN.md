@@ -1,4 +1,4 @@
-# DocHub - 测试计划文档
+# InsightHub - 测试计划文档
 
 **版本**: v1.0
 **日期**: 2026-03-29
@@ -10,7 +10,7 @@
 
 ### 1.1 测试范围
 
-本文档覆盖 DocHub v1.0 MVP 版本的所有功能测试，包括：
+本文档覆盖 InsightHub v1.0 MVP 版本的所有功能测试，包括：
 
 - 文档浏览与阅读
 - 全文搜索
@@ -122,7 +122,7 @@
 | UT-ST01 | 写入和读取数据 | 读取值与写入值一致 | P0 |
 | UT-ST02 | 读取不存在的 key | 返回 defaultValue | P0 |
 | UT-ST03 | 删除数据 | 后续读取返回 defaultValue | P0 |
-| UT-ST04 | 清空所有 dochub 数据 | 所有 key 被移除 | P0 |
+| UT-ST04 | 清空所有 insighthub 数据 | 所有 key 被移除 | P0 |
 | UT-ST05 | 存储损坏的 JSON | 捕获异常，返回 defaultValue | P0 |
 | UT-ST06 | 计算存储大小 | 返回正确的字节数 | P1 |
 | UT-ST07 | 大数据写入（101 篇文档索引） | 不报错，数据完整 | P0 |

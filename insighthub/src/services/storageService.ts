@@ -109,13 +109,4 @@ export const storageService = {
 
   clearSearchHistory: () => removeItem(storageKeys.SEARCH_HISTORY),
 
-  getStorageUsage: () => {
-    let total = 0
-    for (const key in localStorage) {
-      if (localStorage.hasOwnProperty(key) && key.startsWith(PREFIX)) {
-        total += (localStorage.getItem(key) || '').length * 2 // UTF-16
-      }
-    }
-    return { used: total, max: 5 * 1024 * 1024, percentage: (total / (5 * 1024 * 1024)) * 100 }
-  },
 }
