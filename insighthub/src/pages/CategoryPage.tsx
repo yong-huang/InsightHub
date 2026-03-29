@@ -1,27 +1,34 @@
-import { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useParams, useLocation } from 'react-router-dom'
 import { useDocumentStore } from '@/stores/documentStore'
 import { DocGrid } from '@/components/shared/DocGrid'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { getCategoryInfo, getSourceLabel, getSourceFromCategory } from '@/utils/categoryMap'
 
 export function CategoryPage() {
-  const { source: sourceParam, category: categoryParam } = useParams<{ source?: string; category?: string }>()
+  const { category: categoryParam } = useParams<{ category?: string }>()
+  const location = useLocation()
   const filteredDocuments = useDocumentStore(s => s.filteredDocuments)
   const filters = useDocumentStore(s => s.filters)
   const setFilters = useDocumentStore(s => s.setFilters)
   const resetFilters = useDocumentStore(s => s.resetFilters)
 
-  // Determine source and category from URL
-  const pathSource = sourceParam as 'mindinsight' | 'techinsight' | undefined
-  const source = pathSource || getSourceFromCategory(categoryParam || '')
+  // Parse source from pathname (/mindinsight/... or /techinsight/...)
+  const source = useMemo((): 'mindinsight' | 'techinsight' | undefined => {
+    const path = location.pathname
+    if (path.startsWith('/mindinsight')) return 'mindinsight'
+    if (path.startsWith('/techinsight')) return 'techinsight'
+    return undefined
+  }, [location.pathname])
+
   const category = categoryParam || undefined
 
   // Apply URL-based filters on mount
   useEffect(() => {
-    const urlSource = pathSource || (category ? getSourceFromCategory(category) : undefined)
+    const urlSource = source || (category ? getSourceFromCategory(category) : undefined)
     setFilters({ source: urlSource, category })
-  }, [pathSource, category, setFilters])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, category])
 
   const catInfo = category ? getCategoryInfo(category) : undefined
 
@@ -47,9 +54,9 @@ export function CategoryPage() {
         onFilterChange={setFilters}
         onReset={() => {
           resetFilters()
-          if (pathSource || category) {
+          if (source || category) {
             setFilters({
-              source: pathSource || (category ? getSourceFromCategory(category) : undefined),
+              source: source || (category ? getSourceFromCategory(category) : undefined),
               category,
             })
           }

@@ -1,5 +1,5 @@
-const AI_API_URL = 'http://127.0.0.1:7001/v1/chat/completions'
-const AI_MODEL = 'default'
+import { usePreferenceStore } from '@/stores/preferenceStore'
+
 const TIMEOUT_MS = 60000
 
 interface ChatMessage {
@@ -14,15 +14,21 @@ export interface AIResponse {
 }
 
 async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AIResponse> {
+  const { aiApiUrl, aiModel, aiApiKey } = usePreferenceStore.getState()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   try {
-    const response = await fetch(AI_API_URL, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (aiApiKey) {
+      headers['Authorization'] = `Bearer ${aiApiKey}`
+    }
+
+    const response = await fetch(aiApiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: aiModel,
         messages,
         temperature: 0.7,
         max_tokens: 4000,

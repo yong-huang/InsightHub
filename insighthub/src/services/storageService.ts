@@ -54,11 +54,16 @@ export const storageService = {
     quizDifficulty: 'easy' | 'medium' | 'hard'
     quizQuestionCount: number
     sidebarCollapsed: boolean
+    aiApiUrl: string
+    aiModel: string
   }>(storageKeys.PREFERENCES, {
     theme: 'dark',
     quizDifficulty: 'medium',
     quizQuestionCount: 5,
     sidebarCollapsed: false,
+    aiApiUrl: 'http://127.0.0.1:7001/v1/chat/completions',
+    aiModel: 'default',
+    aiApiKey: '',
   }),
 
   setPreferences: (prefs: Parameters<typeof storageService.getPreferences>[0]) =>
@@ -70,6 +75,9 @@ export const storageService = {
     setItem(storageKeys.DOCUMENT_META, meta),
 
   getReadHistory: () => getItem<ReadHistoryEntry[]>(storageKeys.READ_HISTORY, []),
+
+  _setReadHistory: (history: ReadHistoryEntry[]) =>
+    setItem(storageKeys.READ_HISTORY, history),
 
   addReadHistory: (entry: ReadHistoryEntry) => {
     const history = storageService.getReadHistory()

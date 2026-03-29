@@ -14,6 +14,7 @@ export function DocReaderPage() {
   const navigate = useNavigate()
   const doc = useDocumentStore(s => s.documents.get(docId || ''))
   const markAsRead = useDocumentStore(s => s.markAsRead)
+  const toggleRead = useDocumentStore(s => s.toggleRead)
   const url = useDocumentUrl(docId || '')
 
   const [autoReadTimer, setAutoReadTimer] = useState<number | null>(null)
@@ -106,9 +107,12 @@ export function DocReaderPage() {
 
         <div className="doc-reader-toolbar-actions">
           {doc.isRead ? (
-            <span className="badge badge-read">
-              <CheckCircle2 size={12} /> 已读
-            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => toggleRead(doc.id)}
+            >
+              <CheckCircle2 size={14} /> 取消已读
+            </button>
           ) : (
             <button
               className="btn btn-secondary btn-sm"

@@ -19,6 +19,7 @@ interface DocumentState {
   setFilters: (filters: Partial<SearchFilters>) => void
   resetFilters: () => void
   markAsRead: (docId: string) => void
+  toggleRead: (docId: string) => void
   applyFilters: () => void
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
@@ -47,7 +48,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     clearIndex()
 
     // Progressive indexing - batch fetch
-    const BATCH_SIZE = 8
+    const BATCH_SIZE = 20
     for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
       const batch = manifest.slice(i, i + BATCH_SIZE)
       const promises = batch.map(async (entry) => {
@@ -137,6 +138,45 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       documents: updated,
       stats: { ...get().stats, read: readCount, unread: docArray.length - readCount },
     })
+
+    get().applyFilters()
+  },
+
+  toggleRead: (docId) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    if (doc.isRead) {
+      // Mark as unread
+      const updated = new Map(documents)
+      updated.set(docId, {
+        ...doc,
+        isRead: false,
+        readCount: 0,
+        lastReadAt: undefined,
+      })
+
+      const metaMap = storageService.getDocumentMeta()
+      delete metaMap[docId]
+      storageService.setDocumentMeta(metaMap)
+
+      // Remove from read history
+      const history = storageService.getReadHistory()
+      const filtered = history.filter(h => h.documentId !== docId)
+      storageService._setReadHistory(filtered)
+
+      const docArray = Array.from(updated.values())
+      const readCount = docArray.filter(d => d.isRead).length
+
+      set({
+        documents: updated,
+        stats: { ...get().stats, read: readCount, unread: docArray.length - readCount },
+      })
+    } else {
+      get().markAsRead(docId)
+      return
+    }
 
     get().applyFilters()
   },

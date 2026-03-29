@@ -75,8 +75,10 @@ export function QuizPage() {
   if (error) {
     return (
       <div className="quiz-container">
-        <div className="empty-state">
-          <AlertTriangle size={48} />
+        <div className="quiz-error">
+          <div className="quiz-error-icon">
+            <AlertTriangle size={40} />
+          </div>
           <h3>出错了</h3>
           <p>{error}</p>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>

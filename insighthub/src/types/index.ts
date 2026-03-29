@@ -90,5 +90,8 @@ export interface UserPreferences {
   quizDifficulty: Difficulty
   quizQuestionCount: number
   sidebarCollapsed: boolean
+  aiApiUrl: string
+  aiModel: string
+  aiApiKey: string
 }
 

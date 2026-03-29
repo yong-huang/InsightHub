@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Search, Sun, Moon, BookOpen, Menu } from 'lucide-react'
+import { Search, Sun, Moon, BookOpen, Menu, Settings } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
 
@@ -50,6 +50,9 @@ export function Navbar() {
             <span>搜索文档...</span>
             <kbd>⌘K</kbd>
           </button>
+          <Link to="/settings" className="btn-icon" title="设置">
+            <Settings size={18} />
+          </Link>
           <button className="btn-icon theme-toggle" onClick={toggleTheme} title="切换主题">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>

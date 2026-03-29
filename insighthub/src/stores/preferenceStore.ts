@@ -9,6 +9,9 @@ interface PreferenceState extends UserPreferences {
   setQuizQuestionCount: (n: number) => void
   setSidebarCollapsed: (c: boolean) => void
   toggleSidebar: () => void
+  setAiApiUrl: (url: string) => void
+  setAiModel: (model: string) => void
+  setAiApiKey: (key: string) => void
 }
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
@@ -16,6 +19,9 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   quizDifficulty: storageService.getPreferences().quizDifficulty,
   quizQuestionCount: storageService.getPreferences().quizQuestionCount,
   sidebarCollapsed: storageService.getPreferences().sidebarCollapsed,
+  aiApiUrl: storageService.getPreferences().aiApiUrl,
+  aiModel: storageService.getPreferences().aiModel,
+  aiApiKey: storageService.getPreferences().aiApiKey,
 
   setTheme: (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -49,5 +55,23 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
 
   toggleSidebar: () => {
     get().setSidebarCollapsed(!get().sidebarCollapsed)
+  },
+
+  setAiApiUrl: (aiApiUrl) => {
+    const prefs = storageService.getPreferences()
+    storageService.setPreferences({ ...prefs, aiApiUrl })
+    set({ aiApiUrl })
+  },
+
+  setAiModel: (aiModel) => {
+    const prefs = storageService.getPreferences()
+    storageService.setPreferences({ ...prefs, aiModel })
+    set({ aiModel })
+  },
+
+  setAiApiKey: (aiApiKey) => {
+    const prefs = storageService.getPreferences()
+    storageService.setPreferences({ ...prefs, aiApiKey })
+    set({ aiApiKey })
   },
 }))

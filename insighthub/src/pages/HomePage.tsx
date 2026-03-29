@@ -18,6 +18,7 @@ export function HomePage() {
   const ref1 = useReveal()
   const ref2 = useReveal()
   const ref3 = useReveal()
+  const ref4 = useReveal()
 
   const recentReads = getRecentReads()
   const miCategories = getCategoriesBySource('mindinsight')
@@ -99,7 +100,7 @@ export function HomePage() {
       </div>
 
       {/* TechInsight */}
-      <div className="section reveal reveal-delay-3">
+      <div className="section reveal reveal-delay-3" ref={ref4}>
         <div className="section-header">
           <h2 className="gradient-text">TechInsight · 技术洞察</h2>
           <Link to="/techinsight" className="btn btn-ghost btn-sm">

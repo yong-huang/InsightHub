@@ -6,6 +6,7 @@ import { CategoryPage } from '@/pages/CategoryPage'
 import { DocReaderPage } from '@/pages/DocReaderPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { QuizPage } from '@/pages/QuizPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { useInitializeApp } from '@/hooks/useInitializeApp'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -28,6 +29,7 @@ function AppContent() {
             <Route path="/doc/:docId" element={<DocReaderPage />} />
             <Route path="/quiz/:quizId" element={<QuizPage />} />
             <Route path="/tag/:tagId" element={<CategoryPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

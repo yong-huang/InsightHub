@@ -1,9 +1,6 @@
 import type { Document, Section } from '@/types'
 import type { DocumentManifestEntry } from './documentManifest'
 
-const MINDINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/MindInsight'
-const TECHINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/TechInsight'
-
 const TITLE_SUFFIXES = [
   ' - MindInsight',
   ' - TechInsight',
@@ -50,13 +47,11 @@ function detectLanguage(text: string): 'zh' | 'en' | 'mixed' {
 }
 
 function resolveDocPath(entry: DocumentManifestEntry): string {
-  const baseDir = entry.source === 'mindinsight' ? MINDINSIGHT_DIR : TECHINSIGHT_DIR
   const categoryPath = entry.subcategory
     ? `${entry.category}/${entry.subcategory}`
     : entry.category
-  const absPath = `${baseDir}/${categoryPath}/${entry.fileName}`
   if (import.meta.env.DEV) {
-    return `/@fs${absPath}`
+    return `/dev-docs/${entry.source}/${categoryPath}/${entry.fileName}`
   }
   return `/docs/${entry.source}/${categoryPath}/${entry.fileName}`
 }
