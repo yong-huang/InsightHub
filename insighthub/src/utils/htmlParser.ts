@@ -1,5 +1,5 @@
 import type { Document, Section } from '@/types'
-import { DOCUMENT_MANIFEST } from './documentManifest'
+import type { DocumentManifestEntry } from './documentManifest'
 
 const MINDINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/MindInsight'
 const TECHINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/TechInsight'
@@ -49,7 +49,7 @@ function detectLanguage(text: string): 'zh' | 'en' | 'mixed' {
   return 'mixed'
 }
 
-function resolveDocPath(entry: typeof DOCUMENT_MANIFEST[number]): string {
+function resolveDocPath(entry: DocumentManifestEntry): string {
   const baseDir = entry.source === 'mindinsight' ? MINDINSIGHT_DIR : TECHINSIGHT_DIR
   const categoryPath = entry.subcategory
     ? `${entry.category}/${entry.subcategory}`
@@ -61,7 +61,7 @@ function resolveDocPath(entry: typeof DOCUMENT_MANIFEST[number]): string {
   return `/docs/${entry.source}/${categoryPath}/${entry.fileName}`
 }
 
-export function parseHtmlDocument(html: string, entry: typeof DOCUMENT_MANIFEST[number]): Omit<Document, 'isRead' | 'lastReadAt' | 'readCount' | 'tags' | 'indexedAt'> {
+export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): Omit<Document, 'isRead' | 'lastReadAt' | 'readCount' | 'tags' | 'indexedAt'> {
   const parser = new DOMParser()
   const doc = parser.parseFromString(html, 'text/html')
 
@@ -106,7 +106,7 @@ export function parseHtmlDocument(html: string, entry: typeof DOCUMENT_MANIFEST[
   }
 }
 
-export async function fetchAndParseDocument(entry: typeof DOCUMENT_MANIFEST[number]): Promise<Document> {
+export async function fetchAndParseDocument(entry: DocumentManifestEntry): Promise<Document> {
   const url = resolveDocPath(entry)
   const response = await fetch(url)
   if (!response.ok) {

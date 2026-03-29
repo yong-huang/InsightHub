@@ -1,13 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { documentDiscovery } from './vite-plugins/documentDiscovery'
 
 const PROJECT_DIR = path.resolve(__dirname)
 const MINDINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/MindInsight'
 const TECHINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/TechInsight'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    documentDiscovery({ mindInsightDir: MINDINSIGHT_DIR, techInsightDir: TECHINSIGHT_DIR }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

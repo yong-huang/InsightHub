@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Document, SearchFilters } from '@/types'
-import { DOCUMENT_MANIFEST } from '@/utils/documentManifest'
+import { fetchDocumentManifest } from '@/utils/documentManifest'
 import { fetchAndParseDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
@@ -36,7 +36,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   stats: { total: 0, read: 0, unread: 0, categories: 0 },
 
   initializeDocuments: async () => {
-    set({ isLoading: true, loadProgress: { current: 0, total: DOCUMENT_MANIFEST.length } })
+    const manifest = await fetchDocumentManifest()
+    set({ isLoading: true, loadProgress: { current: 0, total: manifest.length } })
 
     // Load cached meta
     const metaMap = storageService.getDocumentMeta()
@@ -47,8 +48,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     // Progressive indexing - batch fetch
     const BATCH_SIZE = 8
-    for (let i = 0; i < DOCUMENT_MANIFEST.length; i += BATCH_SIZE) {
-      const batch = DOCUMENT_MANIFEST.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
+      const batch = manifest.slice(i, i + BATCH_SIZE)
       const promises = batch.map(async (entry) => {
         try {
           const doc = await fetchAndParseDocument(entry)
@@ -71,7 +72,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         }
       })
       await Promise.all(promises)
-      set({ loadProgress: { current: i + batch.length, total: DOCUMENT_MANIFEST.length } })
+      set({ loadProgress: { current: i + batch.length, total: manifest.length } })
     }
 
     const docArray = Array.from(docs.values())
