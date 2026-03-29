@@ -1,0 +1,62 @@
+import { useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import { useDocumentStore } from '@/stores/documentStore'
+import { DocGrid } from '@/components/shared/DocGrid'
+import { FilterBar } from '@/components/shared/FilterBar'
+import { getCategoryInfo, getSourceLabel, getSourceFromCategory } from '@/utils/categoryMap'
+
+export function CategoryPage() {
+  const { source: sourceParam, category: categoryParam } = useParams<{ source?: string; category?: string }>()
+  const filteredDocuments = useDocumentStore(s => s.filteredDocuments)
+  const filters = useDocumentStore(s => s.filters)
+  const setFilters = useDocumentStore(s => s.setFilters)
+  const resetFilters = useDocumentStore(s => s.resetFilters)
+
+  // Determine source and category from URL
+  const pathSource = sourceParam as 'mindinsight' | 'techinsight' | undefined
+  const source = pathSource || getSourceFromCategory(categoryParam || '')
+  const category = categoryParam || undefined
+
+  // Apply URL-based filters on mount
+  useEffect(() => {
+    const urlSource = pathSource || (category ? getSourceFromCategory(category) : undefined)
+    setFilters({ source: urlSource, category })
+  }, [pathSource, category, setFilters])
+
+  const catInfo = category ? getCategoryInfo(category) : undefined
+
+  const title = catInfo
+    ? catInfo.label
+    : source
+      ? getSourceLabel(source)
+      : '全部文档'
+
+  const description = catInfo
+    ? `${source === 'mindinsight' ? 'MindInsight' : 'TechInsight'} · ${catInfo.label}`
+    : '浏览所有学习文档'
+
+  return (
+    <div className="page-category">
+      <div className="page-header">
+        <h1>{title}</h1>
+        <p>{description} · {filteredDocuments.length} 篇文档</p>
+      </div>
+
+      <FilterBar
+        filters={filters}
+        onFilterChange={setFilters}
+        onReset={() => {
+          resetFilters()
+          if (pathSource || category) {
+            setFilters({
+              source: pathSource || (category ? getSourceFromCategory(category) : undefined),
+              category,
+            })
+          }
+        }}
+      />
+
+      <DocGrid documents={filteredDocuments} emptyMessage="该分类下暂无文档" />
+    </div>
+  )
+}
