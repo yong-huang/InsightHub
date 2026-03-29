@@ -1,4 +1,4 @@
-const PREFIX = 'dochub:'
+const PREFIX = 'insighthub:'
 
 export const storageKeys = {
   PREFERENCES: `${PREFIX}preferences`,

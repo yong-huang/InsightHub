@@ -12,7 +12,7 @@ export function LoadingScreen() {
             <circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent-blue)" strokeWidth="4" strokeDasharray="80 200" strokeLinecap="round" />
           </svg>
         </div>
-        <h2 className="gradient-text">DocHub</h2>
+        <h2 className="gradient-text">InsightHub</h2>
         <p className="loading-text">正在加载文档...</p>
         {progress.total > 0 && (
           <div className="loading-progress">

@@ -17,7 +17,7 @@ export function Navbar() {
           </button>
           <Link to="/" className="navbar-brand">
             <BookOpen size={24} />
-            <span className="gradient-text">DocHub</span>
+            <span className="gradient-text">InsightHub</span>
           </Link>
         </div>
 

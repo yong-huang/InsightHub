@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-DocHub is a React-based web application for browsing, searching, and quizzing against 91 HTML learning documents from MindInsight and TechInsight directories.
+InsightHub is a React-based web application for browsing, searching, and quizzing against 91 HTML learning documents from MindInsight and TechInsight directories.
 
 ## Architecture
 
@@ -15,17 +15,17 @@ DocHub is a React-based web application for browsing, searching, and quizzing ag
 
 ## Key Directories
 
-- `src/pages/` — Route pages (Home, Category, DocReader, Search, Quiz)
-- `src/components/` — Layout, shared components, search dialog
-- `src/stores/` — Zustand state management
-- `src/services/` — AI service, quiz service, search service, storage service
-- `src/utils/` — Document manifest (91 entries), HTML parser, category map
-- `src/styles/` — CSS (globals, layout, components, animations)
+- `insighthub/src/pages/` — Route pages (Home, Category, DocReader, Search, Quiz)
+- `insighthub/src/components/` — Layout, shared components, search dialog
+- `insighthub/src/stores/` — Zustand state management
+- `insighthub/src/services/` — AI service, quiz service, search service, storage service
+- `insighthub/src/utils/` — Document manifest (91 entries), HTML parser, category map
+- `insighthub/src/styles/` — CSS (globals, layout, components, animations)
 
 ## Running
 
 ```bash
-cd dochub
+cd insighthub
 npm run dev     # Start dev server (access MindInsight/TechInsight via @fs)
 npm run build   # Production build (copies docs to public/docs/)
 ```
