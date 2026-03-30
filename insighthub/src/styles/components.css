@@ -282,6 +282,62 @@
   background: #fff;
 }
 
+/* ========== Document Reader Fullscreen ========== */
+.doc-fullscreen-active .navbar,
+.doc-fullscreen-active .sidebar {
+  display: none !important;
+}
+.doc-fullscreen-active .layout-body {
+  padding-top: 0 !important;
+}
+.doc-fullscreen-active .layout-main {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: 100vh !important;
+}
+.doc-fullscreen-active .doc-reader-toolbar {
+  display: none !important;
+}
+.doc-fullscreen-active .doc-reader-toolbar.is-fullscreen-toolbar {
+  display: flex !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  border-radius: 0;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.doc-fullscreen-active .doc-reader-toolbar.is-fullscreen-toolbar .doc-reader-toolbar-info,
+.doc-fullscreen-active .doc-reader-toolbar.is-fullscreen-toolbar .doc-reader-toolbar-actions {
+  display: none !important;
+}
+.doc-fullscreen-active .doc-reader-titlebar,
+.doc-fullscreen-active .doc-reader-footer {
+  display: none !important;
+}
+.doc-fullscreen-active .doc-reader-iframe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  border: none;
+  border-radius: 0;
+  z-index: 99998;
+}
+/* On desktop (hover-capable), hide the fullscreen toolbar entirely — just press Esc */
+@media (hover: hover) {
+  .doc-fullscreen-active .doc-reader-toolbar.is-fullscreen-toolbar {
+    display: none !important;
+  }
+}
+
 .doc-reader-footer {
   display: flex;
   align-items: center;
