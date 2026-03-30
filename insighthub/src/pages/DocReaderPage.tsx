@@ -195,7 +195,7 @@ export function DocReaderPage() {
                   <RefreshCw size={14} /> <ChevronDown size={12} />
                 </button>
                 {showRegenerateMenu && (
-                  <div className="dropdown-menu" style={{
+                  <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
                     position: 'absolute', top: '100%', right: 0, marginTop: 4,
                     background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
                     borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
