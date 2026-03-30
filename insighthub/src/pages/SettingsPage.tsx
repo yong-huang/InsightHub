@@ -36,7 +36,11 @@ export function SettingsPage() {
       if (localApiKey) {
         headers['Authorization'] = `Bearer ${localApiKey}`
       }
-      const response = await fetch(localUrl, {
+      const testUrl = localUrl.replace(/\/+$/, '').endsWith('/chat/completions')
+        ? localUrl
+        : `${localUrl.replace(/\/+$/, '')}/chat/completions`
+
+      const response = await fetch(testUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -79,7 +83,7 @@ export function SettingsPage() {
               className="settings-input"
               value={localUrl}
               onChange={e => setLocalUrl(e.target.value)}
-              placeholder="http://127.0.0.1:7001/v1/chat/completions"
+              placeholder="http://127.0.0.1:7001/v1"
             />
           </div>
           <div className="settings-field">

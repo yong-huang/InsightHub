@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
   Cpu, GitBranch, Cloud, Server, Network, Code,
+  TrendingUp, Landmark,
   ChevronLeft, ChevronRight, Tag,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -12,6 +13,8 @@ import { CATEGORIES, getCategoriesBySource } from '@/utils/categoryMap'
 const ICON_MAP: Record<string, React.ReactNode> = {
   GraduationCap: <GraduationCap size={18} />,
   Film: <Film size={18} />,
+  TrendingUp: <TrendingUp size={18} />,
+  Landmark: <Landmark size={18} />,
   BookOpen: <BookOpen size={18} />,
   Brain: <Brain size={18} />,
   Cpu: <Cpu size={18} />,

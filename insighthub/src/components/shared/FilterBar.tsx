@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import type { SearchFilters } from '@/types'
+import type { SearchFilters, Tag } from '@/types'
 import { CATEGORIES, getSourceLabel } from '@/utils/categoryMap'
 
 interface FilterBarProps {
@@ -7,10 +7,13 @@ interface FilterBarProps {
   onFilterChange: (filters: Partial<SearchFilters>) => void
   onReset: () => void
   showCategoryFilter?: boolean
+  tags?: Tag[]
 }
 
-export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true }: FilterBarProps) {
+export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true, tags = [] }: FilterBarProps) {
   const hasFilters = filters.source || filters.category || filters.tag || filters.isRead !== undefined
+
+  const activeTag = filters.tag ? tags.find(t => t.id === filters.tag) : null
 
   return (
     <div className="filter-bar">
@@ -54,14 +57,41 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           <option value="true">已读</option>
           <option value="false">未读</option>
         </select>
+
+        {/* Tag filter */}
+        <select
+          className="filter-select"
+          value={filters.tag || ''}
+          onChange={e => onFilterChange({ tag: (e.target.value || undefined) as any })}
+        >
+          <option value="">全部标签</option>
+          {tags.filter(t => t.documentIds.length > 0).map(tag => (
+            <option key={tag.id} value={tag.id}>
+              {tag.name} ({tag.documentIds.length})
+            </option>
+          ))}
+        </select>
       </div>
 
-      {hasFilters && (
-        <button className="btn btn-ghost btn-sm" onClick={onReset}>
-          <X size={14} />
-          清除筛选
-        </button>
-      )}
+      <div className="filter-group">
+        {activeTag && (
+          <span
+            className="tag-pill"
+            style={{ background: `${activeTag.color}20`, color: activeTag.color, cursor: 'pointer' }}
+            onClick={() => onFilterChange({ tag: undefined })}
+          >
+            {activeTag.name}
+            <X size={10} />
+          </span>
+        )}
+
+        {hasFilters && (
+          <button className="btn btn-ghost btn-sm" onClick={onReset}>
+            <X size={14} />
+            清除筛选
+          </button>
+        )}
+      </div>
     </div>
   )
 }

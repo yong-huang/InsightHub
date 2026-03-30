@@ -14,7 +14,7 @@ export function parseQuizResponse(data: any, documentId: string, documentTitle: 
   }))
 
   return {
-    id: `quiz-${Date.now()}`,
+    id: `quiz-${documentId}`,
     documentId,
     documentTitle,
     questions,

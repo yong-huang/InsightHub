@@ -24,12 +24,6 @@ export function Navbar() {
         <div className="navbar-center">
           <div className="navbar-links">
             <Link
-              to="/"
-              className={`navbar-link ${location.pathname === '/' ? 'active' : ''}`}
-            >
-              首页
-            </Link>
-            <Link
               to="/mindinsight"
               className={`navbar-link ${location.pathname.startsWith('/mindinsight') ? 'active' : ''}`}
             >

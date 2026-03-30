@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react'
 import { useQuizStore } from '@/stores/quizStore'
-import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
-import { createQuiz, gradeQuiz } from '@/services/quizService'
-import type { Question, QuizAttempt } from '@/types'
+import { gradeQuiz } from '@/services/quizService'
+import type { QuizAttempt } from '@/types'
 
 export function QuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
@@ -14,37 +13,27 @@ export function QuizPage() {
   const docId = searchParams.get('docId')
 
   const {
-    currentQuiz, currentAttempt, isLoading, isGrading, error,
-    setCurrentQuiz, setCurrentAttempt, setLoading, setGrading, setError, reset,
+    currentQuiz, currentAttempt, isGrading, error,
+    setCurrentQuiz, setCurrentAttempt, setGrading, setError, reset,
   } = useQuizStore()
 
-  const { quizDifficulty, quizQuestionCount } = usePreferenceStore()
+  const savedQuizzes = useQuizStore(s => s.savedQuizzes)
   const doc = useDocumentStore(s => s.documents.get(docId || ''))
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
 
-  // Generate quiz if new
+  // Load quiz from persisted store
   useEffect(() => {
-    if (quizId === 'new' && doc) {
-      let cancelled = false
-      setLoading(true)
-      setError(null)
-      createQuiz(doc, quizDifficulty, quizQuestionCount)
-        .then(({ quiz, error: err }) => {
-          if (cancelled) return
-          if (err) {
-            setError(err)
-          } else {
-            setCurrentQuiz(quiz)
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false)
-        })
-      return () => { cancelled = true }
+    if (docId && savedQuizzes[docId]) {
+      setCurrentQuiz(savedQuizzes[docId])
+    } else if (currentQuiz && currentQuiz.id === quizId) {
+      // Already loaded
+    } else {
+      // No saved quiz found
+      setError('未找到测验，请先在文档页面生成测验')
     }
-  }, [quizId, docId])
+  }, [docId, quizId])
 
   const handleAnswer = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
@@ -65,11 +54,10 @@ export function QuizPage() {
   }
 
   const handleRetry = () => {
+    reset()
     setAnswers({})
     setCurrentIndex(0)
-    setCurrentAttempt(null)
-    setError(null)
-    navigate(`/quiz/new?docId=${docId}`)
+    navigate(`/doc/${docId}`)
   }
 
   if (error) {
@@ -89,26 +77,6 @@ export function QuizPage() {
               返回
             </Link>
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="quiz-container">
-        <div className="quiz-loading">
-          <div className="pulse-glow" style={{
-            width: 60, height: 60, borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1.5rem', background: 'rgba(50,108,229,0.15)',
-          }}>
-            <Sparkles size={28} style={{ color: 'var(--accent-blue)' }} />
-          </div>
-          <h2 className="gradient-text">AI 正在生成测验题...</h2>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            基于文档内容生成 {quizQuestionCount} 道题目
-          </p>
         </div>
       </div>
     )
@@ -193,6 +161,13 @@ export function QuizPage() {
     <div className="quiz-container">
       {/* Progress */}
       <div className="quiz-progress-bar">
+        <Link
+          to={docId ? `/doc/${docId}` : '/'}
+          className="btn btn-ghost btn-sm"
+          style={{ marginRight: '0.5rem' }}
+        >
+          <ArrowLeft size={14} /> 退出
+        </Link>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
           {answeredCount} / {questions.length} 已作答
         </span>

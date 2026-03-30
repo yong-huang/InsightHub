@@ -1,17 +1,19 @@
 import { useEffect, useMemo } from 'react'
 import { useParams, useLocation } from 'react-router-dom'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useTagStore } from '@/stores/tagStore'
 import { DocGrid } from '@/components/shared/DocGrid'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { getCategoryInfo, getSourceLabel, getSourceFromCategory } from '@/utils/categoryMap'
 
 export function CategoryPage() {
-  const { category: categoryParam } = useParams<{ category?: string }>()
+  const { category: categoryParam } = useParams<{ category?: string; tagId?: string }>()
   const location = useLocation()
   const filteredDocuments = useDocumentStore(s => s.filteredDocuments)
   const filters = useDocumentStore(s => s.filters)
   const setFilters = useDocumentStore(s => s.setFilters)
   const resetFilters = useDocumentStore(s => s.resetFilters)
+  const allTags = useTagStore(s => s.tags)
 
   // Parse source from pathname (/mindinsight/... or /techinsight/...)
   const source = useMemo((): 'mindinsight' | 'techinsight' | undefined => {
@@ -23,24 +25,32 @@ export function CategoryPage() {
 
   const category = categoryParam || undefined
 
+  // Parse tagId from /tag/:tagId route
+  const { tagId } = useParams<{ tagId?: string }>()
+  const activeTag = useMemo(() => tagId ? allTags.find(t => t.id === tagId) : undefined, [tagId, allTags])
+
   // Apply URL-based filters on mount
   useEffect(() => {
     const urlSource = source || (category ? getSourceFromCategory(category) : undefined)
-    setFilters({ source: urlSource, category })
+    setFilters({ source: urlSource, category, tag: tagId || undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, category])
+  }, [source, category, tagId])
 
   const catInfo = category ? getCategoryInfo(category) : undefined
 
-  const title = catInfo
-    ? catInfo.label
-    : source
-      ? getSourceLabel(source)
-      : '全部文档'
+  const title = activeTag
+    ? `标签: ${activeTag.name}`
+    : catInfo
+      ? catInfo.label
+      : source
+        ? getSourceLabel(source)
+        : '全部文档'
 
-  const description = catInfo
-    ? `${source === 'mindinsight' ? 'MindInsight' : 'TechInsight'} · ${catInfo.label}`
-    : '浏览所有学习文档'
+  const description = activeTag
+    ? `${allTags.filter(t => t.documentIds.length > 0).length} 个标签`
+    : catInfo
+      ? `${source === 'mindinsight' ? 'MindInsight' : 'TechInsight'} · ${catInfo.label}`
+      : '浏览所有学习文档'
 
   return (
     <div className="page-category">
@@ -61,6 +71,7 @@ export function CategoryPage() {
             })
           }
         }}
+        tags={allTags}
       />
 
       <DocGrid documents={filteredDocuments} emptyMessage="该分类下暂无文档" />

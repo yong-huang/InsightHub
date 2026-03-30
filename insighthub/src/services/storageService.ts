@@ -7,6 +7,7 @@ export const storageKeys = {
   TAGS: `${PREFIX}tags`,
   QUIZ_HISTORY: `${PREFIX}quiz-history`,
   SEARCH_HISTORY: `${PREFIX}search-history`,
+  QUIZZES: `${PREFIX}quizzes`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -61,7 +62,7 @@ export const storageService = {
     quizDifficulty: 'medium',
     quizQuestionCount: 5,
     sidebarCollapsed: false,
-    aiApiUrl: 'http://127.0.0.1:7001/v1/chat/completions',
+    aiApiUrl: 'http://127.0.0.1:7001/v1',
     aiModel: 'default',
     aiApiKey: '',
   }),
@@ -116,5 +117,31 @@ export const storageService = {
   },
 
   clearSearchHistory: () => removeItem(storageKeys.SEARCH_HISTORY),
+
+  getQuizzes: () => getItem<Record<string, any>>(storageKeys.QUIZZES, {}),
+
+  saveQuiz: (quiz: any) => {
+    const quizzes = storageService.getQuizzes()
+    quizzes[quiz.documentId] = quiz
+    return setItem(storageKeys.QUIZZES, quizzes)
+  },
+
+  removeQuiz: (documentId: string) => {
+    const quizzes = storageService.getQuizzes()
+    delete quizzes[documentId]
+    setItem(storageKeys.QUIZZES, quizzes)
+  },
+
+  appendQuizQuestions: (documentId: string, newQuestions: any[]) => {
+    const quizzes = storageService.getQuizzes()
+    const existing = quizzes[documentId]
+    if (!existing) return false
+    const existingIds = new Set(existing.questions.map((q: any) => q.id))
+    const unique = newQuestions.filter((q: any) => !existingIds.has(q.id))
+    existing.questions.push(...unique)
+    existing.maxScore = existing.questions.length * 100
+    existing.createdAt = Date.now()
+    return setItem(storageKeys.QUIZZES, quizzes)
+  },
 
 }

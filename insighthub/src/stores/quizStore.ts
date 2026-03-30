@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { Quiz, QuizAttempt, Question } from '@/types'
+import type { Quiz, QuizAttempt, Question, Difficulty } from '@/types'
 import { storageService } from '@/services/storageService'
+import { createQuiz } from '@/services/quizService'
 
 interface QuizState {
   currentQuiz: Quiz | null
@@ -9,6 +10,9 @@ interface QuizState {
   isGrading: boolean
   error: string | null
   quizHistory: QuizAttempt[]
+  savedQuizzes: Record<string, Quiz>
+  generatingDocId: string | null
+  generatingError: string | null
 
   setCurrentQuiz: (quiz: Quiz | null) => void
   setCurrentAttempt: (attempt: QuizAttempt | null) => void
@@ -18,15 +22,22 @@ interface QuizState {
   loadHistory: () => void
   saveAttempt: (attempt: QuizAttempt) => void
   reset: () => void
+  loadSavedQuizzes: () => void
+  startGeneration: (docId: string, mode: 'new' | 'regenerate' | 'append', doc: { id: string; title: string; contentText: string }, difficulty: Difficulty, count: number) => Promise<void>
+  clearGeneration: () => void
+  removeSavedQuiz: (docId: string) => void
 }
 
-export const useQuizStore = create<QuizState>((set) => ({
+export const useQuizStore = create<QuizState>((set, get) => ({
   currentQuiz: null,
   currentAttempt: null,
   isLoading: false,
   isGrading: false,
   error: null,
   quizHistory: [],
+  savedQuizzes: {},
+  generatingDocId: null,
+  generatingError: null,
 
   setCurrentQuiz: (quiz) => set({ currentQuiz: quiz, error: null }),
 
@@ -56,4 +67,63 @@ export const useQuizStore = create<QuizState>((set) => ({
     isGrading: false,
     error: null,
   }),
+
+  loadSavedQuizzes: () => {
+    const quizzes = storageService.getQuizzes()
+    set({ savedQuizzes: quizzes })
+  },
+
+  startGeneration: async (docId, mode, doc, difficulty, count) => {
+    set({ generatingDocId: docId, generatingError: null })
+    try {
+      const { quiz, error: err } = await createQuiz(
+        doc as any,
+        difficulty,
+        count,
+      )
+      if (err) {
+        set({ generatingError: err })
+        return
+      }
+
+      if (mode === 'append') {
+        const existing = get().savedQuizzes[docId]
+        if (existing) {
+          const existingIds = new Set(existing.questions.map(q => q.id))
+          const unique = quiz.questions.filter(q => !existingIds.has(q.id))
+          if (unique.length > 0) {
+            const merged: Quiz = {
+              ...existing,
+              questions: [...existing.questions, ...unique],
+              maxScore: (existing.questions.length + unique.length) * 100,
+              createdAt: Date.now(),
+            }
+            storageService.saveQuiz(merged)
+            set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
+          }
+        } else {
+          storageService.saveQuiz(quiz)
+          set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+        }
+      } else {
+        storageService.saveQuiz(quiz)
+        set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+      }
+    } catch (e: any) {
+      set({ generatingError: e.message || '生成失败' })
+    } finally {
+      set({ generatingDocId: null })
+    }
+  },
+
+  clearGeneration: () => set({ generatingError: null }),
+
+  removeSavedQuiz: (docId) => {
+    storageService.removeQuiz(docId)
+    set(s => {
+      const updated = { ...s.savedQuizzes }
+      delete updated[docId]
+      return { savedQuizzes: updated }
+    })
+  },
 }))
