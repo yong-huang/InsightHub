@@ -178,12 +178,28 @@ export function extractJSON(text: string): any {
   // Find JSON object/array
   const objectMatch = cleaned.match(/\{[\s\S]*\}/)
   const arrayMatch = cleaned.match(/\[[\s\S]*\]/)
+  const raw = objectMatch?.[0] || arrayMatch?.[0]
+
+  if (!raw) {
+    throw new Error('无法从 AI 响应中提取 JSON')
+  }
+
+  // Try direct parse first
+  try {
+    return JSON.parse(raw)
+  } catch {}
+
+  // Attempt common AI JSON error fixes
+  let fixed = raw
+  // Remove trailing commas before } or ]
+  fixed = fixed.replace(/,\s*([}\]])/g, '$1')
+  // Replace Chinese punctuation inside JSON strings that leaked out
+  fixed = fixed.replace(/：/g, ':').replace(/，/g, ',').replace(/"/g, '"').replace(/"/g, '"')
+  // Remove control characters except newline/tab
+  fixed = fixed.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
 
   try {
-    if (objectMatch) return JSON.parse(objectMatch[0])
-  } catch {}
-  try {
-    if (arrayMatch) return JSON.parse(arrayMatch[0])
+    return JSON.parse(fixed)
   } catch {}
 
   throw new Error('无法从 AI 响应中提取 JSON')
