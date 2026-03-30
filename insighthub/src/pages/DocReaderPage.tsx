@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  ArrowLeft, CheckCircle2, Circle, BookOpen, FileText,
-  Sparkles, Plus, X, Maximize, Minimize,
+  ArrowLeft, CheckCircle2, BookOpen, FileText,
+  Sparkles, Plus, X, Maximize,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -22,28 +22,40 @@ export function DocReaderPage() {
   const [tagName, setTagName] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // CSS class hides navbar/sidebar/toolbar, iframe fills viewport
+  useEffect(() => {
+    document.documentElement.classList.toggle('doc-fullscreen-active', isFullscreen)
+    document.body.style.overflow = isFullscreen ? 'hidden' : ''
+    return () => {
+      document.documentElement.classList.remove('doc-fullscreen-active')
+      document.body.style.overflow = ''
+    }
+  }, [isFullscreen])
+
+  // If Fullscreen API exits for any reason (Esc, system gesture),
+  // sync CSS overlay state to match.
   useEffect(() => {
     const onFsChange = () => {
-      const active = !!document.fullscreenElement
-      setIsFullscreen(active)
-      document.documentElement.classList.toggle('doc-fullscreen-active', active)
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false)
+      }
     }
     document.addEventListener('fullscreenchange', onFsChange)
-    return () => {
-      document.removeEventListener('fullscreenchange', onFsChange)
-      document.documentElement.classList.remove('doc-fullscreen-active')
-    }
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
   }, [])
 
   const toggleFullscreen = useCallback(async () => {
+    const entering = !isFullscreen
+    setIsFullscreen(entering)
+
     try {
-      if (!document.fullscreenElement) {
+      if (entering) {
         await document.documentElement.requestFullscreen()
-      } else {
+      } else if (document.fullscreenElement) {
         await document.exitFullscreen()
       }
     } catch {}
-  }, [])
+  }, [isFullscreen])
 
   const allTags = useTagStore(s => s.tags)
   const addTag = useTagStore(s => s.addTag)
@@ -95,16 +107,9 @@ export function DocReaderPage() {
 
   return (
     <div className="doc-reader-page">
-      {/* Toolbar — in fullscreen, only the back button shows (mobile) */}
-      <div className="doc-reader-toolbar is-fullscreen-toolbar">
-        <button className="btn btn-ghost btn-sm" onClick={() => {
-          if (isFullscreen) {
-            toggleFullscreen()
-          } else {
-            navigate(-1)
-          }
-        }}>
-          <ArrowLeft size={16} /> {isFullscreen ? '退出全屏' : '返回'}
+      <div className="doc-reader-toolbar">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>
+          <ArrowLeft size={16} /> 返回
         </button>
 
         <div className="doc-reader-toolbar-info">
@@ -158,7 +163,6 @@ export function DocReaderPage() {
         </div>
       </div>
 
-      {/* Title bar */}
       <div className="doc-reader-titlebar">
         <h1>{doc.title}</h1>
 
@@ -207,7 +211,6 @@ export function DocReaderPage() {
         </div>
       </div>
 
-      {/* iframe */}
       <iframe
         src={url}
         className="doc-reader-iframe"
