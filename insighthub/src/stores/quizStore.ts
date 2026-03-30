@@ -95,7 +95,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             const merged: Quiz = {
               ...existing,
               questions: [...existing.questions, ...unique],
-              maxScore: (existing.questions.length + unique.length) * 100,
+              maxScore: 100,
               createdAt: Date.now(),
             }
             storageService.saveQuiz(merged)
