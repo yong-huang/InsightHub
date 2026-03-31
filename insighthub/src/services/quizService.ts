@@ -58,16 +58,20 @@ export function gradeObjectiveQuestions(
     const correctAnswer = q.correctAnswer.trim().toLowerCase()
 
     if (q.type === 'truefalse') {
-      const isCorrect = userAnswer === 'true' || userAnswer === '1' || userAnswer === correctAnswer
+      // Normalize: both 'true'/'1' and 'false'/'0' map to 'true'/'false'
+      const normalizedUser = userAnswer === '1' ? 'true' : userAnswer === '0' ? 'false' : userAnswer
+      const normalizedCorrect = correctAnswer === '1' ? 'true' : correctAnswer === '0' ? 'false' : correctAnswer
+      const isCorrect = normalizedUser === normalizedCorrect
       scores[q.id] = {
         score: isCorrect ? perQuestion : 0,
         maxScore: perQuestion,
         feedback: isCorrect ? '正确！' : `错误。${q.explanation}`,
       }
     } else if (q.type === 'choice') {
+      // Compare user answer with correct answer (support both 'A' and full text)
       const isCorrect = userAnswer === correctAnswer ||
-        userAnswer === correctAnswer.charAt(0) ||
-        userAnswer === q.correctAnswer.charAt(0)
+        userAnswer === q.correctAnswer.trim() ||
+        (correctAnswer.length === 1 && userAnswer.startsWith(correctAnswer))
       scores[q.id] = {
         score: isCorrect ? perQuestion : 0,
         maxScore: perQuestion,

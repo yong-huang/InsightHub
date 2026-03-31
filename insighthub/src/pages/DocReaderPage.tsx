@@ -184,7 +184,7 @@ export function DocReaderPage() {
                 {existingQuiz.questions.length} 道题
               </span>
               <Link
-                to={`/quiz/quiz-${doc.id}?docId=${doc.id}`}
+                to={`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`}
                 className="btn btn-primary btn-sm"
               >
                 <Sparkles size={14} /> 开始测验

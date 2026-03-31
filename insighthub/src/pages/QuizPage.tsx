@@ -11,6 +11,7 @@ export function QuizPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const docId = searchParams.get('docId')
+  const fromPath = searchParams.get('from')
 
   const {
     currentQuiz, currentAttempt, isGrading, error,
@@ -74,7 +75,7 @@ export function QuizPage() {
             <button className="btn btn-primary" onClick={handleRetry}>
               <RotateCcw size={14} /> 重试
             </button>
-            <Link to={docId ? `/doc/${docId}` : '/'} className="btn btn-secondary">
+            <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
               返回
             </Link>
           </div>
@@ -156,7 +157,7 @@ export function QuizPage() {
             <button className="btn btn-primary" onClick={handleRetry}>
               <RotateCcw size={14} /> 重新测验
             </button>
-            <Link to={docId ? `/doc/${docId}` : '/'} className="btn btn-secondary">
+            <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
               返回文档
             </Link>
           </div>
@@ -172,6 +173,7 @@ export function QuizPage() {
       <div className="quiz-progress-bar">
         <Link
           to={docId ? `/doc/${docId}` : '/'}
+          state={{ from: fromPath || undefined }}
           className="btn btn-ghost btn-sm"
           style={{ marginRight: '0.5rem' }}
         >
