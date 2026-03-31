@@ -11,10 +11,12 @@ export interface DocumentDiscoveryOptions {
   aiApiKey?: string
 }
 
-interface AIConfig {
+interface AppConfig {
   aiApiUrl: string
   aiModel: string
   aiApiKey: string
+  quizDifficulty: string
+  quizQuestionCount: number
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -51,8 +53,8 @@ function sendFile(res: import('http').ServerResponse, absPath: string): void {
   res.end(content)
 }
 
-/** Read AI config from disk, falling back to vite.config.ts defaults */
-function loadAIConfig(configPath: string, defaults: AIConfig): AIConfig {
+/** Read app config from disk, falling back to vite.config.ts defaults */
+function loadAppConfig(configPath: string, defaults: AppConfig): AppConfig {
   try {
     if (fs.existsSync(configPath)) {
       const saved = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
@@ -80,14 +82,21 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
       })
 
-      // AI config: persisted to .ai-config.json, editable from any client
-      const aiConfigPath = path.resolve(process.cwd(), '.ai-config.json')
-      const defaultConfig: AIConfig = {
+      // App config: persisted to .insighthub-config.json, editable from any client
+      // Migrate from old .ai-config.json if it exists
+      const configPath = path.resolve(process.cwd(), '.insighthub-config.json')
+      const legacyConfigPath = path.resolve(process.cwd(), '.ai-config.json')
+      if (fs.existsSync(legacyConfigPath) && !fs.existsSync(configPath)) {
+        fs.renameSync(legacyConfigPath, configPath)
+      }
+      const defaultConfig: AppConfig = {
         aiApiUrl: options.aiApiUrl || 'http://127.0.0.1:7001/v1',
         aiModel: options.aiModel || 'Qwen/Qwen3.5-27B-4bit',
         aiApiKey: options.aiApiKey || '',
+        quizDifficulty: 'medium',
+        quizQuestionCount: 5,
       }
-      let aiConfig = loadAIConfig(aiConfigPath, defaultConfig)
+      let appConfig = loadAppConfig(configPath, defaultConfig)
 
       // GET /api/ai/config — return config (apiKey masked)
       // POST /api/ai/config — save config from client
@@ -101,13 +110,20 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             try {
               const update = JSON.parse(Buffer.concat(chunks).toString())
               // Only allow updating known fields
-              if (typeof update.aiApiUrl === 'string') aiConfig.aiApiUrl = update.aiApiUrl
-              if (typeof update.aiModel === 'string') aiConfig.aiModel = update.aiModel
-              // apiKey: use new value if non-empty, keep existing if client sends empty string
-              // (client sends empty when user didn't change the masked field)
-              if (typeof update.aiApiKey === 'string') aiConfig.aiApiKey = update.aiApiKey
-              fs.writeFileSync(aiConfigPath, JSON.stringify(aiConfig, null, 2), 'utf-8')
-              res.end(JSON.stringify({ ok: true, aiApiUrl: aiConfig.aiApiUrl, aiModel: aiConfig.aiModel, aiApiKey: '●●●●●●●●' }))
+              if (typeof update.aiApiUrl === 'string') appConfig.aiApiUrl = update.aiApiUrl
+              if (typeof update.aiModel === 'string') appConfig.aiModel = update.aiModel
+              if (typeof update.aiApiKey === 'string') appConfig.aiApiKey = update.aiApiKey
+              if (typeof update.quizDifficulty === 'string') appConfig.quizDifficulty = update.quizDifficulty
+              if (typeof update.quizQuestionCount === 'number') appConfig.quizQuestionCount = update.quizQuestionCount
+              fs.writeFileSync(configPath, JSON.stringify(appConfig, null, 2), 'utf-8')
+              res.end(JSON.stringify({
+                ok: true,
+                aiApiUrl: appConfig.aiApiUrl,
+                aiModel: appConfig.aiModel,
+                aiApiKey: '●●●●●●●●',
+                quizDifficulty: appConfig.quizDifficulty,
+                quizQuestionCount: appConfig.quizQuestionCount,
+              }))
             } catch {
               res.statusCode = 400
               res.end(JSON.stringify({ error: 'Invalid JSON' }))
@@ -118,15 +134,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
         // GET
         res.end(JSON.stringify({
-          aiApiUrl: aiConfig.aiApiUrl,
-          aiModel: aiConfig.aiModel,
-          aiApiKey: aiConfig.aiApiKey || '',
+          aiApiUrl: appConfig.aiApiUrl,
+          aiModel: appConfig.aiModel,
+          aiApiKey: appConfig.aiApiKey || '',
+          quizDifficulty: appConfig.quizDifficulty,
+          quizQuestionCount: appConfig.quizQuestionCount,
         }))
       })
 
       // Helper: resolve target URL from current config
       const resolveTargetUrl = () => {
-        const base = aiConfig.aiApiUrl.replace(/\/+$/, '')
+        const base = appConfig.aiApiUrl.replace(/\/+$/, '')
         return base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
       }
 
@@ -146,15 +164,15 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         let body = rawBody
         try {
           const parsed = JSON.parse(rawBody.toString())
-          parsed.model = aiConfig.aiModel
+          parsed.model = appConfig.aiModel
           body = Buffer.from(JSON.stringify(parsed))
         } catch {}
 
         const proxyHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
         }
-        if (aiConfig.aiApiKey) {
-          proxyHeaders['Authorization'] = `Bearer ${aiConfig.aiApiKey}`
+        if (appConfig.aiApiKey) {
+          proxyHeaders['Authorization'] = `Bearer ${appConfig.aiApiKey}`
         } else if (req.headers['authorization']) {
           proxyHeaders['Authorization'] = req.headers['authorization'] as string
         }
@@ -191,6 +209,312 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           }
           res.end(JSON.stringify({ error: `AI proxy error: ${e.message}` }))
         }
+      })
+
+      // Quiz persistence: shared across all LAN clients via .insighthub-quizzes.json
+      const quizzesPath = path.resolve(process.cwd(), '.insighthub-quizzes.json')
+
+      function loadQuizzesFile(): Record<string, any> {
+        try {
+          if (fs.existsSync(quizzesPath)) {
+            return JSON.parse(fs.readFileSync(quizzesPath, 'utf-8'))
+          }
+        } catch {}
+        return {}
+      }
+
+      function saveQuizzesFile(quizzes: Record<string, any>): void {
+        fs.writeFileSync(quizzesPath, JSON.stringify(quizzes, null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/quizzes', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadQuizzesFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const quiz: any = JSON.parse(Buffer.concat(chunks).toString())
+              if (!quiz || !quiz.documentId) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing documentId' }))
+                return
+              }
+              const quizzes = loadQuizzesFile()
+              quizzes[quiz.documentId] = quiz
+              saveQuizzesFile(quizzes)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        if (req.method === 'DELETE') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const { documentId } = JSON.parse(Buffer.concat(chunks).toString())
+              if (!documentId) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing documentId' }))
+                return
+              }
+              const quizzes = loadQuizzesFile()
+              delete quizzes[documentId]
+              saveQuizzesFile(quizzes)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Read meta persistence: shared across all LAN clients via .insighthub-read-meta.json
+      const readMetaPath = path.resolve(process.cwd(), '.insighthub-read-meta.json')
+
+      function loadReadMetaFile(): Record<string, any> {
+        try {
+          if (fs.existsSync(readMetaPath)) {
+            return JSON.parse(fs.readFileSync(readMetaPath, 'utf-8'))
+          }
+        } catch {}
+        return {}
+      }
+
+      function saveReadMetaFile(meta: Record<string, any>): void {
+        fs.writeFileSync(readMetaPath, JSON.stringify(meta, null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/read-meta', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadReadMetaFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const update: any = JSON.parse(Buffer.concat(chunks).toString())
+              if (!update || !update.id) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing id' }))
+                return
+              }
+              const meta = loadReadMetaFile()
+              meta[update.id] = update
+              saveReadMetaFile(meta)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        if (req.method === 'DELETE') {
+          const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id')
+          if (!id) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Missing id' }))
+            return
+          }
+          const meta = loadReadMetaFile()
+          delete meta[id]
+          saveReadMetaFile(meta)
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Read history persistence: shared across all LAN clients via .insighthub-read-history.json
+      const readHistoryPath = path.resolve(process.cwd(), '.insighthub-read-history.json')
+
+      function loadReadHistoryFile(): any[] {
+        try {
+          if (fs.existsSync(readHistoryPath)) {
+            return JSON.parse(fs.readFileSync(readHistoryPath, 'utf-8'))
+          }
+        } catch {}
+        return []
+      }
+
+      function saveReadHistoryFile(history: any[]): void {
+        fs.writeFileSync(readHistoryPath, JSON.stringify(history.slice(0, 50), null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/read-history', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadReadHistoryFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const entry: any = JSON.parse(Buffer.concat(chunks).toString())
+              if (!entry || !entry.documentId) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing documentId' }))
+                return
+              }
+              const history = loadReadHistoryFile()
+              // Deduplicate and prepend
+              const filtered = history.filter((h: any) => h.documentId !== entry.documentId)
+              filtered.unshift(entry)
+              saveReadHistoryFile(filtered)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        if (req.method === 'DELETE') {
+          const documentId = new URL(req.url || '/', 'http://localhost').searchParams.get('documentId')
+          if (!documentId) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Missing documentId' }))
+            return
+          }
+          const history = loadReadHistoryFile()
+          const filtered = history.filter((h: any) => h.documentId !== documentId)
+          saveReadHistoryFile(filtered)
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Quiz history persistence: shared across all LAN clients via .insighthub-quiz-history.json
+      const quizHistoryPath = path.resolve(process.cwd(), '.insighthub-quiz-history.json')
+
+      function loadQuizHistoryFile(): any[] {
+        try {
+          if (fs.existsSync(quizHistoryPath)) {
+            return JSON.parse(fs.readFileSync(quizHistoryPath, 'utf-8'))
+          }
+        } catch {}
+        return []
+      }
+
+      function saveQuizHistoryFile(history: any[]): void {
+        fs.writeFileSync(quizHistoryPath, JSON.stringify(history.slice(0, 100), null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/quiz-history', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadQuizHistoryFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const attempt: any = JSON.parse(Buffer.concat(chunks).toString())
+              if (!attempt) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing attempt data' }))
+                return
+              }
+              const history = loadQuizHistoryFile()
+              history.unshift(attempt)
+              saveQuizHistoryFile(history)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Tags persistence: shared across all LAN clients via .insighthub-tags.json
+      const tagsPath = path.resolve(process.cwd(), '.insighthub-tags.json')
+
+      function loadTagsFile(): any[] {
+        try {
+          if (fs.existsSync(tagsPath)) {
+            return JSON.parse(fs.readFileSync(tagsPath, 'utf-8'))
+          }
+        } catch {}
+        return []
+      }
+
+      function saveTagsFile(tags: any[]): void {
+        fs.writeFileSync(tagsPath, JSON.stringify(tags, null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/tags', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadTagsFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const tags: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              if (!Array.isArray(tags)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected array' }))
+                return
+              }
+              saveTagsFile(tags)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
       })
 
       // Static file serving for document HTML and their assets (images, CSS, etc.)

@@ -50,14 +50,35 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadHistory: () => {
-    const history = storageService.getQuizHistory()
-    set({ quizHistory: history })
+    const localHistory = storageService.getQuizHistory()
+    set({ quizHistory: localHistory })
+    // Merge from server
+    fetch('/api/quiz-history')
+      .then(r => r.json())
+      .then((serverHistory: any[]) => {
+        // Deduplicate by id, server entries first
+        const seen = new Set<string>()
+        const merged: any[] = []
+        for (const entry of serverHistory) {
+          const key = entry.id || `${entry.documentId}-${entry.date}`
+          if (!seen.has(key)) { seen.add(key); merged.push(entry) }
+        }
+        for (const entry of localHistory) {
+          const key = entry.id || `${entry.documentId}-${entry.date}`
+          if (!seen.has(key)) { seen.add(key); merged.push(entry) }
+        }
+        set({ quizHistory: merged.slice(0, 100) })
+        storageService.setQuizHistory(merged.slice(0, 100))
+      })
+      .catch(() => {})
   },
 
   saveAttempt: (attempt) => {
     storageService.addQuizAttempt(attempt)
     const history = storageService.getQuizHistory()
     set({ quizHistory: history })
+    // Sync to server
+    fetch('/api/quiz-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt) }).catch(() => {})
   },
 
   reset: () => set({
@@ -69,8 +90,25 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   }),
 
   loadSavedQuizzes: () => {
-    const quizzes = storageService.getQuizzes()
-    set({ savedQuizzes: quizzes })
+    const localQuizzes = storageService.getQuizzes()
+    // Also load from server (server takes priority on conflicts)
+    fetch('/api/quizzes')
+      .then(r => r.json())
+      .then((serverQuizzes: Record<string, any>) => {
+        // Merge: server data overwrites local, but keep local-only quizzes
+        const merged = { ...localQuizzes, ...serverQuizzes }
+        set({ savedQuizzes: merged })
+        // Sync merged data back to localStorage
+        for (const [docId, quiz] of Object.entries(merged)) {
+          storageService.saveQuiz(quiz)
+        }
+      })
+      .catch(() => {
+        // Server unavailable, use local data
+        set({ savedQuizzes: localQuizzes })
+      })
+    // Immediately set local data for fast initial render
+    set({ savedQuizzes: localQuizzes })
   },
 
   startGeneration: async (docId, mode, doc, difficulty, count) => {
@@ -103,13 +141,17 @@ export const useQuizStore = create<QuizState>((set, get) => ({
           }
           storageService.saveQuiz(merged)
           set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
+          // Sync to server
+          fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(merged) }).catch(() => {})
         } else {
           storageService.saveQuiz(quiz)
           set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+          fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
         }
       } else {
         storageService.saveQuiz(quiz)
         set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+        fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
       }
     } catch (e: any) {
       set({ generatingError: e.message || '生成失败' })
@@ -127,5 +169,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       delete updated[docId]
       return { savedQuizzes: updated }
     })
+    // Sync deletion to server
+    fetch('/api/quizzes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: docId }),
+    }).catch(() => {})
   },
 }))

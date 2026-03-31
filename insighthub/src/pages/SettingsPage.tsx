@@ -7,6 +7,8 @@ interface AIConfig {
   aiApiUrl: string
   aiModel: string
   aiApiKey: string
+  quizDifficulty: string
+  quizQuestionCount: number
 }
 
 export function SettingsPage() {
@@ -35,6 +37,8 @@ export function SettingsPage() {
         setLocalUrl(cfg.aiApiUrl)
         setLocalModel(cfg.aiModel)
         setLocalApiKey(cfg.aiApiKey)
+        if (cfg.quizDifficulty) setLocalDifficulty(cfg.quizDifficulty as Difficulty)
+        if (cfg.quizQuestionCount) setLocalCount(cfg.quizQuestionCount)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -50,6 +54,8 @@ export function SettingsPage() {
           aiApiUrl: localUrl,
           aiModel: localModel,
           aiApiKey: localApiKey,
+          quizDifficulty: localDifficulty,
+          quizQuestionCount: localCount,
         }),
       })
       if (res.ok) {
@@ -74,6 +80,8 @@ export function SettingsPage() {
           aiApiUrl: localUrl,
           aiModel: localModel,
           aiApiKey: localApiKey,
+          quizDifficulty: localDifficulty,
+          quizQuestionCount: localCount,
         }),
       })
       const response = await fetch('/api/ai/chat/completions', {
@@ -192,7 +200,11 @@ export function SettingsPage() {
               type="number"
               className="settings-input"
               value={localCount}
-              onChange={e => setLocalCount(Math.max(1, Math.min(20, Number(e.target.value))))}
+              onChange={e => {
+                const val = e.target.value
+                setLocalCount(val === '' ? 0 : Number(val))
+              }}
+              onBlur={() => setLocalCount(Math.max(1, Math.min(20, localCount || 1)))}
               min={1}
               max={20}
             />

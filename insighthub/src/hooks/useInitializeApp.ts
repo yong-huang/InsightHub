@@ -13,6 +13,7 @@ export function useInitializeApp() {
   const loadHistory = useSearchStore(s => s.loadHistory)
   const loadQuizHistory = useQuizStore(s => s.loadHistory)
   const loadSavedQuizzes = useQuizStore(s => s.loadSavedQuizzes)
+  const loadQuizSettingsFromServer = usePreferenceStore(s => s.loadQuizSettingsFromServer)
 
   useEffect(() => {
     // Apply theme
@@ -24,5 +25,6 @@ export function useInitializeApp() {
     loadHistory()
     loadQuizHistory()
     loadSavedQuizzes()
-  }, [setTheme, theme, initializeDocuments, loadTags, loadHistory, loadQuizHistory, loadSavedQuizzes])
+    loadQuizSettingsFromServer()
+  }, [setTheme, theme, initializeDocuments, loadTags, loadHistory, loadQuizHistory, loadSavedQuizzes, loadQuizSettingsFromServer])
 }

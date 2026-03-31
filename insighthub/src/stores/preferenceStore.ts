@@ -12,6 +12,8 @@ interface PreferenceState extends UserPreferences {
   setAiApiUrl: (url: string) => void
   setAiModel: (model: string) => void
   setAiApiKey: (key: string) => void
+  setWorkspace: (ws: 'mindinsight' | 'techinsight') => void
+  loadQuizSettingsFromServer: () => Promise<void>
 }
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
@@ -22,6 +24,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   aiApiUrl: storageService.getPreferences().aiApiUrl,
   aiModel: storageService.getPreferences().aiModel,
   aiApiKey: storageService.getPreferences().aiApiKey,
+  activeWorkspace: storageService.getPreferences().activeWorkspace,
 
   setTheme: (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -73,5 +76,28 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     const prefs = storageService.getPreferences()
     storageService.setPreferences({ ...prefs, aiApiKey })
     set({ aiApiKey })
+  },
+
+  setWorkspace: (activeWorkspace) => {
+    const prefs = storageService.getPreferences()
+    storageService.setPreferences({ ...prefs, activeWorkspace })
+    set({ activeWorkspace })
+  },
+
+  loadQuizSettingsFromServer: async () => {
+    try {
+      const res = await fetch('/api/ai/config')
+      const cfg = await res.json()
+      if (cfg.quizDifficulty) {
+        const prefs = storageService.getPreferences()
+        storageService.setPreferences({ ...prefs, quizDifficulty: cfg.quizDifficulty })
+        set({ quizDifficulty: cfg.quizDifficulty })
+      }
+      if (cfg.quizQuestionCount) {
+        const prefs = storageService.getPreferences()
+        storageService.setPreferences({ ...prefs, quizQuestionCount: cfg.quizQuestionCount })
+        set({ quizQuestionCount: cfg.quizQuestionCount })
+      }
+    } catch {}
   },
 }))

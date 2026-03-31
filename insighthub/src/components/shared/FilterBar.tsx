@@ -7,10 +7,12 @@ interface FilterBarProps {
   onFilterChange: (filters: Partial<SearchFilters>) => void
   onReset: () => void
   showCategoryFilter?: boolean
+  showSourceFilter?: boolean
   tags?: Tag[]
+  onTagClear?: () => void
 }
 
-export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true, tags = [] }: FilterBarProps) {
+export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true, showSourceFilter = true, tags = [], onTagClear }: FilterBarProps) {
   const hasFilters = filters.source || filters.category || filters.tag || filters.isRead !== undefined
 
   const activeTag = filters.tag ? tags.find(t => t.id === filters.tag) : null
@@ -18,15 +20,17 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
   return (
     <div className="filter-bar">
       <div className="filter-group">
-        <select
-          className="filter-select"
-          value={filters.source || ''}
-          onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
-        >
-          <option value="">全部来源</option>
-          <option value="mindinsight">{getSourceLabel('mindinsight')}</option>
-          <option value="techinsight">{getSourceLabel('techinsight')}</option>
-        </select>
+        {showSourceFilter && (
+          <select
+            className="filter-select"
+            value={filters.source || ''}
+            onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
+          >
+            <option value="">全部来源</option>
+            <option value="mindinsight">{getSourceLabel('mindinsight')}</option>
+            <option value="techinsight">{getSourceLabel('techinsight')}</option>
+          </select>
+        )}
 
         {showCategoryFilter && (
           <select
@@ -35,7 +39,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             onChange={e => onFilterChange({ category: e.target.value || undefined })}
           >
             <option value="">全部分类</option>
-            {CATEGORIES.map(cat => (
+            {CATEGORIES.filter(cat => !filters.source || cat.source === filters.source).map(cat => (
               <option key={cat.key} value={cat.key}>
                 {cat.label}
               </option>
@@ -78,7 +82,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           <span
             className="tag-pill"
             style={{ background: `${activeTag.color}20`, color: activeTag.color, cursor: 'pointer' }}
-            onClick={() => onFilterChange({ tag: undefined })}
+            onClick={() => { onFilterChange({ tag: undefined }); onTagClear?.() }}
           >
             {activeTag.name}
             <X size={10} />

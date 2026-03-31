@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { Search, Clock, ArrowLeft } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
 import { useDocumentStore } from '@/stores/documentStore'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 import { DocCard } from '@/components/shared/DocCard'
 
 export function SearchPage() {
@@ -10,38 +11,38 @@ export function SearchPage() {
   const initialQuery = searchParams.get('q') || ''
   const { results, isSearching, query, performSearch } = useSearchStore()
   const documents = useDocumentStore(s => s.documents)
+  const getRecentReads = useDocumentStore(s => s.getRecentReads)
+  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
 
   useEffect(() => {
     if (initialQuery) {
       performSearch(initialQuery)
+    } else {
+      // Clear stale search state when navigating to /search without a query
+      performSearch('')
     }
   }, [initialQuery])
-
-  const handleSearch = (q: string) => {
-    if (q.trim()) {
-      setSearchParams({ q: q.trim() })
-    } else {
-      setSearchParams({})
-    }
-  }
 
   const resultDocs = results
     .map(r => documents.get(r.id))
     .filter((d): d is NonNullable<typeof d> => !!d)
 
+  const recentReads = getRecentReads().filter(d => d.source === activeWorkspace)
+  const navigate = useNavigate()
+
   return (
     <div className="page-search">
       <div className="search-page-header">
-        <div className="search-page-input-wrap">
-          <Search size={18} />
-          <input
-            type="search"
-            className="search-page-input"
-            placeholder="搜索文档..."
-            defaultValue={initialQuery}
-            onKeyDown={e => e.key === 'Enter' && handleSearch(e.currentTarget.value)}
-          />
-        </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <ArrowLeft size={18} />
+        </button>
+        {!query ? (
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}><Clock size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 最近阅读</h1>
+        ) : (
+          <span style={{ fontSize: '1rem', fontWeight: 600 }}>
+            搜索: {query}
+          </span>
+        )}
         {results.length > 0 && (
           <span className="search-page-count">
             找到 {results.length} 个结果
@@ -68,6 +69,16 @@ export function SearchPage() {
           {resultDocs.map(doc => (
             <DocCard key={doc.id} doc={doc} />
           ))}
+        </div>
+      )}
+
+      {!isSearching && !query && recentReads.length > 0 && (
+        <div className="section">
+          <div className="recent-reads-grid">
+            {recentReads.map(doc => (
+              <DocCard key={doc.id} doc={doc} />
+            ))}
+          </div>
         </div>
       )}
     </div>

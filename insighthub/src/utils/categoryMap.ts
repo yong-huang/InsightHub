@@ -5,6 +5,13 @@ export interface CategoryEntry {
   icon: string
 }
 
+export type Workspace = 'mindinsight' | 'techinsight'
+
+export const WORKSPACE_META = {
+  mindinsight: { label: 'MindInsight', subtitle: '思想洞察', icon: 'Brain', gradientClass: 'gradient-text-warm', basePath: '/mindinsight' },
+  techinsight: { label: 'TechInsight', subtitle: '技术洞察', icon: 'Cpu', gradientClass: 'gradient-text', basePath: '/techinsight' },
+} as const
+
 export const CATEGORIES: CategoryEntry[] = [
   // MindInsight
   { key: 'academic', label: '学术基础', source: 'mindinsight', icon: 'GraduationCap' },

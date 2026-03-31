@@ -93,5 +93,6 @@ export interface UserPreferences {
   aiApiUrl: string
   aiModel: string
   aiApiKey: string
+  activeWorkspace: 'mindinsight' | 'techinsight'
 }
 

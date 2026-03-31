@@ -4,25 +4,44 @@ import {
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 import { StatCard } from '@/components/shared/StatCard'
 import { DocCard } from '@/components/shared/DocCard'
-import { CATEGORIES, getCategoriesBySource, getCategoryInfo } from '@/utils/categoryMap'
+import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
 import { useReveal } from '@/hooks/useReveal'
 
 export function HomePage() {
-  const stats = useDocumentStore(s => s.stats)
-  const getRecentReads = useDocumentStore(s => s.getRecentReads)
   const documents = useDocumentStore(s => s.documents)
   const categoryCounts = useDocumentStore(s => s.categoryCounts)
+  const getRecentReads = useDocumentStore(s => s.getRecentReads)
   const tags = useTagStore(s => s.tags)
+  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const ref1 = useReveal()
   const ref2 = useReveal()
   const ref3 = useReveal()
   const ref4 = useReveal()
 
-  const recentReads = getRecentReads()
-  const miCategories = getCategoriesBySource('mindinsight')
-  const tiCategories = getCategoriesBySource('techinsight')
+  const meta = WORKSPACE_META[activeWorkspace]
+  const workspaceDocs = Array.from(documents.values()).filter(d => d.source === activeWorkspace)
+  const workspaceCategories = getCategoriesBySource(activeWorkspace)
+  const recentReads = getRecentReads().filter(d => d.source === activeWorkspace).slice(0, 10)
+
+  // Compute stats scoped to workspace
+  const stats = {
+    total: workspaceDocs.length,
+    read: workspaceDocs.filter(d => d.isRead).length,
+    unread: workspaceDocs.filter(d => !d.isRead).length,
+    categories: new Set(workspaceDocs.map(d => d.category)).size,
+  }
+
+  // Filter tags to only those with docs in current workspace
+  const workspaceDocIds = new Set(workspaceDocs.map(d => d.id))
+  const workspaceTags = tags
+    .map(tag => ({
+      ...tag,
+      documentIds: tag.documentIds.filter(id => workspaceDocIds.has(id)),
+    }))
+    .filter(tag => tag.documentIds.length > 0)
 
   return (
     <div className="page-home">
@@ -69,54 +88,18 @@ export function HomePage() {
         </div>
       )}
 
-      {/* MindInsight */}
+      {/* Workspace Categories */}
       <div className="section reveal reveal-delay-2" ref={ref3}>
-        <div className="section-header">
-          <h2 className="gradient-text-warm">MindInsight · 思想洞察</h2>
-          <Link to="/mindinsight" className="btn btn-ghost btn-sm">
-            查看全部 <ArrowRight size={14} />
-          </Link>
-        </div>
         <div className="home-category-grid">
-          {miCategories.map(cat => {
-            const docs = Array.from(documents.values()).filter(
-              d => d.category === cat.key
-            ).slice(0, 3)
+          {workspaceCategories.map(cat => {
+            const docs = workspaceDocs
+              .filter(d => d.category === cat.key)
+              .slice(0, 3)
             return (
               <div key={cat.key} className="card">
                 <div className="section-header">
                   <h2>{cat.label}</h2>
-                  <Link to={`/mindinsight/${cat.key}`} className="btn btn-ghost btn-sm">
-                    {categoryCounts[cat.key] || 0} 篇 <ArrowRight size={14} />
-                  </Link>
-                </div>
-                {docs.map(doc => (
-                  <DocCard key={doc.id} doc={doc} />
-                ))}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* TechInsight */}
-      <div className="section reveal reveal-delay-3" ref={ref4}>
-        <div className="section-header">
-          <h2 className="gradient-text">TechInsight · 技术洞察</h2>
-          <Link to="/techinsight" className="btn btn-ghost btn-sm">
-            查看全部 <ArrowRight size={14} />
-          </Link>
-        </div>
-        <div className="home-category-grid">
-          {tiCategories.map(cat => {
-            const docs = Array.from(documents.values()).filter(
-              d => d.category === cat.key
-            ).slice(0, 3)
-            return (
-              <div key={cat.key} className="card">
-                <div className="section-header">
-                  <h2>{cat.label}</h2>
-                  <Link to={`/techinsight/${cat.key}`} className="btn btn-ghost btn-sm">
+                  <Link to={`${meta.basePath}/${cat.key}`} className="btn btn-ghost btn-sm">
                     {categoryCounts[cat.key] || 0} 篇 <ArrowRight size={14} />
                   </Link>
                 </div>
@@ -130,13 +113,13 @@ export function HomePage() {
       </div>
 
       {/* Hot Tags */}
-      {tags.length > 0 && (
-        <div className="section reveal reveal-delay-4">
+      {workspaceTags.length > 0 && (
+        <div className="section reveal reveal-delay-4" ref={ref4}>
           <div className="section-header">
             <h2>热门标签</h2>
           </div>
           <div className="tag-list">
-            {tags
+            {workspaceTags
               .sort((a, b) => b.documentIds.length - a.documentIds.length)
               .slice(0, 15)
               .map(tag => (

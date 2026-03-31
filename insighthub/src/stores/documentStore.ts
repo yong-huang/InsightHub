@@ -41,8 +41,24 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const manifest = await fetchDocumentManifest()
     set({ isLoading: true, loadProgress: { current: 0, total: manifest.length } })
 
-    // Load cached meta
-    const metaMap = storageService.getDocumentMeta()
+    // Load cached meta from localStorage
+    let metaMap = storageService.getDocumentMeta()
+
+    // Merge server-side read meta (server takes priority)
+    try {
+      const serverMeta = await fetch('/api/read-meta').then(r => r.json())
+      metaMap = { ...metaMap, ...serverMeta }
+      storageService.setDocumentMeta(metaMap)
+      // Also merge server read history
+      const serverHistory: any[] = await fetch('/api/read-history').then(r => r.json())
+      const localHistory = storageService.getReadHistory()
+      const localIds = new Set(localHistory.map(h => h.documentId))
+      const newEntries = serverHistory.filter(h => !localIds.has(h.documentId))
+      if (newEntries.length > 0) {
+        const merged = [...newEntries, ...localHistory].slice(0, 50)
+        storageService._setReadHistory(merged)
+      }
+    } catch {}
 
     // Migrate read state for documents whose IDs changed due to directory reorganization.
     // When files move between directories, their generated IDs change but the fileName stays
@@ -154,7 +170,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       lastReadAt: Date.now(),
     })
 
-    // Persist
+    // Persist locally
     const metaMap = storageService.getDocumentMeta()
     metaMap[docId] = {
       id: docId,
@@ -164,8 +180,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
     storageService.setDocumentMeta(metaMap)
 
-    // Add to read history
+    // Add to read history locally
     storageService.addReadHistory({ documentId: docId, readAt: Date.now() })
+
+    // Sync to server
+    fetch('/api/read-meta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(metaMap[docId]) }).catch(() => {})
+    fetch('/api/read-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId: docId, readAt: Date.now() }) }).catch(() => {})
 
     const docArray = Array.from(updated.values())
     const readCount = docArray.filter(d => d.isRead).length
@@ -197,10 +217,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       delete metaMap[docId]
       storageService.setDocumentMeta(metaMap)
 
-      // Remove from read history
+      // Remove from read history locally
       const history = storageService.getReadHistory()
       const filtered = history.filter(h => h.documentId !== docId)
       storageService._setReadHistory(filtered)
+
+      // Sync deletion to server
+      fetch(`/api/read-meta?id=${encodeURIComponent(docId)}`, { method: 'DELETE' }).catch(() => {})
+      fetch(`/api/read-history?documentId=${encodeURIComponent(docId)}`, { method: 'DELETE' }).catch(() => {})
 
       const docArray = Array.from(updated.values())
       const readCount = docArray.filter(d => d.isRead).length

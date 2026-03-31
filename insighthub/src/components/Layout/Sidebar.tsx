@@ -2,13 +2,13 @@ import { Link, useParams } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
   Cpu, GitBranch, Cloud, Server, Network, Code,
-  TrendingUp, Landmark,
+  TrendingUp, Landmark, BarChart3,
   ChevronLeft, ChevronRight, Tag,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
-import { CATEGORIES, getCategoriesBySource } from '@/utils/categoryMap'
+import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   GraduationCap: <GraduationCap size={18} />,
@@ -23,61 +23,46 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Server: <Server size={18} />,
   Network: <Network size={18} />,
   Code: <Code size={18} />,
+  BarChart3: <BarChart3 size={18} />,
 }
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = usePreferenceStore()
+  const { sidebarCollapsed, toggleSidebar, activeWorkspace } = usePreferenceStore()
   const categoryCounts = useDocumentStore(s => s.categoryCounts)
   const tags = useTagStore(s => s.tags)
+  const documents = useDocumentStore(s => s.documents)
   const params = useParams()
 
-  const miCategories = getCategoriesBySource('mindinsight')
-  const tiCategories = getCategoriesBySource('techinsight')
+  const meta = WORKSPACE_META[activeWorkspace]
+  const categories = getCategoriesBySource(activeWorkspace)
+
+  // Filter tags to only those with docs in current workspace
+  const workspaceDocIds = new Set(
+    Array.from(documents.values()).filter(d => d.source === activeWorkspace).map(d => d.id)
+  )
+  const workspaceTags = tags
+    .map(tag => ({
+      ...tag,
+      documentIds: tag.documentIds.filter(id => workspaceDocIds.has(id)),
+    }))
+    .filter(tag => tag.documentIds.length > 0)
 
   return (
     <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-content">
-        {/* MindInsight section */}
+        {/* Categories section */}
         <div className="sidebar-section">
           {!sidebarCollapsed && (
             <div className="sidebar-section-title">
-              <span className="gradient-text-warm">MindInsight</span>
+              <span className={meta.gradientClass}>{meta.label}</span>
             </div>
           )}
-          {miCategories.map(cat => {
+          {categories.map(cat => {
             const isActive = params.category === cat.key
             return (
               <Link
                 key={cat.key}
-                to={`/mindinsight/${cat.key}`}
-                className={`sidebar-item ${isActive ? 'active' : ''}`}
-                title={cat.label}
-              >
-                <span className="sidebar-item-icon">{ICON_MAP[cat.icon]}</span>
-                {!sidebarCollapsed && (
-                  <>
-                    <span className="sidebar-item-label">{cat.label}</span>
-                    <span className="sidebar-item-count">{categoryCounts[cat.key] || 0}</span>
-                  </>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-
-        {/* TechInsight section */}
-        <div className="sidebar-section">
-          {!sidebarCollapsed && (
-            <div className="sidebar-section-title">
-              <span className="gradient-text">TechInsight</span>
-            </div>
-          )}
-          {tiCategories.map(cat => {
-            const isActive = params.category === cat.key
-            return (
-              <Link
-                key={cat.key}
-                to={`/techinsight/${cat.key}`}
+                to={`${meta.basePath}/${cat.key}`}
                 className={`sidebar-item ${isActive ? 'active' : ''}`}
                 title={cat.label}
               >
@@ -94,14 +79,14 @@ export function Sidebar() {
         </div>
 
         {/* Tags section */}
-        {tags.length > 0 && !sidebarCollapsed && (
+        {workspaceTags.length > 0 && !sidebarCollapsed && (
           <div className="sidebar-section">
             <div className="sidebar-section-title">
               <Tag size={14} />
               <span>标签</span>
             </div>
             <div className="sidebar-tags">
-              {tags.slice(0, 10).map(tag => (
+              {workspaceTags.slice(0, 10).map(tag => (
                 <Link
                   key={tag.id}
                   to={`/tag/${tag.id}`}

@@ -50,22 +50,20 @@ export interface ReadHistoryEntry {
 }
 
 export const storageService = {
-  getPreferences: () => getItem<{
-    theme: 'light' | 'dark'
-    quizDifficulty: 'easy' | 'medium' | 'hard'
-    quizQuestionCount: number
-    sidebarCollapsed: boolean
-    aiApiUrl: string
-    aiModel: string
-  }>(storageKeys.PREFERENCES, {
-    theme: 'dark',
-    quizDifficulty: 'medium',
-    quizQuestionCount: 5,
-    sidebarCollapsed: false,
-    aiApiUrl: 'http://127.0.0.1:7001/v1',
-    aiModel: 'default',
-    aiApiKey: '',
-  }),
+  getPreferences: () => {
+    const stored = getItem<Record<string, any>>(storageKeys.PREFERENCES, {})
+    return {
+      theme: 'dark',
+      quizDifficulty: 'medium',
+      quizQuestionCount: 5,
+      sidebarCollapsed: false,
+      aiApiUrl: 'http://127.0.0.1:7001/v1',
+      aiModel: 'default',
+      aiApiKey: '',
+      activeWorkspace: 'mindinsight' as const,
+      ...stored,
+    }
+  },
 
   setPreferences: (prefs: Parameters<typeof storageService.getPreferences>[0]) =>
     setItem(storageKeys.PREFERENCES, prefs),
@@ -100,6 +98,8 @@ export const storageService = {
     setItem(storageKeys.TAGS, tags),
 
   getQuizHistory: () => getItem<any[]>(storageKeys.QUIZ_HISTORY, []),
+
+  setQuizHistory: (history: any[]) => setItem(storageKeys.QUIZ_HISTORY, history),
 
   addQuizAttempt: (attempt: any) => {
     const history = storageService.getQuizHistory()

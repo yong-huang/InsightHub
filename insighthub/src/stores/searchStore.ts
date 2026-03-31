@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { SearchResult } from '@/types'
 import { search as flexSearch } from '@/services/searchService'
 import { storageService } from '@/services/storageService'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 
 interface SearchState {
   query: string
@@ -35,7 +36,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return
     }
     set({ isSearching: true, query: q })
-    const results = await flexSearch(q, 30)
+    const allResults = await flexSearch(q, 30)
+    const workspace = usePreferenceStore.getState().activeWorkspace
+    const results = allResults.filter(r => r.source === workspace)
     set({ results, isSearching: false })
     if (results.length > 0) {
       get().addToHistory(q)

@@ -7,6 +7,10 @@ const DEFAULT_COLORS = [
   '#fbbf24', '#34d399', '#f472b6', '#60a5fa', '#c084fc',
 ]
 
+function syncTagsToServer(tags: Tag[]): void {
+  fetch('/api/tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tags) }).catch(() => {})
+}
+
 interface TagState {
   tags: Tag[]
   loadTags: () => void
@@ -21,8 +25,21 @@ export const useTagStore = create<TagState>((set, get) => ({
   tags: [],
 
   loadTags: () => {
-    const tags = storageService.getTags()
-    set({ tags })
+    const localTags = storageService.getTags()
+    set({ tags: localTags })
+    // Merge from server
+    fetch('/api/tags')
+      .then(r => r.json())
+      .then((serverTags: Tag[]) => {
+        const localMap = new Map(localTags.map(t => [t.id, t]))
+        const merged = [...serverTags]
+        for (const t of localTags) {
+          if (!merged.find(s => s.id === t.id)) merged.push(t)
+        }
+        storageService.setTags(merged)
+        set({ tags: merged })
+      })
+      .catch(() => {})
   },
 
   addTag: (name, documentId) => {
@@ -32,6 +49,7 @@ export const useTagStore = create<TagState>((set, get) => ({
     const newTag: Tag = { id, name, color, documentIds: [documentId] }
     const updated = [...tags, newTag]
     storageService.setTags(updated)
+    syncTagsToServer(updated)
     set({ tags: updated })
     return newTag
   },
@@ -39,6 +57,7 @@ export const useTagStore = create<TagState>((set, get) => ({
   removeTag: (tagId) => {
     const updated = get().tags.filter(t => t.id !== tagId)
     storageService.setTags(updated)
+    syncTagsToServer(updated)
     set({ tags: updated })
   },
 
@@ -50,6 +69,7 @@ export const useTagStore = create<TagState>((set, get) => ({
       return t
     })
     storageService.setTags(updated)
+    syncTagsToServer(updated)
     set({ tags: updated })
   },
 
@@ -61,6 +81,7 @@ export const useTagStore = create<TagState>((set, get) => ({
       return t
     }).filter(t => t.documentIds.length > 0)
     storageService.setTags(updated)
+    syncTagsToServer(updated)
     set({ tags: updated })
   },
 
