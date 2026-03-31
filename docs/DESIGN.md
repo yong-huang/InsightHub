@@ -12,8 +12,8 @@
 
 | 层面 | 选型 | 理由 |
 |------|------|------|
-| **框架** | React 18 + TypeScript | 组件化开发，类型安全，生态丰富 |
-| **构建工具** | Vite 6 | 极快的 HMR 和构建速度，原生 ESM 支持 |
+| **框架** | React 19 + TypeScript | 组件化开发，类型安全，生态丰富 |
+| **构建工具** | Vite 8 | 极快的 HMR 和构建速度，原生 ESM 支持 |
 | **路由** | React Router v7 | 声明式路由，支持嵌套路由和动态加载 |
 | **状态管理** | Zustand | 轻量、简洁、TypeScript 友好，无 boilerplate |
 | **全文搜索** | FlexSearch | 纯前端全文搜索引擎，零依赖，支持中文 |
@@ -69,18 +69,19 @@ dochub/
 ├── public/
 │   ├── docs/                          # 文档文件（构建时复制）
 │   │   ├── mindinsight/               # MindInsight 文档
-│   │   │   ├── academic/
-│   │   │   ├── film-analysis/
-│   │   │   ├── literature/
-│   │   │   └── philosophy/
+│   │   │   ├── academic/              # 学术基础 (languages/, logic/, science/, social/)
+│   │   │   ├── film-analysis/         # 电影分析
+│   │   │   ├── finance/               # 财务分析
+│   │   │   ├── history/               # 历史 (china/, world/)
+│   │   │   ├── literature/            # 文学鉴赏
+│   │   │   └── philosophy/            # 哲学思辨
 │   │   └── techinsight/               # TechInsight 文档
-│   │       ├── programming/
-│   │       ├── ai-ml/
-│   │       ├── cloud/
-│   │       ├── infrastructure/
-│   │       ├── storage/
-│   │       ├── algorithms/
-│   │       └── vendors/
+│   │       ├── ai-frameworks/         # AI 框架
+│   │       ├── algorithms/            # 算法
+│   │       ├── cloud/                 # 云平台 (alibaba/, aws/, azure/, gcp/, oracle/)
+│   │       ├── dell/                  # Dell 方案
+│   │       ├── infrastructure/        # 基础设施 (ci-cd/, kubernetes/, networking/, storage/, storage-vendors/)
+│   │       └── programming/           # 编程语言 (cuda/, go/, python/)
 │   └── favicon.svg
 │
 ├── src/
