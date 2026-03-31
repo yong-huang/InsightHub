@@ -35,3 +35,4 @@ public/manifest.json
 .insighthub-read-history.json
 .insighthub-tags.json
 .insighthub-quiz-history.json
+.insighthub-annotations.json
