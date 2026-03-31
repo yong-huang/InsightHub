@@ -79,6 +79,7 @@ dochub/
 │   │       ├── ai-frameworks/         # AI 框架
 │   │       ├── algorithms/            # 算法
 │   │       ├── cloud/                 # 云平台 (alibaba/, aws/, azure/, gcp/, oracle/)
+│   │       ├── data-visualization/    # 数据可视化
 │   │       ├── dell/                  # Dell 方案
 │   │       ├── infrastructure/        # 基础设施 (ci-cd/, kubernetes/, networking/, storage/, storage-vendors/)
 │   │       └── programming/           # 编程语言 (cuda/, go/, python/)

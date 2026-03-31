@@ -18,6 +18,7 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'algorithms', label: '算法', source: 'techinsight', icon: 'GitBranch' },
   { key: 'cloud', label: '云平台', source: 'techinsight', icon: 'Cloud' },
   { key: 'dell', label: 'Dell 方案', source: 'techinsight', icon: 'Server' },
+  { key: 'data-visualization', label: '数据可视化', source: 'techinsight', icon: 'BarChart3' },
   { key: 'infrastructure', label: '基础设施', source: 'techinsight', icon: 'Network' },
   { key: 'programming', label: '编程语言', source: 'techinsight', icon: 'Code' },
 ]
