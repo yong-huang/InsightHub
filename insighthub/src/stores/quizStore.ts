@@ -89,18 +89,20 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       if (mode === 'append') {
         const existing = get().savedQuizzes[docId]
         if (existing) {
-          const existingIds = new Set(existing.questions.map(q => q.id))
-          const unique = quiz.questions.filter(q => !existingIds.has(q.id))
-          if (unique.length > 0) {
-            const merged: Quiz = {
-              ...existing,
-              questions: [...existing.questions, ...unique],
-              maxScore: 100,
-              createdAt: Date.now(),
-            }
-            storageService.saveQuiz(merged)
-            set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
+          // Re-assign IDs to avoid collisions with existing questions
+          const baseOffset = existing.questions.length
+          const renumbered = quiz.questions.map((q, i) => ({
+            ...q,
+            id: `q${baseOffset + i + 1}`,
+          }))
+          const merged: Quiz = {
+            ...existing,
+            questions: [...existing.questions, ...renumbered],
+            maxScore: 100,
+            createdAt: Date.now(),
           }
+          storageService.saveQuiz(merged)
+          set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
         } else {
           storageService.saveQuiz(quiz)
           set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))

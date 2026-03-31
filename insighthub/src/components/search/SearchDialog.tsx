@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, FileText, Clock, X, ArrowRight } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
@@ -11,6 +11,7 @@ export function SearchDialog() {
     performSearch, searchHistory,
   } = useSearchStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
 
@@ -45,7 +46,7 @@ export function SearchDialog() {
   }
 
   const navigateToResult = (docId: string) => {
-    navigate(`/doc/${docId}`)
+    navigate(`/doc/${docId}`, { state: { from: location.pathname } })
     closeDialog()
   }
 

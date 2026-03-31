@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
@@ -15,6 +15,8 @@ import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromPath = (location.state as { from?: string } | null)?.from
   const doc = useDocumentStore(s => s.documents.get(docId || ''))
   const markAsRead = useDocumentStore(s => s.markAsRead)
   const toggleRead = useDocumentStore(s => s.toggleRead)
@@ -127,7 +129,7 @@ export function DocReaderPage() {
   return (
     <div className="doc-reader-page">
       <div className="doc-reader-toolbar">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
           <ArrowLeft size={16} /> 返回
         </button>
 

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { CheckCircle2, Circle, FileText, Clock } from 'lucide-react'
 import type { Document } from '@/types'
 import { getCategoryInfo } from '@/utils/categoryMap'
@@ -9,9 +9,10 @@ interface DocCardProps {
 
 export function DocCard({ doc }: DocCardProps) {
   const catInfo = getCategoryInfo(doc.category)
+  const location = useLocation()
 
   return (
-    <Link to={`/doc/${doc.id}`} className="doc-card card card-hover">
+    <Link to={`/doc/${doc.id}`} state={{ from: location.pathname }} className="doc-card card card-hover">
       <div className="doc-card-header">
         <span className={`badge badge-${doc.source}`}>
           {doc.source === 'mindinsight' ? 'Mind' : 'Tech'}

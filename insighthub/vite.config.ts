@@ -10,7 +10,12 @@ const TECHINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/TechInsight'
 export default defineConfig({
   plugins: [
     react(),
-    documentDiscovery({ mindInsightDir: MINDINSIGHT_DIR, techInsightDir: TECHINSIGHT_DIR }),
+    documentDiscovery({
+      mindInsightDir: MINDINSIGHT_DIR,
+      techInsightDir: TECHINSIGHT_DIR,
+      aiApiUrl: 'http://127.0.0.1:7001/v1',
+      aiModel: 'Qwen/Qwen3.5-27B-4bit',
+    }),
   ],
   resolve: {
     alias: {

@@ -1,48 +1,84 @@
-import { useState } from 'react'
-import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, KeyRound } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import type { Difficulty } from '@/types'
 
+interface AIConfig {
+  aiApiUrl: string
+  aiModel: string
+  aiApiKey: string
+}
+
 export function SettingsPage() {
   const {
-    aiApiUrl, aiModel, aiApiKey, quizDifficulty, quizQuestionCount,
-    setAiApiUrl, setAiModel, setAiApiKey, setQuizDifficulty, setQuizQuestionCount,
+    quizDifficulty, quizQuestionCount,
+    setQuizDifficulty, setQuizQuestionCount,
   } = usePreferenceStore()
 
-  const [localUrl, setLocalUrl] = useState(aiApiUrl)
-  const [localModel, setLocalModel] = useState(aiModel)
-  const [localApiKey, setLocalApiKey] = useState(aiApiKey)
+  const [localUrl, setLocalUrl] = useState('')
+  const [localModel, setLocalModel] = useState('')
+  const [localApiKey, setLocalApiKey] = useState('')
   const [localDifficulty, setLocalDifficulty] = useState<Difficulty>(quizDifficulty)
   const [localCount, setLocalCount] = useState(quizQuestionCount)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  const handleSave = () => {
-    setAiApiUrl(localUrl)
-    setAiModel(localModel)
-    setAiApiKey(localApiKey)
-    setQuizDifficulty(localDifficulty)
-    setQuizQuestionCount(localCount)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  // Load AI config from server
+  useEffect(() => {
+    fetch('/api/ai/config')
+      .then(r => r.json())
+      .then((cfg: AIConfig) => {
+        setLocalUrl(cfg.aiApiUrl)
+        setLocalModel(cfg.aiModel)
+        setLocalApiKey(cfg.aiApiKey)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aiApiUrl: localUrl,
+          aiModel: localModel,
+          aiApiKey: localApiKey,
+        }),
+      })
+      if (res.ok) {
+        setQuizDifficulty(localDifficulty)
+        setQuizQuestionCount(localCount)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }
+    } catch {}
+    setSaving(false)
   }
 
   const handleTestConnection = async () => {
     setTesting(true)
     setTestResult(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (localApiKey) {
-        headers['Authorization'] = `Bearer ${localApiKey}`
-      }
-      const testUrl = localUrl.replace(/\/+$/, '').endsWith('/chat/completions')
-        ? localUrl
-        : `${localUrl.replace(/\/+$/, '')}/chat/completions`
-
-      const response = await fetch(testUrl, {
+      // Save current form values to server first, so test uses latest config
+      await fetch('/api/ai/config', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aiApiUrl: localUrl,
+          aiModel: localModel,
+          aiApiKey: localApiKey,
+        }),
+      })
+      const response = await fetch('/api/ai/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: localModel,
           messages: [{ role: 'user', content: 'Hi' }],
@@ -53,7 +89,8 @@ export function SettingsPage() {
       if (response.ok) {
         setTestResult({ ok: true, msg: '连接成功！AI 服务可用。' })
       } else {
-        setTestResult({ ok: false, msg: `服务返回错误: HTTP ${response.status}` })
+        const err = await response.text().catch(() => '')
+        setTestResult({ ok: false, msg: `服务返回错误: HTTP ${response.status} ${err.slice(0, 80)}` })
       }
     } catch (e: any) {
       setTestResult({ ok: false, msg: e.name === 'AbortError' ? '连接超时' : `连接失败: ${e.message}` })
@@ -74,6 +111,9 @@ export function SettingsPage() {
         <div className="settings-card-header">
           <Cpu size={20} />
           <h2>AI 模型配置</h2>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Server size={12} /> 服务端管理
+          </span>
         </div>
         <div className="settings-card-body">
           <div className="settings-field">
@@ -81,9 +121,10 @@ export function SettingsPage() {
             <input
               type="text"
               className="settings-input"
-              value={localUrl}
+              value={loading ? '加载中...' : localUrl}
               onChange={e => setLocalUrl(e.target.value)}
               placeholder="http://127.0.0.1:7001/v1"
+              disabled={loading}
             />
           </div>
           <div className="settings-field">
@@ -91,9 +132,10 @@ export function SettingsPage() {
             <input
               type="text"
               className="settings-input"
-              value={localModel}
+              value={loading ? '加载中...' : localModel}
               onChange={e => setLocalModel(e.target.value)}
-              placeholder="default"
+              placeholder="Qwen/Qwen3.5-27B-4bit"
+              disabled={loading}
             />
           </div>
           <div className="settings-field">
@@ -101,9 +143,10 @@ export function SettingsPage() {
             <input
               type="password"
               className="settings-input"
-              value={localApiKey}
+              value={loading ? '加载中...' : localApiKey}
               onChange={e => setLocalApiKey(e.target.value)}
               placeholder="留空则不发送（本地模型通常不需要）"
+              disabled={loading}
             />
           </div>
           <div className="settings-actions">
@@ -159,8 +202,8 @@ export function SettingsPage() {
 
       {/* Save button */}
       <div className="settings-save-bar">
-        <button className="btn btn-primary" onClick={handleSave}>
-          <Save size={14} /> 保存设置
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />} 保存设置
         </button>
         {saved && (
           <span className="settings-saved-msg">

@@ -1,16 +1,12 @@
-import { usePreferenceStore } from '@/stores/preferenceStore'
-
 const TIMEOUT_MS = 60000
 const IDLE_TIMEOUT_MS = 120000 // No data received for 120s = timeout
 
 // Disable reasoning/thinking mode for Qwen3 models to avoid token waste
 const NO_THINK_KWARGS = { chat_template_kwargs: { enable_thinking: false } }
 
-// Ensure the URL ends with /chat/completions
-function resolveApiUrl(baseUrl: string): string {
-  const url = baseUrl.replace(/\/+$/, '')
-  return url.endsWith('/chat/completions') ? url : `${url}/chat/completions`
-}
+// AI requests go through the Vite dev server proxy at /api/ai/chat/completions
+// Server handles AI URL, model, and API key
+const PROXY_URL = '/api/ai/chat/completions'
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -24,21 +20,14 @@ export interface AIResponse {
 }
 
 async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AIResponse> {
-  const { aiApiUrl, aiModel, aiApiKey } = usePreferenceStore.getState()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (aiApiKey) {
-      headers['Authorization'] = `Bearer ${aiApiKey}`
-    }
-
-    const response = await fetch(resolveApiUrl(aiApiUrl), {
+    const response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: aiModel,
         messages,
         temperature: 0.7,
         max_tokens: 4000,
@@ -79,20 +68,13 @@ async function callAIStream(
   messages: ChatMessage[],
   onChunk?: (text: string) => void,
 ): Promise<AIResponse> {
-  const { aiApiUrl, aiModel, aiApiKey } = usePreferenceStore.getState()
   const controller = new AbortController()
 
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (aiApiKey) {
-      headers['Authorization'] = `Bearer ${aiApiKey}`
-    }
-
-    const response = await fetch(resolveApiUrl(aiApiUrl), {
+    const response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: aiModel,
         messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -168,12 +150,20 @@ async function callAIStream(
 }
 
 export function extractJSON(text: string): any {
+  // Strip <think>...</think> blocks (Qwen thinking mode)
+  let cleaned = text.trim().replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim()
+
+  // If nothing left, the JSON might have been inside the think block — use original
+  if (!cleaned) cleaned = text.trim()
+
   // Strip markdown code fences
-  let cleaned = text.trim()
   const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
   if (fenceMatch) {
     cleaned = fenceMatch[1].trim()
   }
+
+  // Try direct parse first
+  try { return JSON.parse(cleaned) } catch {}
 
   // Find JSON object/array
   const objectMatch = cleaned.match(/\{[\s\S]*\}/)
@@ -184,10 +174,7 @@ export function extractJSON(text: string): any {
     throw new Error('无法从 AI 响应中提取 JSON')
   }
 
-  // Try direct parse first
-  try {
-    return JSON.parse(raw)
-  } catch {}
+  try { return JSON.parse(raw) } catch {}
 
   // Attempt common AI JSON error fixes
   let fixed = raw
@@ -198,9 +185,7 @@ export function extractJSON(text: string): any {
   // Remove control characters except newline/tab
   fixed = fixed.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
 
-  try {
-    return JSON.parse(fixed)
-  } catch {}
+  try { return JSON.parse(fixed) } catch {}
 
   throw new Error('无法从 AI 响应中提取 JSON')
 }

@@ -23,8 +23,10 @@ export function QuizPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
 
-  // Load quiz from persisted store
+  // Load quiz from persisted store — re-run when savedQuizzes changes
   useEffect(() => {
+    // Clear previous attempt so we always start a fresh quiz
+    setCurrentAttempt(null)
     if (docId && savedQuizzes[docId]) {
       setCurrentQuiz(savedQuizzes[docId])
     } else if (currentQuiz && currentQuiz.id === quizId) {
@@ -33,7 +35,7 @@ export function QuizPage() {
       // No saved quiz found
       setError('未找到测验，请先在文档页面生成测验')
     }
-  }, [docId, quizId])
+  }, [docId, quizId, savedQuizzes])
 
   const handleAnswer = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
@@ -54,10 +56,9 @@ export function QuizPage() {
   }
 
   const handleRetry = () => {
-    reset()
+    setCurrentAttempt(null)
     setAnswers({})
     setCurrentIndex(0)
-    navigate(`/doc/${docId}`)
   }
 
   if (error) {
@@ -129,10 +130,18 @@ export function QuizPage() {
                 </div>
                 <div className="scoreboard-question-text">{q.text}</div>
                 <div className="scoreboard-question-answer">
-                  你的回答：{answers[q.id] || '（未作答）'}
-                  {q.type !== 'short_answer' && (
+                  你的回答：{q.type === 'truefalse'
+                    ? (answers[q.id] === 'true' ? '正确' : answers[q.id] === 'false' ? '错误' : '（未作答）')
+                    : (answers[q.id] || '（未作答）')
+                  }
+                  {q.type === 'choice' && (
                     <span style={{ marginLeft: '0.5rem' }}>
-                      正确答案：{q.correctAnswer}
+                      正确答案：{q.correctAnswer}. {q.options?.[q.correctAnswer.charCodeAt(0) - 65] ?? ''}
+                    </span>
+                  )}
+                  {q.type === 'truefalse' && (
+                    <span style={{ marginLeft: '0.5rem' }}>
+                      正确答案：{q.correctAnswer === 'true' ? '正确' : '错误'}
                     </span>
                   )}
                 </div>
