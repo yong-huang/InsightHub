@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2, ArrowLeft } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import type { Difficulty } from '@/types'
 
@@ -25,6 +26,8 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  const navigate = useNavigate()
 
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -214,6 +217,9 @@ export function SettingsPage() {
 
       {/* Save button */}
       <div className="settings-save-bar">
+        <button className="btn btn-secondary" onClick={() => navigate(-1)}>
+          <ArrowLeft size={14} /> 返回
+        </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />} 保存设置
         </button>
