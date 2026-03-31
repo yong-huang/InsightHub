@@ -3,20 +3,26 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
-  ChevronDown,
+  ChevronDown, Highlighter,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { useAnnotationStore } from '@/stores/annotationStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
+import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
+import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
+import { CommentDialog } from '@/components/DocReader/CommentDialog'
+import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const fromPath = (location.state as { from?: string } | null)?.from
+  const fromPath = (location.state as { from?: string; scrollToAnnotation?: string } | null)?.from
+  const scrollToAnnotationId = (location.state as { scrollToAnnotation?: string } | null)?.scrollToAnnotation
   const doc = useDocumentStore(s => s.documents.get(docId || ''))
   const markAsRead = useDocumentStore(s => s.markAsRead)
   const toggleRead = useDocumentStore(s => s.toggleRead)
@@ -36,7 +42,25 @@ export function DocReaderPage() {
   const [tagName, setTagName] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
+  const [showCommentDialog, setShowCommentDialog] = useState(false)
+  const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
+
+  // Annotation hook
+  const allAnnotations = useAnnotationStore(s => s.annotations)
+  const docAnnotations = useMemo(
+    () => allAnnotations.filter(a => a.documentId === docId),
+    [allAnnotations, docId]
+  )
+  const {
+    selectionInfo,
+    clearSelection,
+    addHighlight,
+    removeHighlight,
+    restoreHighlights,
+    scrollToAnnotation,
+  } = useAnnotationIframe(iframeRef)
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -97,6 +121,20 @@ export function DocReaderPage() {
 
   const catInfo = doc ? getCategoryInfo(doc.category) : null
 
+  // Restore highlights on iframe load and scroll to annotation if requested
+  useEffect(() => {
+    if (!docId) return
+    const restoreAndScroll = () => {
+      restoreHighlights(docId)
+      if (scrollToAnnotationId) {
+        setTimeout(() => scrollToAnnotation(scrollToAnnotationId), 800)
+      }
+    }
+    // Wait a bit for iframe to load
+    const timer = setTimeout(restoreAndScroll, 1000)
+    return () => clearTimeout(timer)
+  }, [docId, restoreHighlights, scrollToAnnotation, scrollToAnnotationId])
+
   if (!doc) {
     return (
       <div className="empty-state">
@@ -124,6 +162,19 @@ export function DocReaderPage() {
   const handleGenerate = (mode: 'new' | 'regenerate' | 'append') => {
     setShowRegenerateMenu(false)
     startGeneration(doc.id, mode, doc, quizDifficulty, quizQuestionCount)
+  }
+
+  const handleHighlight = (color: string) => {
+    addHighlight(doc.id, color)
+  }
+
+  const handleComment = (comment: string, color: string) => {
+    addHighlight(doc.id, color, comment)
+    setShowCommentDialog(false)
+  }
+
+  const handleRemoveAnnotation = (annotationId: string) => {
+    removeHighlight(annotationId, doc.id)
   }
 
   return (
@@ -160,6 +211,18 @@ export function DocReaderPage() {
               <CheckCircle2 size={14} /> 标记已读
             </button>
           )}
+
+          {/* Annotation panel toggle */}
+          <button
+            className={`btn btn-sm ${showAnnotationPanel ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowAnnotationPanel(v => !v)}
+            title="笔记面板"
+          >
+            <Highlighter size={14} />
+            {docAnnotations.length > 0 && (
+              <span style={{ fontSize: '0.7rem' }}>{docAnnotations.length}</span>
+            )}
+          </button>
 
           {/* Quiz button area */}
           {isGenerating ? (
@@ -307,13 +370,46 @@ export function DocReaderPage() {
         </div>
       </div>
 
-      <iframe
-        src={url}
-        className="doc-reader-iframe"
-        style={{ background: '#fff', border: 'none' }}
-        sandbox="allow-scripts allow-same-origin"
-        title={doc.title}
-      />
+      <div className="doc-reader-content" style={{ display: 'flex', gap: 0, flex: 1 }}>
+        <iframe
+          ref={iframeRef}
+          src={url}
+          className="doc-reader-iframe"
+          style={{ background: '#fff', border: 'none', flex: 1 }}
+          sandbox="allow-scripts allow-same-origin"
+          title={doc.title}
+        />
+
+        {!isFullscreen && showAnnotationPanel && (
+          <AnnotationPanel
+            annotations={docAnnotations}
+            onScrollTo={scrollToAnnotation}
+            onRemove={handleRemoveAnnotation}
+          />
+        )}
+      </div>
+
+      {/* Floating annotation bar */}
+      {selectionInfo && (
+        <AnnotationBar
+          selectionInfo={selectionInfo}
+          onHighlight={handleHighlight}
+          onComment={() => setShowCommentDialog(true)}
+          onClose={clearSelection}
+        />
+      )}
+
+      {/* Comment dialog */}
+      {showCommentDialog && selectionInfo && (
+        <CommentDialog
+          selectedText={selectionInfo.text}
+          onSave={handleComment}
+          onCancel={() => {
+            setShowCommentDialog(false)
+            clearSelection()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -517,6 +517,55 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
+      // Annotations persistence: shared across all LAN clients via .insighthub-annotations.json
+      const annotationsPath = path.resolve(process.cwd(), '.insighthub-annotations.json')
+
+      function loadAnnotationsFile(): any[] {
+        try {
+          if (fs.existsSync(annotationsPath)) {
+            return JSON.parse(fs.readFileSync(annotationsPath, 'utf-8'))
+          }
+        } catch {}
+        return []
+      }
+
+      function saveAnnotationsFile(annotations: any[]): void {
+        fs.writeFileSync(annotationsPath, JSON.stringify(annotations, null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/annotations', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadAnnotationsFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const annotations: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              if (!Array.isArray(annotations)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected array' }))
+                return
+              }
+              saveAnnotationsFile(annotations)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
       // Static file serving for document HTML and their assets (images, CSS, etc.)
       // Bypasses Vite's @fs transform pipeline for much faster LAN access
       server.middlewares.use('/dev-docs', (req, res) => {

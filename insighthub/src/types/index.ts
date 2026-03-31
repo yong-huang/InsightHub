@@ -84,6 +84,25 @@ export interface QuizAttempt {
   aiGraded?: boolean
 }
 
+// ========== Annotation Types ==========
+export interface Annotation {
+  id: string
+  documentId: string
+  type: 'highlight' | 'comment'
+  text: string
+  comment?: string
+  color: string
+  xpath: {
+    startContainer: string
+    endContainer: string
+    startOffset: number
+    endOffset: number
+  }
+  createdAt: number
+}
+
+export const HIGHLIGHT_COLORS = ['#fbbf24', '#4ecdc4', '#ff8c42', '#ff6b6b', '#a78bfa', '#326ce5'] as const
+
 // ========== User Preferences ==========
 export interface UserPreferences {
   theme: 'light' | 'dark'

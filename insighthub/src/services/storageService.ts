@@ -8,6 +8,7 @@ export const storageKeys = {
   QUIZ_HISTORY: `${PREFIX}quiz-history`,
   SEARCH_HISTORY: `${PREFIX}search-history`,
   QUIZZES: `${PREFIX}quizzes`,
+  ANNOTATIONS: `${PREFIX}annotations`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -143,5 +144,9 @@ export const storageService = {
     existing.createdAt = Date.now()
     return setItem(storageKeys.QUIZZES, quizzes)
   },
+
+  getAnnotations: () => getItem<any[]>(storageKeys.ANNOTATIONS, []),
+
+  setAnnotations: (annotations: any[]) => setItem(storageKeys.ANNOTATIONS, annotations),
 
 }
