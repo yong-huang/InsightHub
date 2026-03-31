@@ -54,7 +54,7 @@ export const storageService = {
   getPreferences: () => {
     const stored = getItem<Record<string, any>>(storageKeys.PREFERENCES, {})
     return {
-      theme: 'dark',
+      theme: 'light',
       quizDifficulty: 'medium',
       quizQuestionCount: 5,
       sidebarCollapsed: false,
