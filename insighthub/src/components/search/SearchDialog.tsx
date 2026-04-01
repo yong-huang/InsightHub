@@ -8,23 +8,17 @@ import { search as flexSearch } from '@/services/searchService'
 export function SearchDialog() {
   const {
     showDialog, closeDialog, query, setQuery, results, isSearching,
-    performSearch, searchHistory,
+    performSearch, searchHistory, removeHistory,
   } = useSearchStore()
   const navigate = useNavigate()
   const location = useLocation()
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<number | null>(null)
+  const isComposing = useRef(false)
 
-  // Focus input when dialog opens
-  useEffect(() => {
-    if (showDialog) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
-  }, [showDialog])
-
-  // Debounced search
-  const handleInput = useCallback((value: string) => {
-    setQuery(value)
+  // Trigger search — skip during IME composition
+  const triggerSearch = useCallback((value: string) => {
+    if (isComposing.current) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (value.trim()) {
       debounceRef.current = window.setTimeout(() => {
@@ -33,10 +27,24 @@ export function SearchDialog() {
     } else {
       useSearchStore.setState({ results: [] })
     }
-  }, [setQuery, performSearch])
+  }, [performSearch])
+
+  const handleInput = useCallback((value: string) => {
+    setQuery(value)
+    triggerSearch(value)
+  }, [setQuery, triggerSearch])
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (showDialog) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [showDialog])
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // During IME composition, let the IME handle Enter (confirming candidate)
+    if (isComposing.current) return
     if (e.key === 'Enter' && results.length > 0) {
       navigateToResult(results[0].id)
     }
@@ -70,6 +78,11 @@ export function SearchDialog() {
             placeholder="搜索文档标题或内容..."
             value={query}
             onChange={e => handleInput(e.target.value)}
+            onCompositionStart={() => { isComposing.current = true }}
+            onCompositionEnd={e => {
+              isComposing.current = false
+              handleInput((e.target as HTMLInputElement).value)
+            }}
             onKeyDown={handleKeyDown}
           />
           {query && (
@@ -131,7 +144,14 @@ export function SearchDialog() {
                   onClick={() => handleHistoryClick(q)}
                 >
                   <Clock size={14} />
-                  {q}
+                  <span style={{ flex: 1 }}>{q}</span>
+                  <button
+                    className="search-history-delete"
+                    onClick={e => { e.stopPropagation(); removeHistory(q) }}
+                    title="删除"
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
               ))}
             </>

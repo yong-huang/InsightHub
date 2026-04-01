@@ -488,6 +488,27 @@
   background: var(--border-subtle);
   color: var(--text-primary);
 }
+.search-history-delete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.search-history-item:hover .search-history-delete {
+  display: flex;
+}
+.search-history-delete:hover {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--accent-red);
+}
 
 /* ========== Search Page ========== */
 .search-page-header {

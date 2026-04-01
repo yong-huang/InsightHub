@@ -119,6 +119,11 @@ export const storageService = {
 
   clearSearchHistory: () => removeItem(storageKeys.SEARCH_HISTORY),
 
+  removeSearchHistory: (query: string) => {
+    const history = storageService.getSearchHistory()
+    setItem(storageKeys.SEARCH_HISTORY, history.filter(h => h !== query))
+  },
+
   getQuizzes: () => getItem<Record<string, any>>(storageKeys.QUIZZES, {}),
 
   saveQuiz: (quiz: any) => {

@@ -16,6 +16,7 @@ interface SearchState {
   loadHistory: () => void
   addToHistory: (q: string) => void
   clearHistory: () => void
+  removeHistory: (q: string) => void
   openDialog: () => void
   closeDialog: () => void
   toggleDialog: () => void
@@ -57,6 +58,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   clearHistory: () => {
     storageService.clearSearchHistory()
     set({ searchHistory: [] })
+  },
+
+  removeHistory: (q) => {
+    storageService.removeSearchHistory(q)
+    set({ searchHistory: storageService.getSearchHistory() })
   },
 
   openDialog: () => set({ showDialog: true }),

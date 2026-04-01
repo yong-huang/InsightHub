@@ -22,7 +22,7 @@ export function SettingsPage() {
   const [localModel, setLocalModel] = useState('')
   const [localApiKey, setLocalApiKey] = useState('')
   const [localDifficulty, setLocalDifficulty] = useState<Difficulty>(quizDifficulty)
-  const [localCount, setLocalCount] = useState(quizQuestionCount)
+  const [localCount, setLocalCount] = useState(String(quizQuestionCount))
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,7 +58,7 @@ export function SettingsPage() {
           aiModel: localModel,
           aiApiKey: localApiKey,
           quizDifficulty: localDifficulty,
-          quizQuestionCount: localCount,
+          quizQuestionCount: Number(localCount) || 5,
         }),
       })
       if (res.ok) {
@@ -84,7 +84,7 @@ export function SettingsPage() {
           aiModel: localModel,
           aiApiKey: localApiKey,
           quizDifficulty: localDifficulty,
-          quizQuestionCount: localCount,
+          quizQuestionCount: Number(localCount) || 5,
         }),
       })
       const response = await fetch('/api/ai/chat/completions', {
@@ -200,16 +200,18 @@ export function SettingsPage() {
           <div className="settings-field">
             <label>题目数量</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               className="settings-input"
               value={localCount}
               onChange={e => {
-                const val = e.target.value
-                setLocalCount(val === '' ? 0 : Number(val))
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                setLocalCount(val)
               }}
-              onBlur={() => setLocalCount(Math.max(1, Math.min(20, localCount || 1)))}
-              min={1}
-              max={20}
+              onBlur={() => {
+                const n = Math.max(1, Math.min(20, Number(localCount) || 5))
+                setLocalCount(String(n))
+              }}
             />
           </div>
         </div>

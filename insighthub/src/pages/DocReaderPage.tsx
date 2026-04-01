@@ -376,7 +376,6 @@ export function DocReaderPage() {
           src={url}
           className="doc-reader-iframe"
           style={{ background: '#fff', border: 'none', flex: 1 }}
-          sandbox="allow-scripts allow-same-origin"
           title={doc.title}
         />
 
