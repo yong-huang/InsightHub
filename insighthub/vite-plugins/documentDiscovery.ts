@@ -49,7 +49,7 @@ function sendFile(res: import('http').ServerResponse, absPath: string): void {
   const content = fs.readFileSync(absPath)
   res.setHeader('Content-Type', getMimeType(absPath))
   res.setHeader('Content-Length', content.length)
-  res.setHeader('Cache-Control', 'public, max-age=3600')
+  res.setHeader('Cache-Control', 'no-cache')
   res.end(content)
 }
 
@@ -363,7 +363,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
 
       function saveReadHistoryFile(history: any[]): void {
-        fs.writeFileSync(readHistoryPath, JSON.stringify(history.slice(0, 50), null, 2), 'utf-8')
+        fs.writeFileSync(readHistoryPath, JSON.stringify(history.slice(0, 365), null, 2), 'utf-8')
       }
 
       server.middlewares.use('/api/read-history', (req, res) => {
@@ -564,6 +564,137 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
         res.statusCode = 405
         res.end('Method Not Allowed')
+      })
+
+      // Imported documents: metadata in .insighthub-imported-docs.json, HTML files in .insighthub-imports/
+      const importedDocsPath = path.resolve(process.cwd(), '.insighthub-imported-docs.json')
+      const importedDocsDir = path.resolve(process.cwd(), '.insighthub-imports')
+      const IMPORT_DOC_SIZE_LIMIT = 5 * 1024 * 1024 // 5MB
+
+      interface ImportedDocRecord {
+        id: string
+        fileName: string
+        source: 'mindinsight' | 'techinsight'
+        category: string
+        importedAt: number
+      }
+
+      function loadImportedDocsFile(): ImportedDocRecord[] {
+        try {
+          if (fs.existsSync(importedDocsPath)) {
+            return JSON.parse(fs.readFileSync(importedDocsPath, 'utf-8'))
+          }
+        } catch {}
+        return []
+      }
+
+      function saveImportedDocsFile(docs: ImportedDocRecord[]): void {
+        fs.writeFileSync(importedDocsPath, JSON.stringify(docs, null, 2), 'utf-8')
+      }
+
+      function importedDocHtmlPath(docId: string): string {
+        return path.join(importedDocsDir, `${docId}.html`)
+      }
+
+      // GET /api/imported-documents — list imported docs metadata
+      // POST /api/imported-documents — save new imported doc
+      // DELETE /api/imported-documents?id=xxx — delete imported doc
+      server.middlewares.use('/api/imported-documents', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadImportedDocsFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const body: any = JSON.parse(Buffer.concat(chunks).toString())
+              if (!body.htmlContent || !body.fileName || !body.source || !body.category) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing required fields' }))
+                return
+              }
+              const contentSize = Buffer.byteLength(body.htmlContent, 'utf-8')
+              if (contentSize > IMPORT_DOC_SIZE_LIMIT) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `File too large (${Math.round(contentSize / 1024)}KB), max 5MB` }))
+                return
+              }
+              const id = `imported-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+              // Ensure directory exists
+              if (!fs.existsSync(importedDocsDir)) {
+                fs.mkdirSync(importedDocsDir, { recursive: true })
+              }
+              // Write HTML to separate file
+              fs.writeFileSync(importedDocHtmlPath(id), body.htmlContent, 'utf-8')
+              // Save metadata only (no htmlContent)
+              const record: ImportedDocRecord = {
+                id,
+                fileName: body.fileName,
+                source: body.source,
+                category: body.category,
+                importedAt: Date.now(),
+              }
+              const docs = loadImportedDocsFile()
+              docs.push(record)
+              saveImportedDocsFile(docs)
+              res.end(JSON.stringify({ ok: true, id }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        if (req.method === 'DELETE') {
+          const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id')
+          if (!id) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Missing id' }))
+            return
+          }
+          const docs = loadImportedDocsFile()
+          const filtered = docs.filter(d => d.id !== id)
+          saveImportedDocsFile(filtered)
+          // Remove the HTML file
+          const htmlFile = importedDocHtmlPath(id)
+          if (fs.existsSync(htmlFile)) {
+            fs.unlinkSync(htmlFile)
+          }
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // GET /api/imported-doc/:docId — serve the HTML file for iframe
+      server.middlewares.use('/api/imported-doc', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        const urlPath = req.url?.split('?')[0] || ''
+        const docId = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath
+        if (!docId) {
+          res.statusCode = 400
+          res.end('Missing docId')
+          return
+        }
+        const htmlFile = importedDocHtmlPath(docId)
+        if (!fs.existsSync(htmlFile) || !fs.statSync(htmlFile).isFile()) {
+          res.statusCode = 404
+          res.end('Not Found')
+          return
+        }
+        sendFile(res, htmlFile)
       })
 
       // Static file serving for document HTML and their assets (images, CSS, etc.)

@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { Document, SearchFilters } from '@/types'
+import type { Document, ImportedDocumentRecord, SearchFilters } from '@/types'
 import { fetchDocumentManifest } from '@/utils/documentManifest'
-import { fetchAndParseDocument } from '@/utils/htmlParser'
+import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
+import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
 
 interface DocumentState {
   documents: Map<string, Document>
@@ -24,6 +25,9 @@ interface DocumentState {
   applyFilters: () => void
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
+  loadImportedDocuments: () => Promise<void>
+  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string) => Promise<string>
+  removeDocument: (docId: string) => Promise<void>
 }
 
 const DEFAULT_FILTERS: SearchFilters = {}
@@ -55,7 +59,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const localIds = new Set(localHistory.map(h => h.documentId))
       const newEntries = serverHistory.filter(h => !localIds.has(h.documentId))
       if (newEntries.length > 0) {
-        const merged = [...newEntries, ...localHistory].slice(0, 50)
+        const merged = [...newEntries, ...localHistory].slice(0, 365)
         storageService._setReadHistory(merged)
       }
     } catch {}
@@ -145,6 +149,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     })
 
     get().applyFilters()
+
+    // Load imported documents
+    get().loadImportedDocuments()
   },
 
   setFilters: (newFilters) => {
@@ -280,5 +287,144 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       }
     }
     return recent
+  },
+
+  loadImportedDocuments: async () => {
+    try {
+      const importedMeta = await fetchImportedDocs()
+      if (importedMeta.length === 0) return
+
+      const { documents, categoryCounts, stats } = get()
+      const updatedDocs = new Map(documents)
+      const updatedCounts = { ...categoryCounts }
+      let newCount = 0
+
+      for (const meta of importedMeta) {
+        if (updatedDocs.has(meta.id)) continue
+
+        try {
+          const htmlContent = await fetchImportedDocHtml(meta.id)
+          const parsed = parseHtmlDocument(htmlContent, {
+            id: meta.id,
+            filePath: `imported://${meta.fileName}`,
+            fileName: meta.fileName,
+            source: meta.source,
+            category: meta.category,
+          })
+          const doc: Document = {
+            ...parsed,
+            isRead: false,
+            readCount: 0,
+            tags: [],
+            indexedAt: Date.now(),
+          }
+          updatedDocs.set(doc.id, doc)
+          updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+          await indexDocument(doc)
+          newCount++
+        } catch (e) {
+          console.error(`Failed to load imported document: ${meta.id}`, e)
+        }
+      }
+
+      if (newCount === 0) return
+
+      const docArray = Array.from(updatedDocs.values())
+      const readCount = docArray.filter(d => d.isRead).length
+      const categories = new Set(docArray.map(d => d.category))
+
+      set({
+        documents: updatedDocs,
+        categoryCounts: updatedCounts,
+        stats: {
+          total: docArray.length,
+          read: readCount,
+          unread: docArray.length - readCount,
+          categories: categories.size,
+        },
+      })
+
+      get().applyFilters()
+    } catch (e) {
+      console.error('Failed to load imported documents:', e)
+    }
+  },
+
+  importDocument: async (file, source, category) => {
+    const result = await importDocument(file, source, category)
+
+    const htmlContent = await fetchImportedDocHtml(result.id)
+    const parsed = parseHtmlDocument(htmlContent, {
+      id: result.id,
+      filePath: `imported://${file.name}`,
+      fileName: file.name,
+      source,
+      category,
+    })
+    const doc: Document = {
+      ...parsed,
+      isRead: false,
+      readCount: 0,
+      tags: [],
+      indexedAt: Date.now(),
+    }
+
+    const { documents, categoryCounts, stats } = get()
+    const updatedDocs = new Map(documents)
+    updatedDocs.set(doc.id, doc)
+    const updatedCounts = { ...categoryCounts }
+    updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+
+    await indexDocument(doc)
+
+    const docArray = Array.from(updatedDocs.values())
+    const readCount = docArray.filter(d => d.isRead).length
+    const categories = new Set(docArray.map(d => d.category))
+
+    set({
+      documents: updatedDocs,
+      categoryCounts: updatedCounts,
+      stats: {
+        total: docArray.length,
+        read: readCount,
+        unread: docArray.length - readCount,
+        categories: categories.size,
+      },
+    })
+
+    get().applyFilters()
+    return result.id
+  },
+
+  removeDocument: async (docId) => {
+    if (!docId.startsWith('imported-')) return
+
+    const { documents, categoryCounts, stats } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    const updatedDocs = new Map(documents)
+    updatedDocs.delete(docId)
+    const updatedCounts = { ...categoryCounts }
+    updatedCounts[doc.category] = Math.max(0, (updatedCounts[doc.category] || 0) - 1)
+
+    await deleteImportedDocument(docId)
+
+    const docArray = Array.from(updatedDocs.values())
+    const readCount = docArray.filter(d => d.isRead).length
+    const categories = new Set(docArray.map(d => d.category))
+
+    set({
+      documents: updatedDocs,
+      categoryCounts: updatedCounts,
+      stats: {
+        total: docArray.length,
+        read: readCount,
+        unread: docArray.length - readCount,
+        categories: categories.size,
+      },
+    })
+
+    get().applyFilters()
   },
 }))

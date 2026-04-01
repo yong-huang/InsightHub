@@ -6,6 +6,7 @@ import './styles/animations.css'
 import './styles/components.css'
 import './styles/layout.css'
 import './styles/doc-reader.css'
+import './styles/stats.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -101,6 +101,10 @@ export function Sidebar() {
               <span className="sidebar-item-label">所有批注</span>
               <span className="sidebar-item-count">{commentCount}</span>
             </Link>
+            <Link to="/stats" className="sidebar-item">
+              <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
+              <span className="sidebar-item-label">数据统计</span>
+            </Link>
           </div>
         )}
         {sidebarCollapsed && (
@@ -109,6 +113,11 @@ export function Sidebar() {
             {commentCount > 0 && (
               <span className="sidebar-item-count">{commentCount}</span>
             )}
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/stats" className="sidebar-item" title="数据统计">
+            <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
           </Link>
         )}
 

@@ -5,3 +5,5 @@ dist/
 *.local
 .claude/
 dochub/
+.insighthub-imported-docs.json
+.insighthub-imports/

@@ -103,6 +103,15 @@ export interface Annotation {
 
 export const HIGHLIGHT_COLORS = ['#fbbf24', '#4ecdc4', '#ff8c42', '#ff6b6b', '#a78bfa', '#326ce5'] as const
 
+// ========== Imported Document Types ==========
+export interface ImportedDocumentRecord {
+  id: string
+  fileName: string
+  source: 'mindinsight' | 'techinsight'
+  category: string
+  importedAt: number
+}
+
 // ========== User Preferences ==========
 export interface UserPreferences {
   theme: 'light' | 'dark'

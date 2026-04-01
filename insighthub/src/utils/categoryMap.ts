@@ -27,6 +27,7 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'dell', label: 'Dell 方案', source: 'techinsight', icon: 'Server' },
   { key: 'data-visualization', label: '数据可视化', source: 'techinsight', icon: 'BarChart3' },
   { key: 'infrastructure', label: '基础设施', source: 'techinsight', icon: 'Network' },
+  { key: 'job', label: '求职面试', source: 'techinsight', icon: 'Briefcase' },
   { key: 'vmware', label: 'VMware', source: 'techinsight', icon: 'Monitor' },
   { key: 'programming', label: '编程语言', source: 'techinsight', icon: 'Code' },
 ]

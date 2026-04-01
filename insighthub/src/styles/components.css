@@ -1347,3 +1347,166 @@
 .doc-fullscreen-active .comment-dialog-overlay {
   display: none !important;
 }
+
+/* ========== Import Dialog ========== */
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+.import-dialog {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+  animation: scaleIn 0.2s var(--ease-spring);
+}
+
+.import-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.import-dialog-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.import-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+.import-dialog-close:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.import-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 1rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.import-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-file-item.success {
+  color: var(--accent-green);
+}
+
+.import-file-item.error {
+  color: var(--accent-red);
+}
+
+.import-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-file-size {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.import-file-status {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.import-category-select {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.import-category-select label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.import-category-select .filter-select {
+  flex: 1;
+}
+
+.import-progress {
+  margin-bottom: 1rem;
+}
+
+.import-progress-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ========== Import Button (Sidebar) ========== */
+.sidebar-item.import-btn {
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.25rem;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.sidebar-item.import-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+  background: rgba(50, 108, 229, 0.05);
+}
+
+.sidebar-item.import-btn .sidebar-item-label {
+  color: var(--text-secondary);
+}
+
+.sidebar-item.import-btn:hover .sidebar-item-label {
+  color: var(--text-primary);
+}

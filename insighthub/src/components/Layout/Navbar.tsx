@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, Sun, Moon, Brain, Cpu, ChevronDown, Check, Settings } from 'lucide-react'
+import { Search, Sun, Moon, Brain, Cpu, ChevronDown, Check, Settings, Upload, BarChart3 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import { ImportDialog } from '@/components/Import/ImportDialog'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Brain: <Brain size={18} />,
@@ -15,7 +16,9 @@ export function Navbar() {
   const openDialog = useSearchStore(s => s.openDialog)
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [importFiles, setImportFiles] = useState<File[] | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const meta = WORKSPACE_META[activeWorkspace]
 
@@ -79,6 +82,26 @@ export function Navbar() {
             <span>搜索文档...</span>
             <kbd>⌘K</kbd>
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.htm"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const fileList = e.target.files
+              if (fileList && fileList.length > 0) {
+                setImportFiles(Array.from(fileList))
+              }
+              e.target.value = ''
+            }}
+          />
+          <button className="btn-icon" title="导入文档" onClick={() => fileInputRef.current?.click()}>
+            <Upload size={18} />
+          </button>
+          <Link to="/stats" className="btn-icon" title="数据统计">
+            <BarChart3 size={18} />
+          </Link>
           <Link to="/settings" className="btn-icon" title="设置">
             <Settings size={18} />
           </Link>
@@ -87,6 +110,13 @@ export function Navbar() {
           </button>
         </div>
       </div>
+
+      {importFiles && (
+        <ImportDialog
+          files={importFiles}
+          onClose={() => setImportFiles(null)}
+        />
+      )}
     </nav>
   )
 }

@@ -1,0 +1,456 @@
+/* ========== Stats Page ========== */
+.stats-page {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.stats-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.stats-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.stats-page-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ========== Overview Cards ========== */
+.stats-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stats-overview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.25s var(--ease-smooth);
+}
+
+.stats-overview-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-md);
+}
+
+.stats-overview-icon {
+  opacity: 0.7;
+}
+
+.stats-overview-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stats-overview-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* ========== Chart Card ========== */
+.stats-chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: all 0.25s var(--ease-smooth);
+}
+
+.stats-chart-card:hover {
+  border-color: var(--border-default);
+}
+
+.stats-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.stats-chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.stats-chart-body {
+  min-height: 100px;
+}
+
+.stats-chart-extra {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ========== 2-Column Grid ========== */
+.stats-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .stats-overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stats-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== Heatmap ========== */
+.stats-heatmap-container {
+  position: relative;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.stats-heatmap-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.stats-heatmap-total {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.stats-heatmap-total strong {
+  color: var(--text-primary);
+}
+
+.stats-heatmap-grid {
+  display: grid;
+  gap: 2px;
+  width: fit-content;
+}
+
+.stats-heatmap-month-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: left;
+  line-height: 12px;
+  height: 12px;
+}
+
+.stats-heatmap-weekday-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  height: 12px;
+}
+
+.stats-heatmap-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  transition: opacity 0.15s;
+}
+
+.stats-heatmap-cell.empty {
+  background: transparent;
+}
+
+.stats-heatmap-cell:not(.empty) {
+  cursor: pointer;
+}
+
+.stats-heatmap-cell:not(.empty):hover {
+  opacity: 0.8;
+  outline: 2px solid var(--border-strong);
+  outline-offset: 1px;
+}
+
+/* Heatmap color levels */
+.stats-heatmap-cell.level-0 {
+  background: var(--heatmap-0, #ebedf0);
+}
+.stats-heatmap-cell.level-1 {
+  background: var(--heatmap-1, rgba(78, 205, 196, 0.35));
+}
+.stats-heatmap-cell.level-2 {
+  background: var(--heatmap-2, rgba(78, 205, 196, 0.55));
+}
+.stats-heatmap-cell.level-3 {
+  background: var(--heatmap-3, rgba(78, 205, 196, 0.75));
+}
+.stats-heatmap-cell.level-4 {
+  background: var(--heatmap-4, rgba(78, 205, 196, 0.95));
+}
+
+[data-theme='dark'] .stats-heatmap-cell.level-0 {
+  background: var(--heatmap-0, rgba(78, 205, 196, 0.12));
+}
+
+[data-theme='dark'] .stats-heatmap-cell.level-1 {
+  background: var(--heatmap-1, rgba(78, 205, 196, 0.25));
+}
+[data-theme='dark'] .stats-heatmap-cell.level-2 {
+  background: var(--heatmap-2, rgba(78, 205, 196, 0.45));
+}
+[data-theme='dark'] .stats-heatmap-cell.level-3 {
+  background: var(--heatmap-3, rgba(78, 205, 196, 0.65));
+}
+[data-theme='dark'] .stats-heatmap-cell.level-4 {
+  background: var(--heatmap-4, rgba(78, 205, 196, 0.9));
+}
+
+.stats-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.stats-heatmap-legend-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin: 0 2px;
+}
+
+.stats-heatmap-legend .stats-heatmap-cell {
+  width: 12px;
+  height: 12px;
+}
+
+.stats-heatmap-tooltip {
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  line-height: 1.4;
+}
+
+/* ========== Reading Trend Toggle ========== */
+.stats-reading-trend {
+  position: relative;
+}
+
+.stats-trend-toggle {
+  position: absolute;
+  top: -0.5rem;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  z-index: 1;
+}
+
+.stats-trend-toggle button {
+  padding: 3px 10px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.2s;
+}
+
+.stats-trend-toggle button.active {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.stats-trend-toggle button:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--border-subtle);
+}
+
+/* ========== Category Completion (Pie) ========== */
+.stats-category-completion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-pie-container {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+}
+
+.stats-pie-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.stats-pie-center-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stats-pie-center-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.stats-pie-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 1rem;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.stats-pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.stats-pie-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.stats-pie-legend-name {
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-pie-legend-rate {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+/* ========== Annotation Stats ========== */
+.stats-annotation-stats {
+  padding: 0.25rem 0;
+}
+
+.stats-annotation-overview {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.stats-annotation-item {
+  text-align: center;
+  padding: 0.75rem;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+
+.stats-annotation-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stats-annotation-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.stats-color-dist {
+  margin-top: 0.5rem;
+}
+
+.stats-color-dist-title {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.stats-color-dist-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats-color-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-color-bar-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.stats-color-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stats-color-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s var(--ease-smooth);
+  min-width: 2px;
+}
+
+.stats-color-bar-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ========== Empty State ========== */
+.stats-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 260px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* ========== Recharts Tooltip Override ========== */
+.recharts-default-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 8px !important;
+}

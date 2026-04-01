@@ -84,8 +84,8 @@ export const storageService = {
     // Remove duplicate entries for the same document
     const filtered = history.filter(h => h.documentId !== entry.documentId)
     filtered.unshift(entry)
-    // Keep only last 50 entries
-    setItem(storageKeys.READ_HISTORY, filtered.slice(0, 50))
+    // Keep only last 365 entries
+    setItem(storageKeys.READ_HISTORY, filtered.slice(0, 365))
   },
 
   getTags: () => getItem<{

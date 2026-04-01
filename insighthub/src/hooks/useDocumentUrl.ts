@@ -5,12 +5,16 @@ export function useDocumentUrl(docId: string): string {
 
   if (!doc) return ''
 
+  if (doc.id.startsWith('imported-')) {
+    return `/api/imported-doc/${doc.id}`
+  }
+
   const categoryPath = doc.subcategory
     ? `${doc.category}/${doc.subcategory}`
     : doc.category
 
   if (import.meta.env.DEV) {
-    return `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}`
+    return `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}?_=${doc.indexedAt}`
   }
 
   // Production: files copied to public/docs/
