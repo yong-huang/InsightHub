@@ -133,7 +133,8 @@ export function DocReaderPage() {
     // Wait a bit for iframe to load
     const timer = setTimeout(restoreAndScroll, 1000)
     return () => clearTimeout(timer)
-  }, [docId, restoreHighlights, scrollToAnnotation, scrollToAnnotationId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId])
 
   if (!doc) {
     return (

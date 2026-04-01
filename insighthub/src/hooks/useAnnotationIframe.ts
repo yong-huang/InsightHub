@@ -86,15 +86,18 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     const doc = getIframeDoc()
     if (!doc) return
 
+    // Cancel any pending restore to prevent re-applying deleted marks
+    if (restoreTimeoutRef.current) {
+      clearTimeout(restoreTimeoutRef.current)
+      restoreTimeoutRef.current = null
+    }
+
     // Remove all marks with this ID (cross-element annotations have multiple)
     const marks = doc.querySelectorAll(`mark[data-annotation-id="${annotationId}"]`)
     for (const mark of marks) {
       const parent = mark.parentNode
       if (parent) {
-        while (mark.firstChild) {
-          parent.insertBefore(mark.firstChild, mark)
-        }
-        parent.removeChild(mark)
+        parent.replaceChild(doc.createTextNode(mark.textContent || ''), mark)
       }
     }
     // Normalize merged text nodes
@@ -147,15 +150,26 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     const doc = getIframeDoc()
     if (!doc) return
 
-    const mark = doc.querySelector(`mark[data-annotation-id="${annotationId}"]`)
-    if (mark) {
-      mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      mark.style.transition = 'background-color 0.3s'
-      mark.style.backgroundColor = '#fff'
-      setTimeout(() => {
-        mark.style.backgroundColor = ''
-      }, 300)
-    }
+    const marks = doc.querySelectorAll(`mark[data-annotation-id="${annotationId}"]`)
+    if (marks.length === 0) return
+
+    const firstMark = marks[0] as HTMLElement
+    firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    // Flash effect: temporarily brighten all marks for this annotation
+    marks.forEach(m => {
+      const el = m as HTMLElement
+      el.style.transition = 'outline-color 0.3s'
+      el.style.outline = '2px solid var(--accent-blue, #326ce5)'
+      el.style.outlineOffset = '1px'
+    })
+    setTimeout(() => {
+      marks.forEach(m => {
+        const el = m as HTMLElement
+        el.style.outline = ''
+        el.style.outlineOffset = ''
+      })
+    }, 1500)
   }, [getIframeDoc])
 
   // Setup mouseup listener on iframe

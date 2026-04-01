@@ -1,8 +1,9 @@
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
   Cpu, GitBranch, Cloud, Server, Network, Code,
-  TrendingUp, Landmark, BarChart3,
+  TrendingUp, Landmark, BarChart3, Monitor,
   ChevronLeft, ChevronRight, Tag, MessageSquare,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -25,6 +26,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Network: <Network size={18} />,
   Code: <Code size={18} />,
   BarChart3: <BarChart3 size={18} />,
+  Monitor: <Monitor size={18} />,
 }
 
 export function Sidebar() {
@@ -33,7 +35,13 @@ export function Sidebar() {
   const tags = useTagStore(s => s.tags)
   const documents = useDocumentStore(s => s.documents)
   const allAnnotations = useAnnotationStore(s => s.annotations)
-  const commentCount = allAnnotations.filter(a => a.type === 'comment').length
+  const commentCount = useMemo(() => {
+    return allAnnotations.filter(a => {
+      if (a.type !== 'comment') return false
+      const doc = documents.get(a.documentId)
+      return doc?.source === activeWorkspace
+    }).length
+  }, [allAnnotations, documents, activeWorkspace])
   const params = useParams()
 
   const meta = WORKSPACE_META[activeWorkspace]
@@ -81,29 +89,6 @@ export function Sidebar() {
           })}
         </div>
 
-        {/* Tags section */}
-        {workspaceTags.length > 0 && !sidebarCollapsed && (
-          <div className="sidebar-section">
-            <div className="sidebar-section-title">
-              <Tag size={14} />
-              <span>标签</span>
-            </div>
-            <div className="sidebar-tags">
-              {workspaceTags.slice(0, 10).map(tag => (
-                <Link
-                  key={tag.id}
-                  to={`/tag/${tag.id}`}
-                  className="sidebar-tag"
-                  style={{ '--tag-color': tag.color } as React.CSSProperties}
-                >
-                  {tag.name}
-                  <span className="sidebar-tag-count">{tag.documentIds.length}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Notes section */}
         {!sidebarCollapsed && (
           <div className="sidebar-section">
@@ -125,6 +110,29 @@ export function Sidebar() {
               <span className="sidebar-item-count">{commentCount}</span>
             )}
           </Link>
+        )}
+
+        {/* Tags section */}
+        {workspaceTags.length > 0 && !sidebarCollapsed && (
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">
+              <Tag size={14} />
+              <span>标签</span>
+            </div>
+            <div className="sidebar-tags">
+              {workspaceTags.slice(0, 10).map(tag => (
+                <Link
+                  key={tag.id}
+                  to={`/tag/${tag.id}`}
+                  className="sidebar-tag"
+                  style={{ '--tag-color': tag.color } as React.CSSProperties}
+                >
+                  {tag.name}
+                  <span className="sidebar-tag-count">{tag.documentIds.length}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

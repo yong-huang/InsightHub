@@ -53,7 +53,7 @@ export function CategoryPage() {
         : '全部文档'
 
   const description = activeTag
-    ? `${allTags.filter(t => t.documentIds.length > 0).length} 个标签`
+    ? ''
     : catInfo
       ? ''
       : '浏览所有学习文档'

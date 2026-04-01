@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, MessageSquare, Highlighter, Search, FileText } from 'lucide-react'
+import { BookOpen, MessageSquare, Search, FileText } from 'lucide-react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
-import type { Annotation } from '@/types'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 
 function formatTime(ts: number): string {
   const d = new Date(ts)
@@ -15,14 +15,14 @@ export function NotesPage() {
   const navigate = useNavigate()
   const annotations = useAnnotationStore(s => s.annotations)
   const documents = useDocumentStore(s => s.documents)
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'mindinsight' | 'techinsight'>('all')
+  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Only show comments in the notes page
+  // Only show comments in the notes page, filtered by active workspace
   const commentAnnotations = useMemo(() => {
     return annotations
       .filter(a => a.type === 'comment')
-      .filter(a => sourceFilter === 'all' || documents.get(a.documentId)?.source === sourceFilter)
+      .filter(a => documents.get(a.documentId)?.source === activeWorkspace)
       .filter(a => {
         if (!searchQuery.trim()) return true
         const q = searchQuery.toLowerCase()
@@ -35,9 +35,9 @@ export function NotesPage() {
       })
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
-  }, [annotations, sourceFilter, searchQuery, documents])
+  }, [annotations, activeWorkspace, searchQuery, documents])
 
-  const commentCount = annotations.filter(a => a.type === 'comment').length
+  const commentCount = commentAnnotations.length
 
   return (
     <div className="page-notes">
@@ -56,20 +56,11 @@ export function NotesPage() {
         <>
           <div className="filter-bar">
             <div className="filter-group">
-              <select
-                className="filter-select"
-                value={sourceFilter}
-                onChange={e => setSourceFilter(e.target.value as 'all' | 'mindinsight' | 'techinsight')}
-              >
-                <option value="all">全部来源</option>
-                <option value="mindinsight">MindInsight</option>
-                <option value="techinsight">TechInsight</option>
-              </select>
               <span className="badge" style={{ fontSize: '0.8rem' }}>
                 {commentCount} 条批注
               </span>
             </div>
-            <div className="search-page-input-wrap" style={{ flex: '0 1 280px' }}>
+            <div className="search-page-input-wrap" style={{ flex: '1 1 240px', minWidth: 200 }}>
               <Search size={16} />
               <input
                 type="search"

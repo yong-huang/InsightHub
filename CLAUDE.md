@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from two sources: MindInsight (academic, film, finance, history, literature, philosophy) and TechInsight (AI, algorithms, cloud, data-visualization, dell, infrastructure, programming). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes. Supports text annotations (highlights and comments) with LAN sync across clients.
+InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from two sources: MindInsight (academic, film, finance, history, literature, philosophy) and TechInsight (AI, algorithms, cloud, data-visualization, dell, infrastructure, vmware, programming). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes. Supports text annotations (highlights and comments) with LAN sync across clients.
 
 ## Commands
 

@@ -67,7 +67,11 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     return get().annotations.filter(a => a.documentId === documentId)
   },
 
-  getCommentCount: () => {
-    return get().annotations.filter(a => a.type === 'comment').length
+  getCommentCount: (workspace?: string) => {
+    return get().annotations.filter(a => {
+      if (a.type !== 'comment') return false
+      if (workspace) return a.documentId.startsWith(workspace + '-')
+      return true
+    }).length
   },
 }))
