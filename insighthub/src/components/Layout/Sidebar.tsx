@@ -38,9 +38,8 @@ export function Sidebar() {
   const tags = useTagStore(s => s.tags)
   const documents = useDocumentStore(s => s.documents)
   const allAnnotations = useAnnotationStore(s => s.annotations)
-  const commentCount = useMemo(() => {
+  const noteCount = useMemo(() => {
     return allAnnotations.filter(a => {
-      if (a.type !== 'comment') return false
       const doc = documents.get(a.documentId)
       return doc?.source === activeWorkspace
     }).length
@@ -117,8 +116,8 @@ export function Sidebar() {
           <div className="sidebar-section">
             <Link to="/notes" className="sidebar-item">
               <span className="sidebar-item-icon"><MessageSquare size={18} /></span>
-              <span className="sidebar-item-label">所有批注</span>
-              <span className="sidebar-item-count">{commentCount}</span>
+              <span className="sidebar-item-label">所有笔记</span>
+              <span className="sidebar-item-count">{noteCount}</span>
             </Link>
             <Link to="/stats" className="sidebar-item">
               <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
@@ -147,10 +146,10 @@ export function Sidebar() {
           </div>
         )}
         {sidebarCollapsed && (
-          <Link to="/notes" className="sidebar-item" title="笔记">
+          <Link to="/notes" className="sidebar-item" title="所有笔记">
             <span className="sidebar-item-icon"><MessageSquare size={18} /></span>
-            {commentCount > 0 && (
-              <span className="sidebar-item-count">{commentCount}</span>
+            {noteCount > 0 && (
+              <span className="sidebar-item-count">{noteCount}</span>
             )}
           </Link>
         )}

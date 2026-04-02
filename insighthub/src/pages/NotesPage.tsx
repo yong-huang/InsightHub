@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, MessageSquare, Search, FileText } from 'lucide-react'
+import { ArrowLeft, Search, FileText, MessageSquare, Highlighter, BookOpen } from 'lucide-react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import type { Annotation } from '@/types'
+
+type NoteFilter = 'all' | 'highlight' | 'comment'
 
 function formatTime(ts: number): string {
   const d = new Date(ts)
@@ -11,18 +14,25 @@ function formatTime(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+interface DocGroup {
+  documentId: string
+  title: string | null
+  source: string | undefined
+  annotations: Annotation[]
+}
+
 export function NotesPage() {
   const navigate = useNavigate()
   const annotations = useAnnotationStore(s => s.annotations)
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+  const [filter, setFilter] = useState<NoteFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Only show comments in the notes page, filtered by active workspace
-  const commentAnnotations = useMemo(() => {
+  const filteredAnnotations = useMemo(() => {
     return annotations
-      .filter(a => a.type === 'comment')
       .filter(a => documents.get(a.documentId)?.source === activeWorkspace)
+      .filter(a => filter === 'all' || a.type === filter)
       .filter(a => {
         if (!searchQuery.trim()) return true
         const q = searchQuery.toLowerCase()
@@ -35,97 +45,156 @@ export function NotesPage() {
       })
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
-  }, [annotations, activeWorkspace, searchQuery, documents])
+  }, [annotations, activeWorkspace, filter, searchQuery, documents])
 
-  const commentCount = commentAnnotations.length
+  const docGroups = useMemo((): DocGroup[] => {
+    const map = new Map<string, DocGroup>()
+    for (const ann of filteredAnnotations) {
+      let group = map.get(ann.documentId)
+      if (!group) {
+        const doc = documents.get(ann.documentId)
+        group = {
+          documentId: ann.documentId,
+          title: doc?.title ?? null,
+          source: doc?.source,
+          annotations: [],
+        }
+        map.set(ann.documentId, group)
+      }
+      group.annotations.push(ann)
+    }
+    return Array.from(map.values())
+  }, [filteredAnnotations, documents])
+
+  const totalCount = useMemo(() => {
+    return annotations.filter(a => documents.get(a.documentId)?.source === activeWorkspace).length
+  }, [annotations, documents, activeWorkspace])
+
+  const highlightCount = useMemo(() => {
+    return annotations.filter(a =>
+      a.type === 'highlight' && documents.get(a.documentId)?.source === activeWorkspace
+    ).length
+  }, [annotations, documents, activeWorkspace])
+
+  const commentCount = useMemo(() => {
+    return annotations.filter(a =>
+      a.type === 'comment' && documents.get(a.documentId)?.source === activeWorkspace
+    ).length
+  }, [annotations, documents, activeWorkspace])
+
+  const tabs: { key: NoteFilter; label: string; count: number }[] = [
+    { key: 'all', label: '全部', count: totalCount },
+    { key: 'highlight', label: '高亮', count: highlightCount },
+    { key: 'comment', label: '批注', count: commentCount },
+  ]
+
+  const goToAnnotation = (ann: Annotation) => {
+    navigate(`/doc/${ann.documentId}`, {
+      state: { from: '/notes', scrollToAnnotation: ann.id },
+    })
+  }
 
   return (
-    <div className="page-notes">
-      <div className="page-header">
-        <h1><MessageSquare size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 笔记</h1>
-        <p>查看所有文档批注，点击可跳转到对应位置</p>
+    <div className="viz-page page-notes">
+      <div className="viz-page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+            <ArrowLeft size={18} />
+          </button>
+          <h1 className="viz-page-title">所有笔记</h1>
+        </div>
+        <p className="viz-page-desc">查看、搜索和管理你的所有笔记</p>
       </div>
 
-      {annotations.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="empty-state">
           <BookOpen size={48} />
-          <h3>暂无批注</h3>
-          <p>在文档中选中文本并添加批注后，会显示在这里</p>
+          <h3>暂无笔记</h3>
+          <p>在文档中选中文本并添加高亮或批注后，会显示在这里</p>
         </div>
       ) : (
         <>
-          <div className="filter-bar">
-            <div className="filter-group">
-              <span className="badge" style={{ fontSize: '0.8rem' }}>
-                {commentCount} 条批注
-              </span>
+          <div className="notes-toolbar">
+            <div className="viz-period-selector">
+              {tabs.map(tab => (
+                <button
+                  key={tab.key}
+                  className={filter === tab.key ? 'active' : ''}
+                  onClick={() => setFilter(tab.key)}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
             </div>
             <div className="search-page-input-wrap" style={{ flex: '1 1 240px', minWidth: 200 }}>
               <Search size={16} />
               <input
                 type="search"
                 className="search-page-input"
-                placeholder="搜索批注..."
+                placeholder="搜索笔记..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
 
-          {commentAnnotations.length === 0 ? (
+          {filteredAnnotations.length === 0 ? (
             <div className="empty-state" style={{ padding: '3rem 2rem' }}>
               <Search size={40} />
-              <h3>未找到匹配的批注</h3>
+              <h3>未找到匹配的笔记</h3>
             </div>
           ) : (
-            <div className="notes-list">
-              {commentAnnotations.map(ann => {
-                const doc = documents.get(ann.documentId)
-                return (
+            <div className="notes-groups">
+              {docGroups.map(group => (
+                <div key={group.documentId} className="notes-group">
                   <div
-                    key={ann.id}
-                    className="notes-item card"
-                    onClick={() =>
-                      navigate(`/doc/${ann.documentId}`, {
-                        state: {
-                          from: '/notes',
-                          scrollToAnnotation: ann.id,
-                        },
-                      })
-                    }
+                    className="notes-group-header"
+                    onClick={() => navigate(`/doc/${group.documentId}`)}
                   >
-                    <div className="notes-item-header">
-                      <div
-                        className="notes-item-color"
-                        style={{ backgroundColor: ann.color }}
-                      />
-                      {doc ? (
-                        <span className="notes-item-title">
-                          <FileText size={14} />
-                          {doc.title}
-                        </span>
-                      ) : (
-                        <span className="notes-item-title notes-item-title-missing">
-                          文档已删除
-                        </span>
-                      )}
-                      {doc && (
-                        <span className={`badge badge-${doc.source}`}>
-                          {doc.source === 'mindinsight' ? 'Mind' : 'Tech'}
-                        </span>
-                      )}
-                      <span className="notes-item-time">{formatTime(ann.createdAt)}</span>
-                    </div>
-                    <p className="notes-item-text">{ann.text}</p>
-                    {ann.comment && (
-                      <p className="notes-item-comment">
-                        <MessageSquare size={12} />
-                        {ann.comment}
-                      </p>
+                    <FileText size={16} />
+                    <span className="notes-group-title">
+                      {group.title ?? '文档已删除'}
+                    </span>
+                    {group.source && (
+                      <span className={`badge badge-${group.source}`}>
+                        {group.source === 'mindinsight' ? 'Mind' : 'Tech'}
+                      </span>
                     )}
+                    <span className="notes-group-count">{group.annotations.length} 条笔记</span>
                   </div>
-                )
-              })}
+                  <div className="notes-group-items">
+                    {group.annotations.map(ann => (
+                      <div
+                        key={ann.id}
+                        className={`notes-item ${ann.type}`}
+                        style={{
+                          borderLeftColor: ann.color,
+                          backgroundColor: ann.color + '15',
+                        }}
+                        onClick={() => goToAnnotation(ann)}
+                      >
+                        <div className="notes-item-text">{ann.text}</div>
+                        {ann.type === 'comment' && ann.comment && (
+                          <div className="notes-item-comment">
+                            <MessageSquare size={12} />
+                            <span>{ann.comment}</span>
+                          </div>
+                        )}
+                        <div className="notes-item-meta">
+                          <span className="notes-item-type">
+                            {ann.type === 'highlight' ? (
+                              <><Highlighter size={12} /> 高亮</>
+                            ) : (
+                              <><MessageSquare size={12} /> 批注</>
+                            )}
+                          </span>
+                          <span className="notes-item-time">{formatTime(ann.createdAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </>
