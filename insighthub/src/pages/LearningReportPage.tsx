@@ -17,7 +17,7 @@ import { TopEngagedDocuments } from '@/components/visualization/TopEngagedDocume
 import { ReadingHabits } from '@/components/visualization/ReadingHabits'
 import { TagCloud } from '@/components/visualization/TagCloud'
 
-export function StatsPage() {
+export function LearningReportPage() {
   const navigate = useNavigate()
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
@@ -35,15 +35,15 @@ export function StatsPage() {
   )
 
   return (
-    <div className="stats-page">
-      <div className="stats-page-header">
+    <div className="viz-page">
+      <div className="viz-page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="stats-page-title">数据统计</h1>
+          <h1 className="viz-page-title">学习报告</h1>
         </div>
-        <p className="stats-page-desc">了解你的学习进度和阅读习惯</p>
+        <p className="viz-page-desc">全面了解你的学习轨迹和成果</p>
         <div className="viz-period-selector" style={{ marginTop: '0.75rem' }}>
           {([
             { key: 'month' as const, label: '本月' },
@@ -61,40 +61,40 @@ export function StatsPage() {
         </div>
       </div>
 
-      {/* Hero overview */}
+      {/* 1. Hero overview */}
       <ReportHero data={report.overview} />
 
-      {/* Heatmap */}
-      <ChartCard title="阅读热力图">
+      {/* 2. Heatmap (always shows full year) */}
+      <ChartCard title="阅读日历">
         <ReadingHeatmap entries={readHistory} documents={documents} source={activeWorkspace} />
       </ChartCard>
 
-      {/* Two-column: Category Radar + Quiz Performance */}
-      <div className="stats-grid-2">
-        <ChartCard title="分类探索雷达">
-          <CategoryRadar data={report.categoryDistribution} />
-        </ChartCard>
-        <ChartCard title="测验表现">
-          <QuizPerformancePanel data={report.quizPerformance} />
-        </ChartCard>
-      </div>
+      {/* 3. Category Radar */}
+      <ChartCard title="分类探索雷达">
+        <CategoryRadar data={report.categoryDistribution} />
+      </ChartCard>
 
-      {/* Two-column: Top Annotated + Top Quizzed */}
-      <div className="stats-grid-2">
+      {/* 4. Quiz Performance */}
+      <ChartCard title="测验表现">
+        <QuizPerformancePanel data={report.quizPerformance} />
+      </ChartCard>
+
+      {/* 5. Top engaged documents (2-col) */}
+      <div className="report-grid-2">
         <ChartCard title="最常批注文档">
-          <TopEngagedDocuments data={report.topAnnotated} unit="条批注" />
+          <TopEngagedDocuments title="" data={report.topAnnotated} unit="条批注" />
         </ChartCard>
         <ChartCard title="最常测验文档">
-          <TopEngagedDocuments data={report.topQuizzed} unit="次测验" />
+          <TopEngagedDocuments title="" data={report.topQuizzed} unit="次测验" />
         </ChartCard>
       </div>
 
-      {/* Reading habits */}
+      {/* 6. Reading habits */}
       <ChartCard title="阅读习惯">
         <ReadingHabits data={report.readingHabits} />
       </ChartCard>
 
-      {/* Tag cloud */}
+      {/* 7. Tag cloud */}
       <ChartCard title="标签云">
         <TagCloud data={report.tagCloud} />
       </ChartCard>

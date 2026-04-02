@@ -1,16 +1,18 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
   Cpu, GitBranch, Cloud, Server, Network, Code,
-  TrendingUp, Landmark, BarChart3, Monitor,
-  ChevronLeft, ChevronRight, Tag, MessageSquare,
+  TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
+  ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy,
+  Map,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
+import { storageService } from '@/services/storageService'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   GraduationCap: <GraduationCap size={18} />,
@@ -27,6 +29,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Code: <Code size={18} />,
   BarChart3: <BarChart3 size={18} />,
   Monitor: <Monitor size={18} />,
+  Briefcase: <Briefcase size={18} />,
 }
 
 export function Sidebar() {
@@ -42,6 +45,26 @@ export function Sidebar() {
       return doc?.source === activeWorkspace
     }).length
   }, [allAnnotations, documents, activeWorkspace])
+
+  const [readLaterCount, setReadLaterCount] = useState(() => {
+    return storageService.getReadLaterList().length
+  })
+  const [achievementCount, setAchievementCount] = useState(() => {
+    return storageService.getAchievementState().unlockedIds.length
+  })
+  useEffect(() => {
+    const refresh = () => {
+      setReadLaterCount(storageService.getReadLaterList().length)
+      setAchievementCount(storageService.getAchievementState().unlockedIds.length)
+    }
+    window.addEventListener('storage', refresh)
+    window.addEventListener('achievement-unlock', refresh)
+    return () => {
+      window.removeEventListener('storage', refresh)
+      window.removeEventListener('achievement-unlock', refresh)
+    }
+  }, [])
+
   const params = useParams()
 
   const meta = WORKSPACE_META[activeWorkspace]
@@ -92,10 +115,6 @@ export function Sidebar() {
         {/* Notes section */}
         {!sidebarCollapsed && (
           <div className="sidebar-section">
-            <div className="sidebar-section-title">
-              <MessageSquare size={14} />
-              <span>笔记</span>
-            </div>
             <Link to="/notes" className="sidebar-item">
               <span className="sidebar-item-icon"><MessageSquare size={18} /></span>
               <span className="sidebar-item-label">所有批注</span>
@@ -104,6 +123,26 @@ export function Sidebar() {
             <Link to="/stats" className="sidebar-item">
               <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
               <span className="sidebar-item-label">数据统计</span>
+            </Link>
+            <Link to="/read-later" className="sidebar-item">
+              <span className="sidebar-item-icon"><Bookmark size={18} /></span>
+              <span className="sidebar-item-label">稍后阅读</span>
+              {readLaterCount > 0 && (
+                <span className="sidebar-item-count">{readLaterCount}</span>
+              )}
+            </Link>
+            <Link to="/knowledge-graph" className="sidebar-item">
+              <span className="sidebar-item-icon"><Network size={18} /></span>
+              <span className="sidebar-item-label">知识图谱</span>
+            </Link>
+            <Link to="/learning-path" className="sidebar-item">
+              <span className="sidebar-item-icon"><Map size={18} /></span>
+              <span className="sidebar-item-label">学习路径</span>
+            </Link>
+            <Link to="/achievements" className="sidebar-item">
+              <span className="sidebar-item-icon"><Trophy size={18} /></span>
+              <span className="sidebar-item-label">成就系统</span>
+              <span className="sidebar-item-count">{achievementCount}/20</span>
             </Link>
           </div>
         )}
@@ -118,6 +157,29 @@ export function Sidebar() {
         {sidebarCollapsed && (
           <Link to="/stats" className="sidebar-item" title="数据统计">
             <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/read-later" className="sidebar-item" title="稍后阅读">
+            <span className="sidebar-item-icon"><Bookmark size={18} /></span>
+            {readLaterCount > 0 && (
+              <span className="sidebar-item-count">{readLaterCount}</span>
+            )}
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/knowledge-graph" className="sidebar-item" title="知识图谱">
+            <span className="sidebar-item-icon"><Network size={18} /></span>
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/learning-path" className="sidebar-item" title="学习路径">
+            <span className="sidebar-item-icon"><Map size={18} /></span>
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/achievements" className="sidebar-item" title="成就系统">
+            <span className="sidebar-item-icon"><Trophy size={18} /></span>
           </Link>
         )}
 

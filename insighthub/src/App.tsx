@@ -9,6 +9,11 @@ import { QuizPage } from '@/pages/QuizPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { StatsPage } from '@/pages/StatsPage'
+import { ReadLaterPage } from '@/pages/ReadLaterPage'
+import { AchievementsPage } from '@/pages/AchievementsPage'
+import { KnowledgeGraphPage } from '@/pages/KnowledgeGraphPage'
+import { LearningPathPage } from '@/pages/LearningPathPage'
+import { AchievementToast } from '@/components/AchievementToast'
 import { useInitializeApp } from '@/hooks/useInitializeApp'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -34,10 +39,15 @@ function AppContent() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/stats" element={<StatsPage />} />
+            <Route path="/read-later" element={<ReadLaterPage />} />
+            <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+            <Route path="/learning-path" element={<LearningPathPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>
       <SearchDialog />
+      <AchievementToast />
     </>
   )
 }
