@@ -9,6 +9,10 @@ export const storageKeys = {
   SEARCH_HISTORY: `${PREFIX}search-history`,
   QUIZZES: `${PREFIX}quizzes`,
   ANNOTATIONS: `${PREFIX}annotations`,
+  SUMMARIES: `${PREFIX}summaries`,
+  READ_POSITIONS: `${PREFIX}reading-positions`,
+  READ_LATER: `${PREFIX}read-later`,
+  ACHIEVEMENTS: `${PREFIX}achievements`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -153,5 +157,52 @@ export const storageService = {
   getAnnotations: () => getItem<any[]>(storageKeys.ANNOTATIONS, []),
 
   setAnnotations: (annotations: any[]) => setItem(storageKeys.ANNOTATIONS, annotations),
+
+  getSummaries: () => getItem<Record<string, string>>(storageKeys.SUMMARIES, {}),
+
+  saveSummary: (docId: string, text: string) => {
+    const summaries = storageService.getSummaries()
+    summaries[docId] = text
+    return setItem(storageKeys.SUMMARIES, summaries)
+  },
+
+  // Reading positions
+  getReadingPositions: () =>
+    getItem<Record<string, { scrollTop: number; savedAt: number }>>(storageKeys.READ_POSITIONS, {}),
+
+  saveReadingPosition: (docId: string, scrollTop: number) => {
+    const positions = storageService.getReadingPositions()
+    positions[docId] = { scrollTop, savedAt: Date.now() }
+    setItem(storageKeys.READ_POSITIONS, positions)
+  },
+
+  // Read later list
+  getReadLaterList: () =>
+    getItem<{ documentId: string; addedAt: number }[]>(storageKeys.READ_LATER, []),
+
+  addToReadLater: (documentId: string) => {
+    const list = storageService.getReadLaterList()
+    if (list.some(item => item.documentId === documentId)) return
+    list.unshift({ documentId, addedAt: Date.now() })
+    setItem(storageKeys.READ_LATER, list)
+  },
+
+  removeFromReadLater: (documentId: string) => {
+    const list = storageService.getReadLaterList()
+    setItem(storageKeys.READ_LATER, list.filter(item => item.documentId !== documentId))
+  },
+
+  isReadLater: (documentId: string) =>
+    storageService.getReadLaterList().some(item => item.documentId === documentId),
+
+  // Achievements
+  getAchievementState: () =>
+    getItem<{ unlockedIds: string[]; unlockedAt: Record<string, number> }>(storageKeys.ACHIEVEMENTS, {
+      unlockedIds: [],
+      unlockedAt: {},
+    }),
+
+  saveAchievementState: (state: { unlockedIds: string[]; unlockedAt: Record<string, number> }) =>
+    setItem(storageKeys.ACHIEVEMENTS, state),
 
 }

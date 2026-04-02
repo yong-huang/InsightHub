@@ -40,9 +40,17 @@
   font-weight: 600;
 }
 
+.doc-reader-content {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .doc-reader-iframe {
   flex: 1;
-  width: 100%;
+  min-width: 0;
   border: 1px solid var(--border-subtle);
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);

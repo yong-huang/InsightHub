@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
-  ChevronDown, Highlighter,
+  ChevronDown, Highlighter, BrainCircuit, Bookmark,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -13,9 +13,12 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
+import { generateDocumentSummary } from '@/services/aiService'
+import { storageService } from '@/services/storageService'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
+import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -44,8 +47,14 @@ export function DocReaderPage() {
   const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
+  const [showSummaryPanel, setShowSummaryPanel] = useState(false)
+  const [summaryText, setSummaryText] = useState<string | null>(null)
+  const [isSummaryGenerating, setIsSummaryGenerating] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [isBookmarked, setIsBookmarked] = useState(() => docId ? storageService.isReadLater(docId) : false)
   const menuRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Annotation hook
   const allAnnotations = useAnnotationStore(s => s.annotations)
@@ -136,6 +145,82 @@ export function DocReaderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId])
 
+  // Reset summary state when document changes, load cached summary
+  useEffect(() => {
+    setShowSummaryPanel(false)
+    setIsSummaryGenerating(false)
+    setSummaryError(null)
+    if (docId) {
+      const cached = storageService.getSummaries()[docId]
+      setSummaryText(cached || null)
+      setIsBookmarked(storageService.isReadLater(docId))
+    } else {
+      setSummaryText(null)
+      setIsBookmarked(false)
+    }
+  }, [docId])
+
+  // Restore scroll position after iframe loads
+  useEffect(() => {
+    if (!docId) return
+    const timer = setTimeout(() => {
+      try {
+        const doc = iframeRef.current?.contentDocument
+        const win = doc?.defaultView
+        if (!win) return
+        const positions = storageService.getReadingPositions()
+        const pos = positions[docId]
+        if (pos && pos.scrollTop > 0) {
+          win.scrollTo({ top: pos.scrollTop, behavior: 'smooth' })
+        }
+      } catch {}
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [docId])
+
+  // Save scroll position on scroll (debounced)
+  useEffect(() => {
+    if (!docId) return
+    const onScroll = () => {
+      if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
+      scrollSaveTimerRef.current = setTimeout(() => {
+        try {
+          const doc = iframeRef.current?.contentDocument
+          const win = doc?.defaultView
+          if (win) {
+            storageService.saveReadingPosition(docId, win.scrollY)
+          }
+        } catch {}
+      }, 500)
+    }
+    try {
+      const doc = iframeRef.current?.contentDocument
+      const win = doc?.defaultView
+      win?.addEventListener('scroll', onScroll, { passive: true })
+      return () => {
+        win?.removeEventListener('scroll', onScroll)
+        if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
+      }
+    } catch {}
+  }, [docId])
+
+  // Save position when leaving the page
+  useEffect(() => {
+    if (!docId) return
+    const save = () => {
+      try {
+        const doc = iframeRef.current?.contentDocument
+        const win = doc?.defaultView
+        if (win) storageService.saveReadingPosition(docId, win.scrollY)
+      } catch {}
+    }
+    window.addEventListener('beforeunload', save)
+    return () => {
+      window.removeEventListener('beforeunload', save)
+      save()
+    }
+  }, [docId])
+
   if (!doc) {
     return (
       <div className="empty-state">
@@ -160,6 +245,18 @@ export function DocReaderPage() {
     setShowTagInput(false)
   }
 
+  const toggleReadLater = useCallback(() => {
+    if (!docId) return
+    if (isBookmarked) {
+      storageService.removeFromReadLater(docId)
+    } else {
+      storageService.addToReadLater(docId)
+    }
+    setIsBookmarked(!isBookmarked)
+    // Dispatch a storage event so Sidebar can react
+    window.dispatchEvent(new Event('storage'))
+  }, [docId, isBookmarked])
+
   const handleGenerate = (mode: 'new' | 'regenerate' | 'append') => {
     setShowRegenerateMenu(false)
     startGeneration(doc.id, mode, doc, quizDifficulty, quizQuestionCount)
@@ -177,6 +274,27 @@ export function DocReaderPage() {
   const handleRemoveAnnotation = (annotationId: string) => {
     removeHighlight(annotationId, doc.id)
   }
+
+  const handleGenerateSummary = useCallback(async () => {
+    setSummaryText(null)
+    setSummaryError(null)
+    setIsSummaryGenerating(true)
+
+    const result = await generateDocumentSummary(
+      doc.title,
+      doc.contentText,
+      doc.sections,
+      (text) => setSummaryText(text),
+    )
+
+    setIsSummaryGenerating(false)
+    if (!result.success) {
+      setSummaryError(result.error || '生成失败')
+    } else if (result.data && docId) {
+      setSummaryText(result.data)
+      storageService.saveSummary(docId, result.data)
+    }
+  }, [doc, docId])
 
   return (
     <div className="doc-reader-page">
@@ -223,6 +341,22 @@ export function DocReaderPage() {
             {docAnnotations.length > 0 && (
               <span style={{ fontSize: '0.7rem' }}>{docAnnotations.length}</span>
             )}
+          </button>
+
+          {/* Summary panel toggle */}
+          <button
+            className={`btn btn-sm ${showSummaryPanel ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => {
+              setShowSummaryPanel(v => {
+                if (!v && !summaryText && !isSummaryGenerating && !summaryError) {
+                  handleGenerateSummary()
+                }
+                return !v
+              })
+            }}
+            title="AI 摘要"
+          >
+            <BrainCircuit size={14} />
           </button>
 
           {/* Quiz button area */}
@@ -308,6 +442,14 @@ export function DocReaderPage() {
           )}
 
           <button
+            className={`btn btn-sm ${isBookmarked ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={toggleReadLater}
+            title={isBookmarked ? '取消稍后阅读' : '稍后阅读'}
+          >
+            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
+          </button>
+
+          <button
             className="btn btn-ghost btn-sm"
             onClick={toggleFullscreen}
             title="全屏阅读"
@@ -371,7 +513,7 @@ export function DocReaderPage() {
         </div>
       </div>
 
-      <div className="doc-reader-content" style={{ display: 'flex', gap: 0, flex: 1 }}>
+      <div className="doc-reader-content">
         <iframe
           ref={iframeRef}
           src={url}
@@ -385,6 +527,16 @@ export function DocReaderPage() {
             annotations={docAnnotations}
             onScrollTo={scrollToAnnotation}
             onRemove={handleRemoveAnnotation}
+          />
+        )}
+
+        {!isFullscreen && showSummaryPanel && (
+          <SummaryPanel
+            summaryText={summaryText}
+            isGenerating={isSummaryGenerating}
+            error={summaryError}
+            onGenerate={handleGenerateSummary}
+            onClose={() => setShowSummaryPanel(false)}
           />
         )}
       </div>

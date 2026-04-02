@@ -2,7 +2,7 @@ import type { Document, Annotation, QuizAttempt } from '@/types'
 import type { ReadHistoryEntry } from '@/services/storageService'
 import { getCategoryInfo } from '@/utils/categoryMap'
 
-// ===== Heatmap (last 26 weeks) =====
+// ===== Heatmap (last 52 weeks / full year) =====
 
 export interface HeatmapCell {
   date: string       // YYYY-MM-DD
@@ -22,12 +22,12 @@ export function buildHeatmapData(
     countsByDate.set(date, (countsByDate.get(date) || 0) + 1)
   }
 
-  // 26 weeks ending today
+  // Full year ending today
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const endDate = new Date(today)
   const startDate = new Date(today)
-  startDate.setDate(startDate.getDate() - 26 * 7)
+  startDate.setDate(startDate.getDate() - 52 * 7)
 
   const cells: HeatmapCell[] = []
   const maxCount = Math.max(1, ...Array.from(countsByDate.values()))

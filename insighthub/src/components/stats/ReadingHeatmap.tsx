@@ -55,7 +55,10 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
 
       <div
         className="stats-heatmap-grid"
-        style={{ gridTemplateColumns: `24px repeat(${colCount}, 12px)`, gridTemplateRows: '16px repeat(7, 12px)' }}
+        style={{
+          gridTemplateColumns: `24px repeat(${colCount}, 12px)`,
+          gridTemplateRows: '20px repeat(7, 12px)',
+        }}
       >
         {/* Month label row (row 1) */}
         {monthLabels.map(({ text, col }) => (

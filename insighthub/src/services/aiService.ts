@@ -64,7 +64,7 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
 }
 
 /** Streaming call: reads SSE chunks, accumulates content, idle-timeout between chunks. */
-async function callAIStream(
+export async function callAIStream(
   messages: ChatMessage[],
   onChunk?: (text: string) => void,
 ): Promise<AIResponse> {
@@ -271,4 +271,41 @@ export async function gradeShortAnswers(
     }
   }
   return result
+}
+
+export async function generateDocumentSummary(
+  documentTitle: string,
+  documentContent: string,
+  sections: { title: string }[],
+  onChunk?: (text: string) => void,
+): Promise<AIResponse> {
+  const truncatedContent = documentContent.slice(0, 6000)
+  const sectionList = sections.map(s => s.title).join('\n')
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `你是一个文档摘要助手。请根据文档内容生成结构化摘要，使用以下四个 Markdown 标题段落：
+
+## 核心要点
+总结文档的 3-5 个核心要点。
+
+## 重要概念
+列出文档中涉及的重要概念并简要解释。
+
+## 内容大纲
+按章节顺序概括文档的主要内容结构。
+
+## 总结
+用 2-3 句话总结文档的总体内容。
+
+要求：内容简洁准确，使用中文。只输出 Markdown 文本，不要输出其他内容。`,
+    },
+    {
+      role: 'user',
+      content: `标题：${documentTitle}\n\n章节列表：\n${sectionList}\n\n文档内容：\n${truncatedContent}`,
+    },
+  ]
+
+  return callAIStream(messages, onChunk)
 }
