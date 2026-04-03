@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Annotation } from '@/types'
-import { MessageSquare, Highlighter, Trash2, Pencil, Reply, Check, X } from 'lucide-react'
+import { MessageSquare, Highlighter, Trash2, Pencil, Reply, Check, X, AlertTriangle } from 'lucide-react'
 
 interface AnnotationPanelProps {
   annotations: Annotation[]
@@ -8,6 +8,8 @@ interface AnnotationPanelProps {
   onRemove: (id: string) => void
   onUpdateComment?: (annotationId: string, comment: string) => void
   onAddReply?: (annotationId: string, text: string) => void
+  staleAnnotationIds?: Set<string>
+  onRemoveStale?: (ids: string[]) => void
 }
 
 function formatTime(ts: number): string {
@@ -16,7 +18,9 @@ function formatTime(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateComment, onAddReply }: AnnotationPanelProps) {
+export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateComment, onAddReply, staleAnnotationIds, onRemoveStale }: AnnotationPanelProps) {
+  const staleCount = staleAnnotationIds?.size ?? 0
+
   if (annotations.length === 0) {
     return (
       <div className="annotation-panel">
@@ -38,6 +42,20 @@ export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateCom
         <h3>笔记</h3>
         <span className="annotation-panel-count">{annotations.length}</span>
       </div>
+      {staleCount > 0 && (
+        <div className="annotation-panel-stale-bar">
+          <AlertTriangle size={14} />
+          <span>{staleCount} 条批注位置失效</span>
+          {onRemoveStale && (
+            <button
+              className="annotation-panel-stale-clear"
+              onClick={() => onRemoveStale([...staleAnnotationIds!])}
+            >
+              清除失效批注
+            </button>
+          )}
+        </div>
+      )}
       <div className="annotation-panel-list">
         {annotations
           .slice()
@@ -50,6 +68,7 @@ export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateCom
               onRemove={onRemove}
               onUpdateComment={onUpdateComment}
               onAddReply={onAddReply}
+              isStale={staleAnnotationIds?.has(ann.id) ?? false}
             />
           ))}
       </div>
@@ -63,12 +82,14 @@ function AnnotationItem({
   onRemove,
   onUpdateComment,
   onAddReply,
+  isStale,
 }: {
   annotation: Annotation
   onScrollTo: (id: string) => void
   onRemove: (id: string) => void
   onUpdateComment?: (annotationId: string, comment: string) => void
   onAddReply?: (annotationId: string, text: string) => void
+  isStale?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(ann.comment || '')
@@ -97,8 +118,8 @@ function AnnotationItem({
 
   return (
     <div
-      className="annotation-panel-item"
-      onClick={() => !editing && !showReplyInput && onScrollTo(ann.id)}
+      className={`annotation-panel-item${isStale ? ' annotation-panel-item-stale' : ''}`}
+      onClick={() => !editing && !showReplyInput && !isStale && onScrollTo(ann.id)}
     >
       <div className="annotation-panel-item-header">
         <div
@@ -115,6 +136,9 @@ function AnnotationItem({
         <span className="annotation-panel-item-time">
           {formatTime(ann.createdAt)}
         </span>
+        {isStale && (
+          <span className="annotation-panel-item-stale-badge">位置失效</span>
+        )}
       </div>
       <p className="annotation-panel-item-text">
         {ann.text.length > 100 ? ann.text.slice(0, 100) + '...' : ann.text}

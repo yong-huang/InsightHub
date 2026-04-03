@@ -63,17 +63,38 @@ export function xpathToRange(doc: Document, xpath: SerializedRange): Range | nul
   }
 }
 
+/**
+ * Map a position in whitespace-stripped text back to the original text position.
+ */
+function mapStrippedPos(text: string, strippedPos: number): number {
+  let stripped = 0
+  for (let i = 0; i < text.length; i++) {
+    if (!/\s/.test(text[i])) {
+      if (stripped === strippedPos) return i
+      stripped++
+    }
+  }
+  return text.length
+}
+
 export function findTextRange(doc: Document, text: string): Range | null {
   if (!text) return null
 
   const body = doc.body
   if (!body) return null
 
+  // Strip whitespace from query for normalized matching
+  const strippedQuery = text.replace(/\s+/g, '')
+  if (!strippedQuery) return null
+
   const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT)
   let node: Node | null
   while ((node = walker.nextNode())) {
-    const idx = node.textContent?.indexOf(text)
-    if (idx !== undefined && idx !== -1) {
+    const content = node.textContent || ''
+
+    // Phase 1: Exact match
+    const idx = content.indexOf(text)
+    if (idx !== -1) {
       try {
         const range = doc.createRange()
         range.setStart(node, idx)
@@ -83,8 +104,98 @@ export function findTextRange(doc: Document, text: string): Range | null {
         continue
       }
     }
+
+    // Phase 2: Whitespace-normalized match
+    const strippedContent = content.replace(/\s+/g, '')
+    const strippedIdx = strippedContent.indexOf(strippedQuery)
+    if (strippedIdx !== -1) {
+      const startOffset = mapStrippedPos(content, strippedIdx)
+      const endOffset = mapStrippedPos(content, strippedIdx + strippedQuery.length)
+      try {
+        const range = doc.createRange()
+        range.setStart(node, startOffset)
+        range.setEnd(node, endOffset)
+        return range
+      } catch {
+        continue
+      }
+    }
   }
   return null
+}
+
+/**
+ * Character-level similarity between two strings (aligned comparison).
+ */
+function charSimilarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length)
+  if (maxLen === 0) return 1
+  let matches = 0
+  const minLen = Math.min(a.length, b.length)
+  for (let i = 0; i < minLen; i++) {
+    if (a[i] === b[i]) matches++
+  }
+  return matches / maxLen
+}
+
+/**
+ * Fuzzy text range finder using sliding window character similarity.
+ * Used as a last resort when exact and whitespace-normalized matching both fail.
+ */
+export function findTextRangeFuzzy(doc: Document, text: string): Range | null {
+  if (!text) return null
+  const body = doc.body
+  if (!body) return null
+
+  const query = text.replace(/\s+/g, '')
+  const queryLen = query.length
+  if (queryLen === 0) return null
+
+  const threshold = queryLen <= 15 ? 0.7 : 0.75
+  const firstChar = query[0]
+
+  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+
+  let bestRange: Range | null = null
+  let bestScore = 0
+
+  while ((node = walker.nextNode())) {
+    const content = node.textContent || ''
+    const stripped = content.replace(/\s+/g, '')
+    const strippedLen = stripped.length
+
+    // Skip nodes with length difference > 50%
+    if (strippedLen === 0 || strippedLen < queryLen * 0.5 || strippedLen > queryLen * 1.5) continue
+
+    // Sliding window
+    const minWin = Math.max(1, Math.floor(queryLen * 0.8))
+    const maxWin = Math.ceil(queryLen * 1.2)
+
+    for (let winSize = minWin; winSize <= maxWin && winSize <= strippedLen; winSize++) {
+      for (let pos = 0; pos <= strippedLen - winSize; pos++) {
+        // Pre-filter by first character
+        if (stripped[pos] !== firstChar) continue
+
+        const window = stripped.slice(pos, pos + winSize)
+        const score = charSimilarity(query, window)
+
+        if (score > bestScore) {
+          bestScore = score
+          const startOffset = mapStrippedPos(content, pos)
+          const endOffset = mapStrippedPos(content, pos + winSize)
+          try {
+            const range = doc.createRange()
+            range.setStart(node, startOffset)
+            range.setEnd(node, endOffset)
+            bestRange = range
+          } catch { /* skip */ }
+        }
+      }
+    }
+  }
+
+  return bestScore >= threshold ? bestRange : null
 }
 
 function makeMark(doc: Document, annotationId: string, color: string): HTMLElement {
@@ -100,20 +211,61 @@ function makeMark(doc: Document, annotationId: string, color: string): HTMLEleme
 
 /**
  * Apply a <mark> to a range for initial highlighting (user action).
- * Uses surroundContents for single-node ranges, extractContents for cross-element.
+ * Uses surroundContents for single-node ranges, per-text-node splitting for cross-element
+ * to avoid extractContents breaking table structures.
  */
 export function applyMarkToRange(range: Range, annotationId: string, color: string): Element {
   const doc = range.commonAncestorContainer.ownerDocument
-  const mark = makeMark(doc, annotationId, color)
 
-  try {
-    range.surroundContents(mark)
-  } catch {
-    const fragment = range.extractContents()
-    mark.appendChild(fragment)
-    range.insertNode(mark)
+  // Single text node — safe to use surroundContents
+  if (
+    range.startContainer === range.endContainer &&
+    range.startContainer.nodeType === Node.TEXT_NODE
+  ) {
+    const mark = makeMark(doc, annotationId, color)
+    try {
+      range.surroundContents(mark)
+    } catch { /* skip */ }
+    return mark
   }
-  return mark
+
+  // Cross-element range — use per-text-node splitting (same as restoreMarkFromRange)
+  // to avoid extractContents which corrupts table structures
+  const walker = doc.createTreeWalker(
+    range.commonAncestorContainer,
+    NodeFilter.SHOW_TEXT
+  )
+  const segments: { node: Text; start: number; end: number }[] = []
+  let node: Node | null
+
+  while ((node = walker.nextNode())) {
+    if (!range.intersectsNode(node)) continue
+    const textNode = node as Text
+    const len = textNode.textContent?.length ?? 0
+    let start = 0
+    let end = len
+
+    if (textNode === range.startContainer) start = range.startOffset
+    if (textNode === range.endContainer) end = range.endOffset
+
+    if (start < end) {
+      segments.push({ node: textNode, start, end })
+    }
+  }
+
+  let firstMark: Element | null = null
+  for (const seg of segments) {
+    try {
+      const mark = makeMark(doc, annotationId, color)
+      const after = seg.node.splitText(seg.start)
+      const rest = after.splitText(seg.end - seg.start)
+      mark.appendChild(after)
+      seg.node.parentNode?.insertBefore(mark, rest)
+      if (!firstMark) firstMark = mark
+    } catch { /* skip */ }
+  }
+
+  return firstMark || makeMark(doc, annotationId, color)
 }
 
 /**

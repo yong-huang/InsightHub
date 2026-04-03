@@ -66,6 +66,17 @@
   height: 100%;
   border-radius: 0;
 }
+.viz-fullscreen .kg-legend,
+.viz-fullscreen .pm-legend {
+  top: auto;
+  bottom: 1rem;
+  right: 1rem;
+}
+.viz-fullscreen .pm-size-legend {
+  bottom: auto;
+  top: 1rem;
+  right: 1rem;
+}
 
 /* ========== Period Selector ========== */
 .viz-period-selector {

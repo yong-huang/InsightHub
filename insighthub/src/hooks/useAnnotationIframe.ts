@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import type { Annotation } from '@/types'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { rangeToXPath, xpathToRange, findTextRange, applyMarkToRange, restoreMarkFromRange } from '@/utils/xpath'
+import { rangeToXPath, xpathToRange, findTextRange, findTextRangeFuzzy, applyMarkToRange, restoreMarkFromRange } from '@/utils/xpath'
 
 export interface SelectionInfo {
   text: string
@@ -13,6 +13,7 @@ export interface SelectionInfo {
 
 export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
+  const [staleAnnotationIds, setStaleAnnotationIds] = useState<Set<string>>(new Set())
   const selectionInfoRef = useRef<SelectionInfo | null>(null)
   const addAnnotation = useAnnotationStore(s => s.addAnnotation)
   const removeAnnotation = useAnnotationStore(s => s.removeAnnotation)
@@ -134,31 +135,36 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
 
     const doRestore = () => {
       const annotations = allAnnotations.filter(a => a.documentId === documentId)
-
-      // Phase 1: Collect all ranges BEFORE modifying the DOM
+      const restoredIds = new Set<string>()
       const pending: { annotation: Annotation; range: Range }[] = []
+
+      // Collect all ranges BEFORE modifying the DOM
       for (const annotation of annotations) {
-        if (doc.querySelector(`mark[data-annotation-id="${annotation.id}"]`)) continue
+        if (doc.querySelector(`mark[data-annotation-id="${annotation.id}"]`)) {
+          restoredIds.add(annotation.id)
+          continue
+        }
 
         let range = xpathToRange(doc, annotation.xpath)
-        if (!range) {
-          range = findTextRange(doc, annotation.text)
-        }
+        if (!range) range = findTextRange(doc, annotation.text)
+        if (!range) range = findTextRangeFuzzy(doc, annotation.text)
         if (range) {
           pending.push({ annotation, range })
         }
       }
 
-      // Phase 2: Apply in reverse document order so earlier DOM positions stay valid
-      // Use the safe restoreMarkFromRange which splits text nodes instead of extractContents
+      // Apply in reverse document order so earlier DOM positions stay valid
       for (let i = pending.length - 1; i >= 0; i--) {
         const { annotation, range } = pending[i]
         try {
           restoreMarkFromRange(range, annotation.id, annotation.color)
-        } catch {
-          // skip
-        }
+          restoredIds.add(annotation.id)
+        } catch { /* skip */ }
       }
+
+      // Track annotations that could not be restored
+      const stale = annotations.filter(a => !restoredIds.has(a.id))
+      setStaleAnnotationIds(new Set(stale.map(a => a.id)))
     }
 
     restoreTimeoutRef.current = window.setTimeout(doRestore, 500)
@@ -223,6 +229,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
 
   return {
     selectionInfo,
+    staleAnnotationIds,
     clearSelection,
     addHighlight,
     removeHighlight,

@@ -1220,6 +1220,50 @@
   color: var(--text-dim);
 }
 
+/* Stale annotation bar */
+.annotation-panel-stale-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--accent-orange-light, #fff3e0);
+  border-bottom: 1px solid var(--accent-orange, #ff9800);
+  font-size: 0.75rem;
+  color: var(--accent-orange, #e65100);
+}
+.annotation-panel-stale-clear {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--accent-orange, #ff9800);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent-orange, #e65100);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.annotation-panel-stale-clear:hover {
+  background: var(--accent-orange, #ff9800);
+  color: #fff;
+}
+
+/* Stale annotation item */
+.annotation-panel-item-stale {
+  opacity: 0.55;
+  cursor: default;
+}
+.annotation-panel-item-stale:hover {
+  background: transparent;
+}
+.annotation-panel-item-stale-badge {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  background: var(--accent-red, #e53935);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
 .annotation-panel-item-text {
   font-size: 0.8rem;
   color: var(--text-secondary);

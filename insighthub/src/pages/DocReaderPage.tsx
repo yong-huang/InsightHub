@@ -63,6 +63,7 @@ export function DocReaderPage() {
   )
   const {
     selectionInfo,
+    staleAnnotationIds,
     clearSelection,
     addHighlight,
     removeHighlight,
@@ -248,6 +249,12 @@ export function DocReaderPage() {
       storageService.saveSummary(docId, result.data)
     }
   }, [doc, docId])
+
+  const handleRemoveStale = useCallback((ids: string[]) => {
+    for (const id of ids) {
+      removeHighlight(id, doc?.id || '')
+    }
+  }, [removeHighlight, doc?.id])
 
   if (!doc) {
     return (
@@ -531,6 +538,8 @@ export function DocReaderPage() {
             onRemove={handleRemoveAnnotation}
             onUpdateComment={handleUpdateComment}
             onAddReply={handleAddReply}
+            staleAnnotationIds={staleAnnotationIds}
+            onRemoveStale={handleRemoveStale}
           />
         )}
 
