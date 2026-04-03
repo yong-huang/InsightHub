@@ -215,7 +215,7 @@ export function buildReportData(
   const dayReadCounts: Record<string, number[]> = {}
   for (const e of filteredReadHistory) {
     const d = new Date(e.readAt)
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     if (!dayReadCounts[key]) dayReadCounts[key] = []
     dayReadCounts[key].push(e.readAt)
   }

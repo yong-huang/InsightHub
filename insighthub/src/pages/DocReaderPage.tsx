@@ -35,7 +35,6 @@ export function DocReaderPage() {
   const generatingDocId = useQuizStore(s => s.generatingDocId)
   const generatingError = useQuizStore(s => s.generatingError)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const clearGeneration = useQuizStore(s => s.clearGeneration)
   const { quizDifficulty, quizQuestionCount } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
@@ -160,24 +159,6 @@ export function DocReaderPage() {
     }
   }, [docId])
 
-  // Restore scroll position after iframe loads
-  useEffect(() => {
-    if (!docId) return
-    const timer = setTimeout(() => {
-      try {
-        const doc = iframeRef.current?.contentDocument
-        const win = doc?.defaultView
-        if (!win) return
-        const positions = storageService.getReadingPositions()
-        const pos = positions[docId]
-        if (pos && pos.scrollTop > 0) {
-          win.scrollTo({ top: pos.scrollTop, behavior: 'smooth' })
-        }
-      } catch {}
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [docId])
-
   // Save scroll position on scroll (debounced)
   useEffect(() => {
     if (!docId) return
@@ -221,6 +202,53 @@ export function DocReaderPage() {
     }
   }, [docId])
 
+  const updateAnnotation = useAnnotationStore(s => s.updateAnnotation)
+
+  const toggleReadLater = useCallback(() => {
+    if (!docId) return
+    if (isBookmarked) {
+      storageService.removeFromReadLater(docId)
+    } else {
+      storageService.addToReadLater(docId)
+    }
+    setIsBookmarked(!isBookmarked)
+    window.dispatchEvent(new Event('storage'))
+  }, [docId, isBookmarked])
+
+  const handleUpdateComment = useCallback((annotationId: string, comment: string) => {
+    updateAnnotation(annotationId, { comment })
+  }, [updateAnnotation])
+
+  const handleAddReply = useCallback((annotationId: string, text: string) => {
+    const ann = useAnnotationStore.getState().annotations.find(a => a.id === annotationId)
+    if (!ann) return
+    const reply = { id: `reply-${Date.now()}`, text, createdAt: Date.now() }
+    const replies = [...(ann.replies || []), reply]
+    updateAnnotation(annotationId, { replies })
+  }, [updateAnnotation])
+
+  const handleGenerateSummary = useCallback(async () => {
+    if (!doc) return
+    setSummaryText(null)
+    setSummaryError(null)
+    setIsSummaryGenerating(true)
+
+    const result = await generateDocumentSummary(
+      doc.title,
+      doc.contentText,
+      doc.sections,
+      (text) => setSummaryText(text),
+    )
+
+    setIsSummaryGenerating(false)
+    if (!result.success) {
+      setSummaryError(result.error || '生成失败')
+    } else if (result.data && docId) {
+      setSummaryText(result.data)
+      storageService.saveSummary(docId, result.data)
+    }
+  }, [doc, docId])
+
   if (!doc) {
     return (
       <div className="empty-state">
@@ -245,18 +273,6 @@ export function DocReaderPage() {
     setShowTagInput(false)
   }
 
-  const toggleReadLater = useCallback(() => {
-    if (!docId) return
-    if (isBookmarked) {
-      storageService.removeFromReadLater(docId)
-    } else {
-      storageService.addToReadLater(docId)
-    }
-    setIsBookmarked(!isBookmarked)
-    // Dispatch a storage event so Sidebar can react
-    window.dispatchEvent(new Event('storage'))
-  }, [docId, isBookmarked])
-
   const handleGenerate = (mode: 'new' | 'regenerate' | 'append') => {
     setShowRegenerateMenu(false)
     startGeneration(doc.id, mode, doc, quizDifficulty, quizQuestionCount)
@@ -275,26 +291,12 @@ export function DocReaderPage() {
     removeHighlight(annotationId, doc.id)
   }
 
-  const handleGenerateSummary = useCallback(async () => {
-    setSummaryText(null)
-    setSummaryError(null)
-    setIsSummaryGenerating(true)
-
-    const result = await generateDocumentSummary(
-      doc.title,
-      doc.contentText,
-      doc.sections,
-      (text) => setSummaryText(text),
-    )
-
-    setIsSummaryGenerating(false)
-    if (!result.success) {
-      setSummaryError(result.error || '生成失败')
-    } else if (result.data && docId) {
-      setSummaryText(result.data)
-      storageService.saveSummary(docId, result.data)
+  const handleRemoveHighlights = (annotationIds: string[]) => {
+    for (const id of annotationIds) {
+      removeHighlight(id, doc.id)
     }
-  }, [doc, docId])
+    clearSelection()
+  }
 
   return (
     <div className="doc-reader-page">
@@ -527,6 +529,8 @@ export function DocReaderPage() {
             annotations={docAnnotations}
             onScrollTo={scrollToAnnotation}
             onRemove={handleRemoveAnnotation}
+            onUpdateComment={handleUpdateComment}
+            onAddReply={handleAddReply}
           />
         )}
 
@@ -547,6 +551,7 @@ export function DocReaderPage() {
           selectionInfo={selectionInfo}
           onHighlight={handleHighlight}
           onComment={() => setShowCommentDialog(true)}
+          onRemoveHighlights={handleRemoveHighlights}
           onClose={clearSelection}
         />
       )}

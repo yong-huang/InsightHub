@@ -27,15 +27,25 @@ export const useTagStore = create<TagState>((set, get) => ({
   loadTags: () => {
     const localTags = storageService.getTags()
     set({ tags: localTags })
-    // Merge from server
+    // Merge from server, dedup by name
     fetch('/api/tags')
       .then(r => r.json())
       .then((serverTags: Tag[]) => {
-        const localMap = new Map(localTags.map(t => [t.id, t]))
-        const merged = [...serverTags]
-        for (const t of localTags) {
-          if (!merged.find(s => s.id === t.id)) merged.push(t)
+        const nameMap = new Map<string, Tag>()
+        for (const t of serverTags) {
+          nameMap.set(t.name, t)
         }
+        for (const t of localTags) {
+          const existing = nameMap.get(t.name)
+          if (existing && existing.id !== t.id) {
+            // Same name, different ID → merge documentIds
+            const mergedDocs = [...new Set([...existing.documentIds, ...t.documentIds])]
+            nameMap.set(t.name, { ...existing, documentIds: mergedDocs })
+          } else if (!existing) {
+            nameMap.set(t.name, t)
+          }
+        }
+        const merged = Array.from(nameMap.values())
         storageService.setTags(merged)
         set({ tags: merged })
       })
@@ -44,6 +54,11 @@ export const useTagStore = create<TagState>((set, get) => ({
 
   addTag: (name, documentId) => {
     const { tags } = get()
+    const existing = tags.find(t => t.name === name)
+    if (existing) {
+      get().addDocumentToTag(existing.id, documentId)
+      return existing
+    }
     const id = `tag-${Date.now()}`
     const color = DEFAULT_COLORS[tags.length % DEFAULT_COLORS.length]
     const newTag: Tag = { id, name, color, documentIds: [documentId] }

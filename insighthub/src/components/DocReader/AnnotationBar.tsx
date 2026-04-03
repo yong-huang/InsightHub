@@ -1,39 +1,52 @@
 import { useEffect, useRef } from 'react'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Eraser } from 'lucide-react'
 import type { SelectionInfo } from '@/hooks/useAnnotationIframe'
 
 interface AnnotationBarProps {
   selectionInfo: SelectionInfo
   onHighlight: (color: string) => void
   onComment: () => void
+  onRemoveHighlights: (annotationIds: string[]) => void
   onClose: () => void
 }
 
-export function AnnotationBar({ selectionInfo, onHighlight, onComment, onClose }: AnnotationBarProps) {
+export function AnnotationBar({ selectionInfo, onHighlight, onComment, onRemoveHighlights, onClose }: AnnotationBarProps) {
   const barRef = useRef<HTMLDivElement>(null)
   const rect = selectionInfo.rect
+  const hasExisting = selectionInfo.existingAnnotationIds.length > 0
 
   // Position: above the selection, centered
   const top = rect.top + window.scrollY - 48
   const left = rect.left + rect.width / 2 + window.scrollX
 
-  // Close on mousedown outside the bar (without blocking scroll)
+  // Close on mousedown outside the bar or on scroll
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (barRef.current && !barRef.current.contains(e.target as Node)) {
         onClose()
       }
     }
+    const handleWheel = () => onClose()
     document.addEventListener('mousedown', handleMouseDown)
-    return () => document.removeEventListener('mousedown', handleMouseDown)
+    document.addEventListener('wheel', handleWheel, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('wheel', handleWheel)
+    }
   }, [onClose])
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onRemoveHighlights(selectionInfo.existingAnnotationIds)
+  }
 
   return (
     <div
       ref={barRef}
       className="annotation-bar"
-      style={{ top, left }}
+      style={{ top, left, pointerEvents: 'none' }}
     >
       <div className="annotation-bar-arrow" />
       <div className="annotation-bar-colors">
@@ -54,8 +67,19 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onClose }
         title="添加批注"
       >
         <MessageSquare size={14} />
-        <span>批注</span>
       </button>
+      {hasExisting && (
+        <>
+          <div className="annotation-bar-divider" />
+          <button
+            className="annotation-bar-comment-btn annotation-bar-remove-btn"
+            onMouseDown={handleRemove}
+            title="取消高亮"
+          >
+            <Eraser size={14} />
+          </button>
+        </>
+      )}
     </div>
   )
 }

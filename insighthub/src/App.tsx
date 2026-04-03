@@ -13,6 +13,7 @@ import { ReadLaterPage } from '@/pages/ReadLaterPage'
 import { AchievementsPage } from '@/pages/AchievementsPage'
 import { KnowledgeGraphPage } from '@/pages/KnowledgeGraphPage'
 import { LearningPathPage } from '@/pages/LearningPathPage'
+import { PersonalMapPage } from '@/pages/PersonalMapPage'
 import { AchievementToast } from '@/components/AchievementToast'
 import { useInitializeApp } from '@/hooks/useInitializeApp'
 import { useKeyboard } from '@/hooks/useKeyboard'
@@ -42,6 +43,7 @@ function AppContent() {
             <Route path="/read-later" element={<ReadLaterPage />} />
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+            <Route path="/my-map" element={<PersonalMapPage />} />
             <Route path="/learning-path" element={<LearningPathPage />} />
           </Route>
         </Routes>

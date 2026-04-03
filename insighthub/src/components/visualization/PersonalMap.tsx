@@ -1,8 +1,9 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
-import { buildGraphData, type GraphNode, type GraphOptions } from '@/utils/graphBuilder'
-import type { Document, Tag } from '@/types'
+import { buildPersonalMapData, type EngagementMetrics } from '@/utils/personalMapBuilder'
+import { type GraphNode } from '@/utils/graphBuilder'
+import type { Document, Tag, QuizAttempt, Annotation } from '@/types'
 
 interface SimNode extends GraphNode {
   x: number
@@ -11,6 +12,7 @@ interface SimNode extends GraphNode {
   vy: number
   fx?: number | null
   fy?: number | null
+  metrics?: EngagementMetrics
 }
 
 interface SimLink {
@@ -22,7 +24,10 @@ interface SimLink {
 interface Props {
   documents: Map<string, Document>
   tags: Tag[]
-  options?: GraphOptions
+  quizHistory: QuizAttempt[]
+  annotations: Annotation[]
+  showDocuments?: boolean
+  showTags?: boolean
 }
 
 const WIDTH = 1200
@@ -38,7 +43,15 @@ function getEventClientPos(e: React.MouseEvent | React.TouchEvent): { clientX: n
   return { clientX: (e as React.MouseEvent).clientX, clientY: (e as React.MouseEvent).clientY }
 }
 
-export function KnowledgeGraph({ documents, tags, options: externalOptions }: Props) {
+function getScoreLabel(score: number): string {
+  if (score < 0) return '未测验'
+  if (score >= 80) return '精通'
+  if (score >= 60) return '良好'
+  if (score >= 40) return '学习中'
+  return '需加强'
+}
+
+export function PersonalMap({ documents, tags, quizHistory, annotations, showDocuments = true, showTags = true }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,16 +59,92 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   const navigate = useNavigate()
 
   const graphData = useMemo(
-    () => buildGraphData(documents, tags, externalOptions || { filterSource: 'all', showDocuments: true }),
-    [documents, tags, externalOptions],
+    () => buildPersonalMapData(documents, tags, quizHistory, annotations, { showDocuments, showTags }),
+    [documents, tags, quizHistory, annotations, showDocuments, showTags],
   )
+
+  // Build metrics map for tooltips
+  const metricsMap = useMemo(() => {
+    const map = new Map<string, EngagementMetrics>()
+    if (!graphData.nodes.length) return map
+
+    // For category nodes: aggregate from connected docs
+    const catDocIds = new Map<string, string[]>()
+    for (const node of graphData.nodes) {
+      if (node.id === 'user:me') continue
+      if (node.id.startsWith('doc:')) {
+        const docId = node.data?.docId
+        if (!docId) continue
+        // Find its category from links
+        for (const link of graphData.links) {
+          const sid = typeof link.source === 'string' ? link.source : (link.source as SimNode).id
+          const tid = typeof link.target === 'string' ? link.target : (link.target as SimNode).id
+          if (sid === `doc:${docId}` && tid.startsWith('cat:')) {
+            const catKey = tid.slice(4)
+            if (!catDocIds.has(catKey)) catDocIds.set(catKey, [])
+            catDocIds.get(catKey)!.push(docId)
+          }
+        }
+      }
+    }
+
+    // Build per-doc metrics
+    const docMap = new Map<string, EngagementMetrics>()
+    for (const [docId, doc] of documents) {
+      const annCount = annotations.filter(a => a.documentId === docId).length
+      const docQuizzes = quizHistory.filter(q => q.documentId === docId)
+      const bestScore = docQuizzes.length > 0
+        ? Math.round(Math.max(...docQuizzes.map(q => (q.totalScore / q.maxScore) * 100)))
+        : -1
+      const activityTimes = [
+        doc.lastReadAt || 0,
+        ...annotations.filter(a => a.documentId === docId).map(a => a.createdAt),
+        ...docQuizzes.map(q => q.completedAt),
+      ].filter(t => t > 0)
+      docMap.set(docId, {
+        readCount: doc.readCount,
+        annotationCount: annCount,
+        quizAttempts: docQuizzes.length,
+        bestQuizScore: bestScore,
+        lastActivityAt: activityTimes.length > 0 ? Math.max(...activityTimes) : 0,
+      })
+    }
+
+    // Map doc metrics to nodes
+    for (const node of graphData.nodes) {
+      if (node.id.startsWith('doc:') && node.data?.docId) {
+        const m = docMap.get(node.data.docId)
+        if (m) map.set(node.id, m)
+      }
+    }
+
+    // Aggregate category metrics
+    for (const [catKey, docIds] of catDocIds) {
+      const agg: EngagementMetrics = { readCount: 0, annotationCount: 0, quizAttempts: 0, bestQuizScore: -1, lastActivityAt: 0 }
+      const quizzedScores: number[] = []
+      for (const docId of docIds) {
+        const m = docMap.get(docId)
+        if (!m) continue
+        agg.readCount += m.readCount
+        agg.annotationCount += m.annotationCount
+        agg.quizAttempts += m.quizAttempts
+        agg.lastActivityAt = Math.max(agg.lastActivityAt, m.lastActivityAt)
+        if (m.bestQuizScore >= 0) quizzedScores.push(m.bestQuizScore)
+      }
+      if (quizzedScores.length > 0) {
+        agg.bestQuizScore = Math.round(quizzedScores.reduce((a, b) => a + b, 0) / quizzedScores.length)
+      }
+      map.set(`cat:${catKey}`, agg)
+    }
+
+    return map
+  }, [graphData, documents, annotations, quizHistory])
 
   const [simNodes, setSimNodes] = useState<SimNode[]>([])
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; node: GraphNode } | null>(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 })
 
-  // Unified interaction state
   const interactionRef = useRef<{
     mode: InteractionMode
     nodeId: string | null
@@ -64,23 +153,31 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     hasMoved: boolean
   }>({ mode: 'idle', nodeId: null, lastClientX: 0, lastClientY: 0, hasMoved: false })
 
+  // Separate flag that survives the mouseup→click gap
+  const didDragRef = useRef(false)
+
   // Run simulation
   useEffect(() => {
     if (graphData.nodes.length === 0) return
 
-    const nodes: SimNode[] = graphData.nodes.map(n => ({
-      ...n,
-      x: WIDTH / 2 + (Math.random() - 0.5) * 200,
-      y: HEIGHT / 2 + (Math.random() - 0.5) * 200,
-      vx: 0,
-      vy: 0,
-    }))
+    const nodes: SimNode[] = graphData.nodes.map(n => {
+      if (n.id === 'user:me') {
+        return { ...n, x: WIDTH / 2, y: HEIGHT / 2, vx: 0, vy: 0, fx: WIDTH / 2, fy: HEIGHT / 2 }
+      }
+      return {
+        ...n,
+        x: WIDTH / 2 + (Math.random() - 0.5) * 200,
+        y: HEIGHT / 2 + (Math.random() - 0.5) * 200,
+        vx: 0,
+        vy: 0,
+      }
+    })
 
     const links: SimLink[] = graphData.links.map(l => ({ ...l }))
 
     const sim = forceSimulation<SimNode>(nodes)
-      .force('link', forceLink<SimNode, SimLink>(links).id(d => d.id).distance(80))
-      .force('charge', forceManyBody().strength(-200))
+      .force('link', forceLink<SimNode, SimLink>(links).id(d => d.id).distance(100))
+      .force('charge', forceManyBody().strength(-300))
       .force('center', forceCenter(WIDTH / 2, HEIGHT / 2))
       .force('collide', forceCollide<SimNode>().radius(d => d.size + 4))
 
@@ -95,7 +192,6 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     }
   }, [graphData])
 
-  // Build connected node ids for highlighting
   const connectedIds = useCallback((nodeId: string): Set<string> => {
     const ids = new Set<string>([nodeId])
     for (const link of graphData.links) {
@@ -109,16 +205,14 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
 
   const highlightedSet = hoveredNode ? connectedIds(hoveredNode) : null
 
-  // Transform ref for wheel/pinch handler
   const transformRef = useRef(transform)
   useEffect(() => {
     transformRef.current = transform
   }, [transform])
 
-  // Pinch-to-zoom state
   const pinchRef = useRef<{ dist: number; k: number } | null>(null)
 
-  // Zoom via wheel (desktop) — must use non-passive listener to preventDefault
+  // Wheel zoom
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -140,9 +234,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     return () => el.removeEventListener('wheel', handleWheel)
   }, [])
 
-  // Unified start handler (mouse + touch)
   const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    // Handle pinch start (second finger)
     if ('touches' in e && e.touches.length === 2) {
       e.preventDefault()
       const dx = e.touches[0].clientX - e.touches[1].clientX
@@ -165,6 +257,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         lastClientY: clientY,
         hasMoved: false,
       }
+      didDragRef.current = false
       const sim = simRef.current
       if (sim) {
         const node = sim.nodes().find((n: SimNode) => n.id === nodeId)
@@ -181,11 +274,11 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         lastClientY: clientY,
         hasMoved: false,
       }
+      didDragRef.current = false
     }
   }, [])
 
   const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    // Handle pinch zoom
     if ('touches' in e && e.touches.length === 2 && pinchRef.current) {
       e.preventDefault()
       const dx = e.touches[0].clientX - e.touches[1].clientX
@@ -212,6 +305,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     const state = interactionRef.current
     if (state.mode === 'pan') {
       state.hasMoved = true
+      didDragRef.current = true
       const dx = clientX - state.lastClientX
       const dy = clientY - state.lastClientY
       state.lastClientX = clientX
@@ -219,6 +313,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
       setTransform(t => ({ ...t, x: t.x + dx, y: t.y + dy }))
     } else if (state.mode === 'drag-node' || state.mode === 'dragged-node') {
       state.hasMoved = true
+      didDragRef.current = true
       state.mode = 'dragged-node'
       const dx = clientX - state.lastClientX
       const dy = clientY - state.lastClientY
@@ -253,30 +348,74 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     interactionRef.current = { mode: 'idle', nodeId: null, lastClientX: 0, lastClientY: 0, hasMoved: false }
   }, [])
 
-  // Click to navigate (only if no drag movement)
   const handleClick = useCallback((node: GraphNode) => {
-    if (interactionRef.current.hasMoved) return
+    if (didDragRef.current) {
+      didDragRef.current = false
+      return
+    }
+    if (node.id === 'user:me') return
     if (node.type === 'document' && node.data?.docId) {
       navigate(`/doc/${node.data.docId}`)
     } else if (node.type === 'category' && node.data?.categoryKey) {
       const cat = node.data.categoryKey
-      const source = cat === 'mindinsight' || cat === 'techinsight' ? cat : ''
-      if (source) {
-        navigate(`/${source}`)
+      const doc = Array.from(documents.values()).find(d => d.category === cat)
+      if (doc) {
+        navigate(`/${doc.source}/${cat}`)
       }
     } else if (node.type === 'tag' && node.data?.tagId) {
       navigate(`/tag/${node.data.tagId}`)
     }
-  }, [navigate])
+  }, [navigate, documents])
 
   if (graphData.nodes.length === 0) {
-    return <div className="stats-empty">暂无图数据，请先阅读一些文档</div>
+    return (
+      <div className="pm-empty">
+        <div className="pm-empty-icon">🗺️</div>
+        <p>暂无学习数据</p>
+        <p className="pm-empty-hint">阅读文档、添加批注或完成测验后，这里将展示你的个人知识地图</p>
+      </div>
+    )
+  }
+
+  const renderTooltipContent = (node: GraphNode) => {
+    if (node.id === 'user:me') {
+      return (
+        <>
+          <strong>我</strong>
+          <br />
+          <span style={{ opacity: 0.7 }}>学习中心</span>
+        </>
+      )
+    }
+
+    const metrics = metricsMap.get(node.id)
+    const typeLabel = node.id.startsWith('cat:') ? '分类' : node.id.startsWith('doc:') ? '文档' : '标签'
+
+    return (
+      <>
+        <strong>{node.label}</strong>
+        <br />
+        <span style={{ opacity: 0.7 }}>{typeLabel}</span>
+        {metrics && (
+          <>
+            <br />
+            <span>阅读 {metrics.readCount} 次 · 批注 {metrics.annotationCount} · 测验 {metrics.quizAttempts} 次</span>
+            {metrics.bestQuizScore >= 0 && (
+              <>
+                <br />
+                <span>最佳成绩: {metrics.bestQuizScore}分 ({getScoreLabel(metrics.bestQuizScore)})</span>
+              </>
+            )}
+          </>
+        )}
+      </>
+    )
   }
 
   return (
     <div
       ref={containerRef}
-      className="kg-container"
+      className="pm-container"
       onMouseDown={handlePointerDown}
       onMouseMove={handlePointerMove}
       onMouseUp={handlePointerUp}
@@ -289,6 +428,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
             if (node) { node.fx = null; node.fy = null }
           }
         }
+        if (state.hasMoved) didDragRef.current = true
         interactionRef.current = { mode: 'idle', nodeId: null, lastClientX: 0, lastClientY: 0, hasMoved: false }
       }}
       onTouchStart={handlePointerDown}
@@ -306,7 +446,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
             const tn = simNodes.find(n => n.id === tid)
             if (!sn || !tn) return null
 
-            let className = 'kg-link'
+            let className = 'pm-link'
             if (highlightedSet) {
               className += highlightedSet.has(sid) && highlightedSet.has(tid) ? ' highlighted' : ' dimmed'
             }
@@ -323,12 +463,14 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
 
           {/* Nodes */}
           {simNodes.map(node => {
-            let className = 'kg-node'
+            const isCenter = node.id === 'user:me'
+            let className = isCenter ? 'pm-node pm-center-node' : 'pm-node'
             if (highlightedSet && !highlightedSet.has(node.id)) {
               className += ' dimmed'
             }
 
-            const showLabel = node.type === 'source' || node.type === 'category' ||
+            const showLabel = isCenter ||
+              node.type === 'category' ||
               (node.type === 'tag' && node.size > 10) ||
               transform.k > 1.2
 
@@ -364,17 +506,36 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
                 }}
                 onClick={() => handleClick(node)}
               >
+                {/* Center node ring */}
+                {isCenter && (
+                  <circle
+                    r={node.size + 6}
+                    fill="none"
+                    stroke={node.color}
+                    strokeWidth={1.5}
+                    opacity={0.3}
+                  />
+                )}
                 <circle
                   r={node.size}
                   fill={node.color}
                   stroke={highlightedSet?.has(node.id) ? '#fff' : 'transparent'}
                   strokeWidth={hoveredNode === node.id ? 2 : 0}
                 />
-                {showLabel && (
+                {isCenter && (
                   <text
-                    className="kg-node-label"
+                    className="pm-node-label pm-center-label"
+                    y={1}
+                    style={{ fill: '#fff', fontWeight: 700, fontSize: '14px' }}
+                  >
+                    我
+                  </text>
+                )}
+                {!isCenter && showLabel && (
+                  <text
+                    className="pm-node-label"
                     y={node.size + 14}
-                    style={{ fontSize: node.type === 'source' ? '13px' : '10px' }}
+                    style={{ fontSize: node.type === 'category' ? '11px' : '10px' }}
                   >
                     {node.label}
                   </text>
@@ -386,49 +547,52 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
       </svg>
 
       {/* Legend */}
-      <div className="kg-legend">
-        {graphData.nodes.some(n => n.type === 'source') ? (
-          graphData.nodes.filter(n => n.type === 'source').map(n => (
-            <div key={n.id} className="kg-legend-item">
-              <span className="kg-legend-dot" style={{ background: n.color }} />
-              <span>{n.label}</span>
-            </div>
-          ))
-        ) : (
-          <div className="kg-legend-item">
-            <span className="kg-legend-dot" style={{ background: externalOptions?.filterSource === 'mindinsight' ? '#ff8c42' : '#326ce5' }} />
-            <span>{externalOptions?.filterSource === 'mindinsight' ? 'MindInsight' : 'TechInsight'}</span>
-          </div>
-        )}
-        <div className="kg-legend-item">
-          <span className="kg-legend-dot" style={{ background: '#fbbf24' }} />
-          <span>分类</span>
+      <div className="pm-legend">
+        <div className="pm-legend-title">掌握度</div>
+        <div className="pm-legend-item">
+          <span className="pm-legend-dot" style={{ background: '#4ecdc4' }} />
+          <span>精通 (80-100)</span>
         </div>
-        <div className="kg-legend-item">
-          <span className="kg-legend-dot" style={{ background: '#a78bfa', width: '8px', height: '8px', borderRadius: '50%' }} />
-          <span>标签</span>
+        <div className="pm-legend-item">
+          <span className="pm-legend-dot" style={{ background: '#fbbf24' }} />
+          <span>良好 (60-79)</span>
         </div>
-        {externalOptions?.showDocuments !== false && (
-          <div className="kg-legend-item">
-            <span className="kg-legend-dot" style={{ background: 'rgba(50,108,229,0.6)', width: '6px', height: '6px', borderRadius: '50%' }} />
-            <span>文档</span>
-          </div>
-        )}
+        <div className="pm-legend-item">
+          <span className="pm-legend-dot" style={{ background: '#ff8c42' }} />
+          <span>学习中 (40-59)</span>
+        </div>
+        <div className="pm-legend-item">
+          <span className="pm-legend-dot" style={{ background: '#ff6b6b' }} />
+          <span>需加强 (0-39)</span>
+        </div>
+        <div className="pm-legend-item">
+          <span className="pm-legend-dot" style={{ background: '#a78bfa' }} />
+          <span>未测验</span>
+        </div>
+      </div>
+
+      {/* Size legend */}
+      <div className="pm-legend pm-size-legend">
+        <div className="pm-legend-title">节点大小</div>
+        <div className="pm-legend-item">
+          <span>互动越多，节点越大</span>
+        </div>
+        <div className="pm-legend-item">
+          <span style={{ opacity: 0.7, fontSize: '11px' }}>阅读×1 + 批注×2 + 测验×3</span>
+        </div>
       </div>
 
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="kg-tooltip"
+          className="pm-tooltip"
           style={{
             left: tooltip.x,
             top: tooltip.y,
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <strong>{tooltip.node.label}</strong>
-          <br />
-          <span style={{ opacity: 0.7 }}>{tooltip.node.type === 'source' ? '来源' : tooltip.node.type === 'category' ? '分类' : tooltip.node.type === 'tag' ? '标签' : '文档'}</span>
+          {renderTooltipContent(tooltip.node)}
         </div>
       )}
     </div>

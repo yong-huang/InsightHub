@@ -976,6 +976,8 @@
   box-shadow: var(--shadow-lg);
   transform: translateX(-50%);
   animation: scaleIn 0.15s var(--ease-spring);
+}
+.annotation-bar > * {
   pointer-events: auto;
 }
 
@@ -1035,6 +1037,10 @@
 .annotation-bar-comment-btn:hover {
   background: var(--border-subtle);
   color: var(--text-primary);
+}
+.annotation-bar-remove-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--accent-red);
 }
 
 /* ========== Comment Dialog ========== */
@@ -1237,10 +1243,7 @@
 }
 
 .annotation-panel-item-delete {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 24px;
@@ -1252,12 +1255,81 @@
   cursor: pointer;
   padding: 0;
 }
-.annotation-panel-item:hover .annotation-panel-item-delete {
-  display: flex;
-}
 .annotation-panel-item-delete:hover {
   background: rgba(255, 107, 107, 0.15);
   color: var(--accent-red);
+}
+
+.annotation-panel-item-actions {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  display: none;
+  gap: 0.25rem;
+}
+.annotation-panel-item:hover .annotation-panel-item-actions {
+  display: flex;
+}
+.annotation-panel-item-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.annotation-panel-item-action:hover {
+  background: rgba(50, 108, 229, 0.15);
+  color: var(--accent-blue);
+}
+
+.annotation-panel-item-edit {
+  margin-top: 0.5rem;
+}
+.annotation-panel-item-edit textarea,
+.annotation-panel-item-reply-input textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  resize: vertical;
+  font-family: inherit;
+}
+.annotation-panel-item-edit-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  justify-content: flex-end;
+}
+
+.annotation-panel-item-replies {
+  margin-top: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border-primary);
+}
+.annotation-panel-item-reply {
+  font-size: 0.78rem;
+  margin-bottom: 0.4rem;
+}
+.annotation-panel-item-reply-time {
+  color: var(--text-dim);
+  margin-right: 0.5rem;
+  font-size: 0.72rem;
+}
+.annotation-panel-item-reply-text {
+  color: var(--text-secondary);
+}
+
+.annotation-panel-item-reply-input {
+  margin-top: 0.5rem;
 }
 
 /* ========== Notes Page ========== */
@@ -1445,9 +1517,11 @@
 .doc-fullscreen-active .annotation-panel {
   display: none !important;
 }
-.doc-fullscreen-active .annotation-bar,
+.doc-fullscreen-active .annotation-bar {
+  z-index: 100001 !important;
+}
 .doc-fullscreen-active .comment-dialog-overlay {
-  display: none !important;
+  z-index: 100001 !important;
 }
 
 /* ========== Import Dialog ========== */

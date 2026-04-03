@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import type { Annotation } from '@/types'
-import { MessageSquare, Highlighter, Trash2 } from 'lucide-react'
+import { MessageSquare, Highlighter, Trash2, Pencil, Reply, Check, X } from 'lucide-react'
 
 interface AnnotationPanelProps {
   annotations: Annotation[]
   onScrollTo: (id: string) => void
   onRemove: (id: string) => void
+  onUpdateComment?: (annotationId: string, comment: string) => void
+  onAddReply?: (annotationId: string, text: string) => void
 }
 
 function formatTime(ts: number): string {
@@ -13,7 +16,7 @@ function formatTime(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function AnnotationPanel({ annotations, onScrollTo, onRemove }: AnnotationPanelProps) {
+export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateComment, onAddReply }: AnnotationPanelProps) {
   if (annotations.length === 0) {
     return (
       <div className="annotation-panel">
@@ -40,42 +43,179 @@ export function AnnotationPanel({ annotations, onScrollTo, onRemove }: Annotatio
           .slice()
           .sort((a, b) => b.createdAt - a.createdAt)
           .map(ann => (
-            <div
+            <AnnotationItem
               key={ann.id}
-              className="annotation-panel-item"
-              onClick={() => onScrollTo(ann.id)}
+              annotation={ann}
+              onScrollTo={onScrollTo}
+              onRemove={onRemove}
+              onUpdateComment={onUpdateComment}
+              onAddReply={onAddReply}
+            />
+          ))}
+      </div>
+    </div>
+  )
+}
+
+function AnnotationItem({
+  annotation: ann,
+  onScrollTo,
+  onRemove,
+  onUpdateComment,
+  onAddReply,
+}: {
+  annotation: Annotation
+  onScrollTo: (id: string) => void
+  onRemove: (id: string) => void
+  onUpdateComment?: (annotationId: string, comment: string) => void
+  onAddReply?: (annotationId: string, text: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(ann.comment || '')
+  const [showReplyInput, setShowReplyInput] = useState(false)
+  const [replyText, setReplyText] = useState('')
+
+  const handleSaveEdit = () => {
+    if (editText.trim() && onUpdateComment) {
+      onUpdateComment(ann.id, editText.trim())
+    }
+    setEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditText(ann.comment || '')
+    setEditing(false)
+  }
+
+  const handleAddReply = () => {
+    if (replyText.trim() && onAddReply) {
+      onAddReply(ann.id, replyText.trim())
+      setReplyText('')
+      setShowReplyInput(false)
+    }
+  }
+
+  return (
+    <div
+      className="annotation-panel-item"
+      onClick={() => !editing && !showReplyInput && onScrollTo(ann.id)}
+    >
+      <div className="annotation-panel-item-header">
+        <div
+          className="annotation-panel-item-dot"
+          style={{ backgroundColor: ann.color }}
+        />
+        <span className="annotation-panel-item-type">
+          {ann.type === 'comment' ? (
+            <><MessageSquare size={12} /> 批注</>
+          ) : (
+            <><Highlighter size={12} /> 高亮</>
+          )}
+        </span>
+        <span className="annotation-panel-item-time">
+          {formatTime(ann.createdAt)}
+        </span>
+      </div>
+      <p className="annotation-panel-item-text">
+        {ann.text.length > 100 ? ann.text.slice(0, 100) + '...' : ann.text}
+      </p>
+
+      {ann.comment && !editing && (
+        <p className="annotation-panel-item-comment">{ann.comment}</p>
+      )}
+
+      {editing && (
+        <div className="annotation-panel-item-edit" onClick={e => e.stopPropagation()}>
+          <textarea
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            rows={3}
+            autoFocus
+          />
+          <div className="annotation-panel-item-edit-actions">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleSaveEdit}
+              title="保存"
             >
-              <div className="annotation-panel-item-header">
-                <div
-                  className="annotation-panel-item-dot"
-                  style={{ backgroundColor: ann.color }}
-                />
-                <span className="annotation-panel-item-type">
-                  {ann.type === 'comment' ? (
-                    <><MessageSquare size={12} /> 批注</>
-                  ) : (
-                    <><Highlighter size={12} /> 高亮</>
-                  )}
-                </span>
-                <span className="annotation-panel-item-time">
-                  {formatTime(ann.createdAt)}
-                </span>
-              </div>
-              <p className="annotation-panel-item-text">
-                {ann.text.length > 100 ? ann.text.slice(0, 100) + '...' : ann.text}
-              </p>
-              {ann.comment && (
-                <p className="annotation-panel-item-comment">{ann.comment}</p>
-              )}
-              <button
-                className="annotation-panel-item-delete"
-                onClick={e => { e.stopPropagation(); onRemove(ann.id) }}
-                title="删除"
-              >
-                <Trash2 size={12} />
-              </button>
+              <Check size={12} />
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleCancelEdit}
+              title="取消"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Replies */}
+      {ann.replies && ann.replies.length > 0 && (
+        <div className="annotation-panel-item-replies">
+          {ann.replies.slice().sort((a, b) => a.createdAt - b.createdAt).map(reply => (
+            <div key={reply.id} className="annotation-panel-item-reply">
+              <span className="annotation-panel-item-reply-time">{formatTime(reply.createdAt)}</span>
+              <span className="annotation-panel-item-reply-text">{reply.text}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {showReplyInput && (
+        <div className="annotation-panel-item-reply-input" onClick={e => e.stopPropagation()}>
+          <textarea
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            placeholder="添加回复..."
+            rows={2}
+            autoFocus
+          />
+          <div className="annotation-panel-item-edit-actions">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleAddReply}
+              disabled={!replyText.trim()}
+            >
+              <Check size={12} /> 发送
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => { setReplyText(''); setShowReplyInput(false) }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="annotation-panel-item-actions" onClick={e => e.stopPropagation()}>
+        {ann.type === 'comment' && onUpdateComment && !editing && (
+          <button
+            className="annotation-panel-item-action"
+            onClick={() => setEditing(true)}
+            title="编辑"
+          >
+            <Pencil size={12} />
+          </button>
+        )}
+        {onAddReply && !showReplyInput && !editing && (
+          <button
+            className="annotation-panel-item-action"
+            onClick={() => setShowReplyInput(true)}
+            title="回复"
+          >
+            <Reply size={12} />
+          </button>
+        )}
+        <button
+          className="annotation-panel-item-delete"
+          onClick={() => onRemove(ann.id)}
+          title="删除"
+        >
+          <Trash2 size={12} />
+        </button>
       </div>
     </div>
   )

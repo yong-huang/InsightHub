@@ -85,6 +85,7 @@
 
 .stats-chart-body {
   min-height: 100px;
+  position: relative;
 }
 
 .stats-chart-extra {

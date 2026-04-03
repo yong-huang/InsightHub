@@ -8,10 +8,12 @@ export interface SelectionInfo {
   text: string
   range: Range
   rect: DOMRect
+  existingAnnotationIds: string[]
 }
 
 export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
+  const selectionInfoRef = useRef<SelectionInfo | null>(null)
   const addAnnotation = useAnnotationStore(s => s.addAnnotation)
   const removeAnnotation = useAnnotationStore(s => s.removeAnnotation)
   const allAnnotations = useAnnotationStore(s => s.annotations)
@@ -31,6 +33,11 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
 
     const selection = doc.defaultView?.getSelection()
     if (!selection || selection.isCollapsed || !selection.rangeCount) {
+      // Selection collapsed (e.g. user clicked without dragging) — close bar
+      if (selectionInfoRef.current) {
+        selectionInfoRef.current = null
+        setSelectionInfo(null)
+      }
       return
     }
 
@@ -42,7 +49,17 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     const rect = range.getBoundingClientRect()
     if (rect.width === 0 && rect.height === 0) return
 
-    setSelectionInfo({ text, range, rect })
+    // Detect existing highlight marks that intersect with the selection
+    const ids = new Set<string>()
+    doc.body.querySelectorAll('mark[data-annotation-id]').forEach(m => {
+      if (range.intersectsNode(m)) {
+        ids.add(m.getAttribute('data-annotation-id') || '')
+      }
+    })
+
+    const info = { text, range, rect, existingAnnotationIds: [...ids] }
+    selectionInfoRef.current = info
+    setSelectionInfo(info)
   }, [getIframeDoc])
 
   const clearSelection = useCallback(() => {
@@ -50,6 +67,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     if (doc) {
       doc.defaultView?.getSelection()?.removeAllRanges()
     }
+    selectionInfoRef.current = null
     setSelectionInfo(null)
   }, [getIframeDoc])
 

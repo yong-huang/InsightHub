@@ -206,6 +206,7 @@ export async function generateQuizQuestions(
     {
       role: 'system',
       content: `你是一个出题助手。根据文档内容生成 ${count} 道题：${choiceCount} 道选择题、${tfCount} 道判断题。难度：${difficultyMap[difficulty]}。
+要求：选择题的正确答案必须均匀分布在 A、B、C、D 四个选项中，不能集中在某一个选项。
 只返回 JSON，不要其他文字。
 格式：
 {"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"题目","options":["A选项","B选项","C选项","D选项"],"correctAnswer":"A","explanation":"解析"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"题目","correctAnswer":"true","explanation":"解析"}]}`,

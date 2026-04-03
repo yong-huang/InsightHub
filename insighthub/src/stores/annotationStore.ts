@@ -29,7 +29,6 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     fetch('/api/annotations')
       .then(r => r.json())
       .then((serverAnnotations: Annotation[]) => {
-        const localIds = new Set(localAnnotations.map(a => a.id))
         const merged = [...serverAnnotations]
         for (const a of localAnnotations) {
           if (!merged.find(s => s.id === a.id)) merged.push(a)

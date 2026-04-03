@@ -85,6 +85,12 @@ export interface QuizAttempt {
 }
 
 // ========== Annotation Types ==========
+export interface AnnotationReply {
+  id: string
+  text: string
+  createdAt: number
+}
+
 export interface Annotation {
   id: string
   documentId: string
@@ -99,6 +105,7 @@ export interface Annotation {
     endOffset: number
   }
   createdAt: number
+  replies?: AnnotationReply[]
 }
 
 export const HIGHLIGHT_COLORS = ['#fbbf24', '#4ecdc4', '#ff8c42', '#ff6b6b', '#a78bfa', '#326ce5'] as const
