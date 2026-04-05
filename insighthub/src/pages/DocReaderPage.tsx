@@ -13,6 +13,7 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
+import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
@@ -32,13 +33,14 @@ export function DocReaderPage() {
   const url = useDocumentUrl(docId || '')
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
-  const generatingDocId = useQuizStore(s => s.generatingDocId)
-  const generatingError = useQuizStore(s => s.generatingError)
+  const generatingDocIds = useQuizStore(s => s.generatingDocIds)
+  const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
   const { quizDifficulty, quizQuestionCount } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
-  const isGenerating = generatingDocId === docId
+  const isGenerating = !!docId && generatingDocIds.has(docId)
+  const generatingError = docId ? generatingErrors[docId] : undefined
 
   const [showTagInput, setShowTagInput] = useState(false)
   const [tagName, setTagName] = useState('')
@@ -64,12 +66,19 @@ export function DocReaderPage() {
   const {
     selectionInfo,
     staleAnnotationIds,
+    activeAnnotationId,
+    activeAnnotationRect,
     clearSelection,
+    clearActiveAnnotation,
     addHighlight,
     removeHighlight,
     restoreHighlights,
     scrollToAnnotation,
   } = useAnnotationIframe(iframeRef)
+  const activeAnnotation = useMemo(
+    () => allAnnotations.find(a => a.id === activeAnnotationId) || null,
+    [allAnnotations, activeAnnotationId]
+  )
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -574,6 +583,16 @@ export function DocReaderPage() {
             setShowCommentDialog(false)
             clearSelection()
           }}
+        />
+      )}
+
+      {/* Annotation popup on click — only for comments */}
+      {activeAnnotation && activeAnnotationRect && (activeAnnotation.type === 'comment' || activeAnnotation.comment) && (
+        <AnnotationPopup
+          annotation={activeAnnotation}
+          rect={activeAnnotationRect}
+          onClose={clearActiveAnnotation}
+          onRemove={handleRemoveAnnotation}
         />
       )}
     </div>

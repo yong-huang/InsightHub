@@ -198,6 +198,50 @@ export function findTextRangeFuzzy(doc: Document, text: string): Range | null {
   return bestScore >= threshold ? bestRange : null
 }
 
+/**
+ * Trim leading/trailing whitespace-only text nodes from a range.
+ * Returns a new range that starts at the first non-whitespace character
+ * and ends after the last non-whitespace character.
+ */
+export function trimRangeEdges(range: Range): Range {
+  const doc = range.startContainer.ownerDocument
+  const walker = doc.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT)
+
+  let firstNonWs: { node: Text; offset: number } | null = null
+  let lastNonWs: { node: Text; offset: number } | null = null
+
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if (!range.intersectsNode(node)) continue
+    const textNode = node as Text
+    const text = textNode.textContent || ''
+    let segStart = 0
+    let segEnd = text.length
+    if (textNode === range.startContainer) segStart = range.startOffset
+    if (textNode === range.endContainer) segEnd = range.endOffset
+    if (segStart >= segEnd) continue
+
+    const segment = text.slice(segStart, segEnd)
+    for (let i = 0; i < segment.length; i++) {
+      if (!/\s/.test(segment[i])) {
+        if (!firstNonWs) firstNonWs = { node: textNode, offset: segStart + i }
+        lastNonWs = { node: textNode, offset: segStart + i + 1 }
+      }
+    }
+  }
+
+  if (!firstNonWs || !lastNonWs) return range
+
+  try {
+    const trimmed = doc.createRange()
+    trimmed.setStart(firstNonWs.node, firstNonWs.offset)
+    trimmed.setEnd(lastNonWs.node, lastNonWs.offset)
+    return trimmed
+  } catch {
+    return range
+  }
+}
+
 function makeMark(doc: Document, annotationId: string, color: string): HTMLElement {
   const mark = doc.createElement('mark')
   mark.setAttribute('data-annotation-id', annotationId)

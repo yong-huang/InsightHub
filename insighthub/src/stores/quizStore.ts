@@ -11,8 +11,8 @@ interface QuizState {
   error: string | null
   quizHistory: QuizAttempt[]
   savedQuizzes: Record<string, Quiz>
-  generatingDocId: string | null
-  generatingError: string | null
+  generatingDocIds: Set<string>
+  generatingErrors: Record<string, string>
 
   setCurrentQuiz: (quiz: Quiz | null) => void
   setCurrentAttempt: (attempt: QuizAttempt | null) => void
@@ -24,7 +24,7 @@ interface QuizState {
   reset: () => void
   loadSavedQuizzes: () => void
   startGeneration: (docId: string, mode: 'new' | 'regenerate' | 'append', doc: { id: string; title: string; contentText: string }, difficulty: Difficulty, count: number) => Promise<void>
-  clearGeneration: () => void
+  clearGeneration: (docId: string) => void
   removeSavedQuiz: (docId: string) => void
 }
 
@@ -36,8 +36,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   error: null,
   quizHistory: [],
   savedQuizzes: {},
-  generatingDocId: null,
-  generatingError: null,
+  generatingDocIds: new Set<string>(),
+  generatingErrors: {},
 
   setCurrentQuiz: (quiz) => set({ currentQuiz: quiz, error: null }),
 
@@ -112,7 +112,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   },
 
   startGeneration: async (docId, mode, doc, difficulty, count) => {
-    set({ generatingDocId: docId, generatingError: null })
+    set(s => {
+      const ids = new Set(s.generatingDocIds)
+      ids.add(docId)
+      const errors = { ...s.generatingErrors }
+      delete errors[docId]
+      return { generatingDocIds: ids, generatingErrors: errors }
+    })
     try {
       const { quiz, error: err } = await createQuiz(
         doc as any,
@@ -120,7 +126,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         count,
       )
       if (err) {
-        set({ generatingError: err })
+        set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: err } }))
         return
       }
 
@@ -154,13 +160,21 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
       }
     } catch (e: any) {
-      set({ generatingError: e.message || '生成失败' })
+      set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: e.message || '生成失败' } }))
     } finally {
-      set({ generatingDocId: null })
+      set(s => {
+        const ids = new Set(s.generatingDocIds)
+        ids.delete(docId)
+        return { generatingDocIds: ids }
+      })
     }
   },
 
-  clearGeneration: () => set({ generatingError: null }),
+  clearGeneration: (docId) => set(s => {
+    const errors = { ...s.generatingErrors }
+    delete errors[docId]
+    return { generatingErrors: errors }
+  }),
 
   removeSavedQuiz: (docId) => {
     storageService.removeQuiz(docId)

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import type { Annotation } from '@/types'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { rangeToXPath, xpathToRange, findTextRange, findTextRangeFuzzy, applyMarkToRange, restoreMarkFromRange } from '@/utils/xpath'
+import { rangeToXPath, xpathToRange, findTextRange, findTextRangeFuzzy, applyMarkToRange, restoreMarkFromRange, trimRangeEdges } from '@/utils/xpath'
 
 export interface SelectionInfo {
   text: string
@@ -14,6 +14,8 @@ export interface SelectionInfo {
 export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
   const [staleAnnotationIds, setStaleAnnotationIds] = useState<Set<string>>(new Set())
+  const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
+  const [activeAnnotationRect, setActiveAnnotationRect] = useState<DOMRect | null>(null)
   const selectionInfoRef = useRef<SelectionInfo | null>(null)
   const addAnnotation = useAnnotationStore(s => s.addAnnotation)
   const removeAnnotation = useAnnotationStore(s => s.removeAnnotation)
@@ -39,11 +41,13 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
         selectionInfoRef.current = null
         setSelectionInfo(null)
       }
+      setActiveAnnotationId(null)
+      setActiveAnnotationRect(null)
       return
     }
 
     const range = selection.getRangeAt(0)
-    const text = selection.toString().trim()
+    const text = selection.toString().trim().replace(/[\r\n]+/g, '')
 
     if (!text || text.length < 1) return
 
@@ -72,6 +76,11 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     setSelectionInfo(null)
   }, [getIframeDoc])
 
+  const clearActiveAnnotation = useCallback(() => {
+    setActiveAnnotationId(null)
+    setActiveAnnotationRect(null)
+  }, [])
+
   const addHighlight = useCallback((
     documentId: string,
     color: string = HIGHLIGHT_COLORS[0],
@@ -79,7 +88,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
   ) => {
     if (!selectionInfo) return
 
-    const range = selectionInfo.range
+    const range = trimRangeEdges(selectionInfo.range)
     const text = selectionInfo.text
 
     const xpath = rangeToXPath(range)
@@ -206,6 +215,22 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
       if (!doc) return
 
       doc.addEventListener('mouseup', handleMouseUp)
+
+      // Click on a mark to show its annotation popup
+      doc.addEventListener('click', (e: MouseEvent) => {
+        const target = (e.target as HTMLElement)?.closest?.('mark[data-annotation-id]')
+        if (target) {
+          const annId = target.getAttribute('data-annotation-id')
+          if (annId) {
+            const rect = target.getBoundingClientRect()
+            setActiveAnnotationId(annId)
+            setActiveAnnotationRect(rect)
+          }
+        } else {
+          setActiveAnnotationId(null)
+          setActiveAnnotationRect(null)
+        }
+      })
     }
 
     iframe.addEventListener('load', onLoad)
@@ -230,7 +255,10 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
   return {
     selectionInfo,
     staleAnnotationIds,
+    activeAnnotationId,
+    activeAnnotationRect,
     clearSelection,
+    clearActiveAnnotation,
     addHighlight,
     removeHighlight,
     restoreHighlights,
