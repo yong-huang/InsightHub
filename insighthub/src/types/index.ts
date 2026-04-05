@@ -110,6 +110,27 @@ export interface Annotation {
 
 export const HIGHLIGHT_COLORS = ['#fbbf24', '#4ecdc4', '#ff8c42', '#ff6b6b', '#a78bfa', '#326ce5'] as const
 
+// ========== Flashcard Types ==========
+export interface Flashcard {
+  id: string
+  annotationId: string
+  documentId: string
+  documentTitle: string
+  front: string          // highlighted text (question side)
+  back: string           // annotation content (answer side), same as front for pure highlights
+  color: string          // original highlight color
+  type: 'highlight' | 'comment'
+  sourceDeleted?: boolean // true when the source annotation has been deleted
+
+  // SM-2 scheduling fields
+  interval: number       // days until next review
+  repetition: number     // consecutive correct count
+  efactor: number        // easiness factor (≥1.3)
+  nextReview: number     // next review timestamp
+  lastReview: number     // last review timestamp
+  createdAt: number
+}
+
 // ========== Imported Document Types ==========
 export interface ImportedDocumentRecord {
   id: string

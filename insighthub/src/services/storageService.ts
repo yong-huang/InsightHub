@@ -13,6 +13,7 @@ export const storageKeys = {
   READ_POSITIONS: `${PREFIX}reading-positions`,
   READ_LATER: `${PREFIX}read-later`,
   ACHIEVEMENTS: `${PREFIX}achievements`,
+  FLASHCARDS: `${PREFIX}flashcards`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -204,5 +205,10 @@ export const storageService = {
 
   saveAchievementState: (state: { unlockedIds: string[]; unlockedAt: Record<string, number> }) =>
     setItem(storageKeys.ACHIEVEMENTS, state),
+
+  // Flashcards
+  getFlashcards: () => getItem<any[]>(storageKeys.FLASHCARDS, []),
+
+  setFlashcards: (cards: any[]) => setItem(storageKeys.FLASHCARDS, cards),
 
 }

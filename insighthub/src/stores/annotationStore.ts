@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Annotation } from '@/types'
 import { storageService } from '@/services/storageService'
+import { useFlashcardStore } from '@/stores/flashcardStore'
 
 function syncAnnotationsToServer(annotations: Annotation[]): void {
   fetch('/api/annotations', {
@@ -51,6 +52,8 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     storageService.setAnnotations(updated)
     syncAnnotationsToServer(updated)
     set({ annotations: updated })
+    // Mark corresponding flashcard as source-deleted
+    useFlashcardStore.getState().markSourceDeleted(id)
   },
 
   updateAnnotation: (id, updates) => {
