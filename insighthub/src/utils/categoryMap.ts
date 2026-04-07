@@ -15,11 +15,12 @@ export const WORKSPACE_META = {
 export const CATEGORIES: CategoryEntry[] = [
   // MindInsight
   { key: 'academic', label: '学术基础', source: 'mindinsight', icon: 'GraduationCap' },
-  { key: 'film-analysis', label: '电影分析', source: 'mindinsight', icon: 'Film' },
   { key: 'finance', label: '财务分析', source: 'mindinsight', icon: 'TrendingUp' },
   { key: 'history', label: '历史', source: 'mindinsight', icon: 'Landmark' },
   { key: 'literature', label: '文学鉴赏', source: 'mindinsight', icon: 'BookOpen' },
+  { key: 'media-analysis', label: '媒体分析', source: 'mindinsight', icon: 'Film' },
   { key: 'philosophy', label: '哲学思辨', source: 'mindinsight', icon: 'Brain' },
+  { key: 'pop-culture', label: '流行文化', source: 'mindinsight', icon: 'Monitor' },
   // TechInsight
   { key: 'ai-frameworks', label: 'AI 框架', source: 'techinsight', icon: 'Cpu' },
   { key: 'algorithms', label: '算法', source: 'techinsight', icon: 'GitBranch' },
