@@ -198,7 +198,7 @@ Two knowledge bases, each with multiple categories:
 
 | Workspace | Categories |
 |-----------|-----------|
-| **MindInsight** | Academic, Finance, History, Literature, Media Analysis, Philosophy, Pop Culture |
+| **MindInsight** | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
 | **TechInsight** | AI Frameworks, Algorithms, Cloud, Data Visualization, Dell, Infrastructure, Job, Programming, VMware |
 
 ### Workspace Switching
