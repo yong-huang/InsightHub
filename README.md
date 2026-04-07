@@ -4,40 +4,41 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/01-home.png" alt="Home Dashboard" width="600"/></td>
-    <td><img src="docs/screenshots/03-doc-reader.png" alt="Document Reader" width="600"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Home Dashboard</b> — stats, recent reads, and category overview</td>
-    <td align="center"><b>Document Reader</b> — iframe embed with annotation highlights</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/06-knowledge-graph.png" alt="Knowledge Graph" width="600"/></td>
-    <td><img src="docs/screenshots/08-personal-map.png" alt="Personal Knowledge Map" width="600"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Knowledge Graph</b> — interactive D3-force document network</td>
-    <td align="center"><b>Personal Map</b> — your knowledge landscape, color-coded by mastery</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/05-stats.png" alt="Learning Analytics" width="600"/></td>
-    <td><img src="docs/screenshots/07-spaced-repetition.png" alt="Spaced Repetition" width="600"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Learning Analytics</b> — heatmap, radar, quiz dashboard</td>
-    <td align="center"><b>Spaced Repetition</b> — AI flashcards with SM-2 scheduling</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/09-learning-path.png" alt="Learning Path" width="600"/></td>
-    <td><img src="docs/screenshots/10-notes.png" alt="Notes" width="600"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Learning Path</b> — milestones with progress and recommendations</td>
-    <td align="center"><b>Notes</b> — all annotations grouped by document</td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/01-home.png" alt="Home Dashboard" width="440"/>
+  <img src="docs/screenshots/03-doc-reader.png" alt="Document Reader" width="440"/>
+</p>
+<p align="center">
+  <em>Home Dashboard</em> — stats, recent reads, and category overview<br/>
+  <em>Document Reader</em> — iframe embed with annotation highlights
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/06-knowledge-graph.png" alt="Knowledge Graph" width="440"/>
+  <img src="docs/screenshots/08-personal-map.png" alt="Personal Knowledge Map" width="440"/>
+</p>
+<p align="center">
+  <em>Knowledge Graph</em> — interactive D3-force document network<br/>
+  <em>Personal Map</em> — your knowledge landscape, color-coded by mastery
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/05-stats.png" alt="Learning Analytics" width="440"/>
+  <img src="docs/screenshots/07-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
+</p>
+<p align="center">
+  <em>Learning Analytics</em> — heatmap, radar, quiz dashboard<br/>
+  <em>Spaced Repetition</em> — AI flashcards with SM-2 scheduling
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/09-learning-path.png" alt="Learning Path" width="440"/>
+  <img src="docs/screenshots/10-notes.png" alt="Notes" width="440"/>
+</p>
+<p align="center">
+  <em>Learning Path</em> — milestones with progress and recommendations<br/>
+  <em>Notes</em> — all annotations grouped by document
+</p>
 
 ## Highlights
 
