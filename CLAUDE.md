@@ -116,7 +116,11 @@ CSS files:
 - `visualizations.css` — Chart and visualization styles
 - `animations.css` — Keyframe animations
 
-## Key Files
+## Documentation
+
+- `README.md` — Project overview, features, and quick start
+- `docs/DESIGN.md` — Technical design and architecture
+- `docs/DEPLOY.md` — Deployment guide and configuration
 
 - `vite.config.ts` — Vite config with `@/` alias and `documentDiscovery` plugin
 - `vite-plugins/documentDiscovery.ts` — Vite plugin for document discovery, API endpoints, AI proxy
