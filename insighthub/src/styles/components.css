@@ -1785,6 +1785,32 @@
   flex: 1;
 }
 
+.import-encryption-section {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.import-encryption-section label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.import-encryption-hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.import-encryption-section input {
+  font-size: 0.85rem;
+}
+
 .import-progress {
   margin-bottom: 1rem;
 }

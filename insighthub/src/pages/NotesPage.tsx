@@ -29,9 +29,27 @@ export function NotesPage() {
   const [filter, setFilter] = useState<NoteFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Extract a readable title from documentId when the document is missing
+  const getDocTitle = (docId: string) => {
+    const doc = documents.get(docId)
+    if (doc) return doc.title
+    // Fallback: e.g. "ti-job-storage-interview-preparation" → "Job / Storage Interview Preparation"
+    const wsPrefix = docId.startsWith('mi-') ? 3 : docId.startsWith('ti-') ? 3 : 0
+    const rest = docId.slice(wsPrefix)
+    return rest.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
+
+  const isWorkspaceMatch = (docId: string) => {
+    const doc = documents.get(docId)
+    if (doc) return doc.source === activeWorkspace
+    // Fallback: use documentId prefix
+    const wsPrefix = activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-'
+    return docId.startsWith(wsPrefix)
+  }
+
   const filteredAnnotations = useMemo(() => {
     return annotations
-      .filter(a => documents.get(a.documentId)?.source === activeWorkspace)
+      .filter(a => isWorkspaceMatch(a.documentId))
       .filter(a => filter === 'all' || a.type === filter)
       .filter(a => {
         if (!searchQuery.trim()) return true
@@ -55,7 +73,7 @@ export function NotesPage() {
         const doc = documents.get(ann.documentId)
         group = {
           documentId: ann.documentId,
-          title: doc?.title ?? null,
+          title: getDocTitle(ann.documentId),
           source: doc?.source,
           annotations: [],
         }
@@ -67,18 +85,18 @@ export function NotesPage() {
   }, [filteredAnnotations, documents])
 
   const totalCount = useMemo(() => {
-    return annotations.filter(a => documents.get(a.documentId)?.source === activeWorkspace).length
+    return annotations.filter(a => isWorkspaceMatch(a.documentId)).length
   }, [annotations, documents, activeWorkspace])
 
   const highlightCount = useMemo(() => {
     return annotations.filter(a =>
-      a.type === 'highlight' && documents.get(a.documentId)?.source === activeWorkspace
+      a.type === 'highlight' && isWorkspaceMatch(a.documentId)
     ).length
   }, [annotations, documents, activeWorkspace])
 
   const commentCount = useMemo(() => {
     return annotations.filter(a =>
-      a.type === 'comment' && documents.get(a.documentId)?.source === activeWorkspace
+      a.type === 'comment' && isWorkspaceMatch(a.documentId)
     ).length
   }, [annotations, documents, activeWorkspace])
 

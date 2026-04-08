@@ -577,6 +577,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         source: 'mindinsight' | 'techinsight'
         category: string
         importedAt: number
+        encrypted?: boolean
+        // Cached metadata for encrypted docs (parsed before encryption)
+        title?: string
+        wordCount?: number
+        language?: string
       }
 
       function loadImportedDocsFile(): ImportedDocRecord[] {
@@ -638,6 +643,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 source: body.source,
                 category: body.category,
                 importedAt: Date.now(),
+                encrypted: !!body.encrypted,
+                title: body.title || undefined,
+                wordCount: body.wordCount || undefined,
+                language: body.language || undefined,
               }
               const docs = loadImportedDocsFile()
               docs.push(record)

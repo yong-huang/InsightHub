@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
-  ChevronDown, Highlighter, BrainCircuit, Bookmark,
+  ChevronDown, Highlighter, BrainCircuit, Bookmark, Lock,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -16,10 +16,12 @@ import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
+import { fetchImportedDocs, fetchAndDecryptImportedDoc } from '@/services/importService'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
+import { DecryptDialog } from '@/components/DocReader/DecryptDialog'
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -27,10 +29,61 @@ export function DocReaderPage() {
   const location = useLocation()
   const fromPath = (location.state as { from?: string; scrollToAnnotation?: string } | null)?.from
   const scrollToAnnotationId = (location.state as { scrollToAnnotation?: string } | null)?.scrollToAnnotation
-  const doc = useDocumentStore(s => s.documents.get(docId || ''))
+  const allDocuments = useDocumentStore(s => s.documents)
+  const doc = allDocuments.get(docId || '')
+
+  // Redirect orphaned documentIds to their new location
+  useEffect(() => {
+    if (doc || !docId) return
+    // docId not found in current manifest — try fileName matching
+    const match = Array.from(allDocuments.values()).find(d =>
+      docId.endsWith(d.fileName.replace(/\.html$/, ''))
+    )
+    if (match) {
+      navigate(`/doc/${match.id}`, {
+        state: { from: fromPath, scrollToAnnotation: scrollToAnnotationId },
+        replace: true,
+      })
+    }
+  }, [docId, doc, allDocuments, navigate, fromPath, scrollToAnnotationId])
   const markAsRead = useDocumentStore(s => s.markAsRead)
   const toggleRead = useDocumentStore(s => s.toggleRead)
   const url = useDocumentUrl(docId || '')
+
+  // Encrypted document state
+  const [isEncrypted, setIsEncrypted] = useState(false)
+  const [decryptedUrl, setDecryptedUrl] = useState<string | null>(null)
+
+  // Check if this is an encrypted imported doc
+  useEffect(() => {
+    if (!docId?.startsWith('imported-')) {
+      setIsEncrypted(false)
+      return
+    }
+    fetchImportedDocs().then(docs => {
+      const record = docs.find(d => d.id === docId)
+      setIsEncrypted(!!record?.encrypted)
+    }).catch(() => {})
+  }, [docId])
+
+  const handleDecrypt = useCallback(async (password: string): Promise<string> => {
+    if (!docId) throw new Error('No document ID')
+    const htmlContent = await fetchAndDecryptImportedDoc(docId, password)
+    const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' })
+    const blobUrl = URL.createObjectURL(blob)
+    setDecryptedUrl(blobUrl)
+    return htmlContent
+  }, [docId])
+
+  // Clean up blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (decryptedUrl) URL.revokeObjectURL(decryptedUrl)
+    }
+  }, [decryptedUrl])
+
+  // Use decrypted blob URL for encrypted docs, normal URL otherwise
+  const iframeSrc: string | undefined = isEncrypted ? (decryptedUrl ?? undefined) : url
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
@@ -277,6 +330,35 @@ export function DocReaderPage() {
     )
   }
 
+  // Encrypted doc awaiting password
+  if (isEncrypted && !decryptedUrl) {
+    return (
+      <div className="doc-reader-page">
+        <div className="doc-reader-toolbar">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
+            <ArrowLeft size={16} /> 返回
+          </button>
+          <div className="doc-reader-toolbar-info">
+            <span className={`badge badge-${doc.source}`}>
+              {doc.source === 'mindinsight' ? 'Mind' : 'Tech'}
+            </span>
+            {catInfo && <span className="badge">{catInfo.label}</span>}
+            <span className="badge" style={{ background: 'rgba(167, 139, 250, 0.15)', color: 'var(--accent-purple)' }}>
+              <Lock size={12} /> 加密文档
+            </span>
+          </div>
+        </div>
+        <div className="doc-reader-titlebar">
+          <h1>{doc.title}</h1>
+        </div>
+        <DecryptDialog
+          onDecrypt={handleDecrypt}
+          onCancel={() => navigate(fromPath || `/${doc.source}`)}
+        />
+      </div>
+    )
+  }
+
   const handleAddTag = () => {
     if (!tagName.trim() || !docId) return
     const existingTag = useTagStore.getState().tags.find(t => t.name === tagName.trim())
@@ -330,6 +412,11 @@ export function DocReaderPage() {
             <FileText size={12} />
             {doc.wordCount.toLocaleString()} 字
           </span>
+          {isEncrypted && decryptedUrl && (
+            <span className="badge" style={{ background: 'rgba(167, 139, 250, 0.15)', color: 'var(--accent-purple)' }}>
+              <Lock size={12} /> 已解密
+            </span>
+          )}
         </div>
 
         <div className="doc-reader-toolbar-actions">
@@ -534,7 +621,7 @@ export function DocReaderPage() {
       <div className="doc-reader-content">
         <iframe
           ref={iframeRef}
-          src={url}
+          src={iframeSrc}
           className="doc-reader-iframe"
           style={{ background: '#fff', border: 'none', flex: 1 }}
           title={doc.title}

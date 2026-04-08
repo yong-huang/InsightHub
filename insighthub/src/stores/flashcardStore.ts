@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Flashcard, Annotation } from '@/types'
 import { storageService } from '@/services/storageService'
+import { fetchDocumentManifest } from '@/utils/documentManifest'
 import {
   createCardFromAnnotation,
   reviewCard as sm2ReviewCard,
@@ -38,6 +39,30 @@ function migrateCards(cards: Flashcard[]): Flashcard[] {
   return updated
 }
 
+/**
+ * Migrate flashcard documentIds that reference old (reorganized) document paths.
+ */
+async function migrateFlashcardDocIds(cards: Flashcard[]): Promise<Flashcard[]> {
+  try {
+    const manifest = await fetchDocumentManifest()
+    const currentIds = new Set(manifest.map(e => e.id))
+    let changed = false
+    const updated = cards.map(c => {
+      if (currentIds.has(c.documentId)) return c
+      const match = manifest.find(e => c.documentId.endsWith(e.fileName.replace(/\.html$/, '')))
+      if (match) {
+        changed = true
+        return { ...c, documentId: match.id, documentTitle: undefined as any }
+      }
+      return c
+    })
+    if (changed) storageService.setFlashcards(updated)
+    return updated
+  } catch {
+    return cards
+  }
+}
+
 interface FlashcardState {
   cards: Flashcard[]
   isLoaded: boolean
@@ -58,7 +83,12 @@ export const useFlashcardStore = create<FlashcardState>((set, get) => ({
 
   loadCards: () => {
     const cards = storageService.getFlashcards() as Flashcard[]
-    set({ cards: migrateCards(cards), isLoaded: true })
+    const cleaned = migrateCards(cards)
+    set({ cards: cleaned, isLoaded: true })
+    // Migrate orphaned documentIds (files moved between directories)
+    migrateFlashcardDocIds(cleaned).then(migrated => {
+      if (migrated !== cleaned) set({ cards: migrated })
+    })
   },
 
   generateCardsFromAnnotations: (annotations, getDocTitle) => {

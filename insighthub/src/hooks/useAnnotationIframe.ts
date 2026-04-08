@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import type { Annotation } from '@/types'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { rangeToXPath, xpathToRange, findTextRange, findTextRangeFuzzy, applyMarkToRange, restoreMarkFromRange, trimRangeEdges } from '@/utils/xpath'
+import { rangeToXPath, xpathToRange, findTextRange, findTextRangeFuzzy, applyMarkToRange, restoreMarkFromRange, trimRangeEdges, isInsideSVG } from '@/utils/xpath'
 
 export interface SelectionInfo {
   text: string
@@ -48,6 +48,13 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
 
     const range = selection.getRangeAt(0)
     const text = selection.toString().trim().replace(/[\r\n]+/g, '')
+
+    // Don't show annotation bar for SVG text — highlights would corrupt the DOM
+    if (isInsideSVG(range.commonAncestorContainer)) {
+      selectionInfoRef.current = null
+      setSelectionInfo(null)
+      return
+    }
 
     if (!text || text.length < 1) return
 

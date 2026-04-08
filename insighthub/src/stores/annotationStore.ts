@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Annotation } from '@/types'
 import { storageService } from '@/services/storageService'
 import { useFlashcardStore } from '@/stores/flashcardStore'
+import { fetchDocumentManifest, type DocumentManifestEntry } from '@/utils/documentManifest'
 
 function syncAnnotationsToServer(annotations: Annotation[]): void {
   fetch('/api/annotations', {
@@ -9,6 +10,38 @@ function syncAnnotationsToServer(annotations: Annotation[]): void {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(annotations),
   }).catch(() => {})
+}
+
+/**
+ * Migrate annotation documentIds that reference old (reorganized) document paths.
+ * Uses fileName matching — same strategy as documentStore's meta migration.
+ */
+async function migrateAnnotationDocIds(annotations: Annotation[]): Promise<Annotation[]> {
+  try {
+    const manifest: DocumentManifestEntry[] = await fetchDocumentManifest()
+    const currentIds = new Set(manifest.map(e => e.id))
+
+    let changed = false
+    const updated = annotations.map(a => {
+      if (currentIds.has(a.documentId)) return a
+      // Match by fileName stem — e.g. "ti-job-powerstore-interview-preparation"
+      // ends with "powerstore-interview-preparation" which matches a manifest entry
+      const match = manifest.find(e => a.documentId.endsWith(e.fileName.replace(/\.html$/, '')))
+      if (match) {
+        changed = true
+        return { ...a, documentId: match.id }
+      }
+      return a
+    })
+
+    if (changed) {
+      storageService.setAnnotations(updated)
+      syncAnnotationsToServer(updated)
+    }
+    return updated
+  } catch {
+    return annotations
+  }
 }
 
 interface AnnotationState {
@@ -29,13 +62,15 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ annotations: localAnnotations })
     fetch('/api/annotations')
       .then(r => r.json())
-      .then((serverAnnotations: Annotation[]) => {
+      .then(async (serverAnnotations: Annotation[]) => {
         const merged = [...serverAnnotations]
         for (const a of localAnnotations) {
           if (!merged.find(s => s.id === a.id)) merged.push(a)
         }
-        storageService.setAnnotations(merged)
-        set({ annotations: merged })
+        // Migrate orphaned documentIds (files moved between directories)
+        const migrated = await migrateAnnotationDocIds(merged)
+        storageService.setAnnotations(migrated)
+        set({ annotations: migrated })
       })
       .catch(() => {})
   },

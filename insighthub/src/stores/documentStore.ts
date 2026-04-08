@@ -26,7 +26,7 @@ interface DocumentState {
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
   loadImportedDocuments: () => Promise<void>
-  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string) => Promise<string>
+  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string, password?: string) => Promise<string>
   removeDocument: (docId: string) => Promise<void>
 }
 
@@ -303,27 +303,52 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         if (updatedDocs.has(meta.id)) continue
 
         try {
-          const htmlContent = await fetchImportedDocHtml(meta.id)
-          const parsed = parseHtmlDocument(htmlContent, {
-            id: meta.id,
-            filePath: `imported://${meta.fileName}`,
-            fileName: meta.fileName,
-            source: meta.source,
-            category: meta.category,
-          })
-          const doc: Document = {
-            ...parsed,
-            isRead: false,
-            readCount: 0,
-            tags: [],
-            indexedAt: Date.now(),
+          let doc: Document
+
+          if (meta.encrypted) {
+            // Encrypted docs: use cached metadata, can't parse the encrypted content
+            doc = {
+              id: meta.id,
+              title: meta.title || meta.fileName.replace(/\.html?$/, ''),
+              filePath: `imported://${meta.fileName}`,
+              fileName: meta.fileName,
+              source: meta.source,
+              category: meta.category,
+              language: (meta.language as 'zh' | 'en' | 'mixed') || 'mixed',
+              wordCount: meta.wordCount || 0,
+              sections: [],
+              contentText: '',
+              tags: [],
+              isRead: false,
+              readCount: 0,
+              indexedAt: meta.importedAt,
+            }
+            updatedDocs.set(doc.id, doc)
+            updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+            newCount++
+          } else {
+            const htmlContent = await fetchImportedDocHtml(meta.id)
+            const parsed = parseHtmlDocument(htmlContent, {
+              id: meta.id,
+              filePath: `imported://${meta.fileName}`,
+              fileName: meta.fileName,
+              source: meta.source,
+              category: meta.category,
+            })
+            doc = {
+              ...parsed,
+              isRead: false,
+              readCount: 0,
+              tags: [],
+              indexedAt: Date.now(),
+            }
+            updatedDocs.set(doc.id, doc)
+            updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+            await indexDocument(doc)
+            newCount++
           }
-          updatedDocs.set(doc.id, doc)
-          updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
-          await indexDocument(doc)
-          newCount++
-        } catch (e) {
-          console.error(`Failed to load imported document: ${meta.id}`, e)
+        } catch {
+          // Import failed (file not found, parse error, etc.) — skip silently
         }
       }
 
@@ -350,16 +375,21 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
   },
 
-  importDocument: async (file, source, category) => {
-    const result = await importDocument(file, source, category)
-
-    const htmlContent = await fetchImportedDocHtml(result.id)
+  importDocument: async (file, source, category, password) => {
+    // Parse HTML before uploading so the document metadata is available locally
+    const htmlContent = await file.text()
     const parsed = parseHtmlDocument(htmlContent, {
-      id: result.id,
+      id: '', // will be set after upload
       filePath: `imported://${file.name}`,
       fileName: file.name,
       source,
       category,
+    })
+
+    const result = await importDocument(file.name, htmlContent, source, category, password, {
+      title: parsed.title,
+      wordCount: parsed.wordCount,
+      language: parsed.language,
     })
     const doc: Document = {
       ...parsed,

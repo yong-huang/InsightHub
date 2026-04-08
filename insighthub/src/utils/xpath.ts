@@ -254,12 +254,36 @@ function makeMark(doc: Document, annotationId: string, color: string): HTMLEleme
 }
 
 /**
+ * Check if a node is inside an SVG element.
+ * SVG text nodes cannot be wrapped with HTML <mark> elements — doing so
+ * corrupts the SVG DOM and causes text to disappear.
+ */
+export function isInsideSVG(node: Node): boolean {
+  let current: Node | null = node
+  while (current) {
+    if (current.nodeType === Node.ELEMENT_NODE) {
+      const tag = (current as Element).tagName
+      if (tag === 'svg' || tag === 'SVG') return true
+      // Stop at the body — if we reached body without finding svg, we're in HTML
+      if (tag === 'body' || tag === 'BODY') return false
+    }
+    current = current.parentNode
+  }
+  return false
+}
+
+/**
  * Apply a <mark> to a range for initial highlighting (user action).
  * Uses surroundContents for single-node ranges, per-text-node splitting for cross-element
  * to avoid extractContents breaking table structures.
  */
 export function applyMarkToRange(range: Range, annotationId: string, color: string): Element {
   const doc = range.commonAncestorContainer.ownerDocument
+
+  // Skip SVG text — cannot wrap SVG text nodes with HTML <mark>
+  if (isInsideSVG(range.commonAncestorContainer)) {
+    return makeMark(doc, annotationId, color)
+  }
 
   // Single text node — safe to use surroundContents
   if (
@@ -300,9 +324,17 @@ export function applyMarkToRange(range: Range, annotationId: string, color: stri
   let firstMark: Element | null = null
   for (const seg of segments) {
     try {
+      // Safety: skip if the text node has been orphaned
+      if (!seg.node.parentNode || !seg.node.parentNode.parentNode) continue
+
       const mark = makeMark(doc, annotationId, color)
-      const after = seg.node.splitText(seg.start)
-      const rest = after.splitText(seg.end - seg.start)
+      const textLen = seg.node.textContent?.length ?? 0
+      const start = Math.min(seg.start, textLen)
+      const splitLen = Math.min(seg.end - seg.start, textLen - start)
+      if (splitLen <= 0) continue
+
+      const after = seg.node.splitText(start)
+      const rest = after.splitText(splitLen)
       mark.appendChild(after)
       seg.node.parentNode?.insertBefore(mark, rest)
       if (!firstMark) firstMark = mark
@@ -318,6 +350,9 @@ export function applyMarkToRange(range: Range, annotationId: string, color: stri
  */
 export function restoreMarkFromRange(range: Range, annotationId: string, color: string): void {
   const doc = range.startContainer.ownerDocument
+
+  // Skip SVG text — cannot wrap SVG text nodes with HTML <mark>
+  if (isInsideSVG(range.commonAncestorContainer)) return
 
   // Single text node — safe to use surroundContents
   if (
@@ -357,9 +392,16 @@ export function restoreMarkFromRange(range: Range, annotationId: string, color: 
 
   for (const seg of segments) {
     try {
+      if (!seg.node.parentNode || !seg.node.parentNode.parentNode) continue
+
       const mark = makeMark(doc, annotationId, color)
-      const after = seg.node.splitText(seg.start)
-      const rest = after.splitText(seg.end - seg.start)
+      const textLen = seg.node.textContent?.length ?? 0
+      const start = Math.min(seg.start, textLen)
+      const splitLen = Math.min(seg.end - seg.start, textLen - start)
+      if (splitLen <= 0) continue
+
+      const after = seg.node.splitText(start)
+      const rest = after.splitText(splitLen)
       mark.appendChild(after)
       seg.node.parentNode?.insertBefore(mark, rest)
     } catch { /* skip */ }

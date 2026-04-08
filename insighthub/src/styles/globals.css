@@ -320,6 +320,10 @@ mark[data-annotation-id]:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  max-width: 500px;
+  min-height: 50vh;
+  margin: 0 auto;
   padding: 4rem 2rem;
   color: var(--text-dim);
   text-align: center;
