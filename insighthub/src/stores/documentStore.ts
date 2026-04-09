@@ -5,7 +5,7 @@ import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
-import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
+import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml, fetchAndDecryptImportedDoc } from '@/services/importService'
 
 interface DocumentState {
   documents: Map<string, Document>
@@ -26,7 +26,7 @@ interface DocumentState {
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
   loadImportedDocuments: () => Promise<void>
-  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string, password?: string) => Promise<string>
+  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string) => Promise<string>
   removeDocument: (docId: string) => Promise<void>
 }
 
@@ -305,50 +305,57 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         try {
           let doc: Document
 
-          if (meta.encrypted) {
-            // Encrypted docs: use cached metadata, can't parse the encrypted content
-            doc = {
-              id: meta.id,
-              title: meta.title || meta.fileName.replace(/\.html?$/, ''),
-              filePath: `imported://${meta.fileName}`,
-              fileName: meta.fileName,
-              source: meta.source,
-              category: meta.category,
-              language: (meta.language as 'zh' | 'en' | 'mixed') || 'mixed',
-              wordCount: meta.wordCount || 0,
-              sections: [],
-              contentText: '',
-              tags: [],
-              isRead: false,
-              readCount: 0,
-              indexedAt: meta.importedAt,
+          // Try to decrypt and parse. If decryption fails (key lost), fall back to cached metadata.
+          let htmlContent: string
+          try {
+            htmlContent = await fetchAndDecryptImportedDoc(meta.id)
+          } catch {
+            // Decryption failed — use cached metadata as fallback stub
+            if (meta.title || meta.wordCount) {
+              doc = {
+                id: meta.id,
+                title: meta.title || meta.fileName.replace(/\.html?$/, ''),
+                filePath: `imported://${meta.fileName}`,
+                fileName: meta.fileName,
+                source: meta.source,
+                category: meta.category,
+                language: (meta.language as 'zh' | 'en' | 'mixed') || 'mixed',
+                wordCount: meta.wordCount || 0,
+                sections: [],
+                contentText: '',
+                tags: [],
+                isRead: false,
+                readCount: 0,
+                indexedAt: meta.importedAt,
+              }
+              updatedDocs.set(doc.id, doc)
+              updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+              newCount++
+              continue
             }
-            updatedDocs.set(doc.id, doc)
-            updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
-            newCount++
-          } else {
-            const htmlContent = await fetchImportedDocHtml(meta.id)
-            const parsed = parseHtmlDocument(htmlContent, {
-              id: meta.id,
-              filePath: `imported://${meta.fileName}`,
-              fileName: meta.fileName,
-              source: meta.source,
-              category: meta.category,
-            })
-            doc = {
-              ...parsed,
-              isRead: false,
-              readCount: 0,
-              tags: [],
-              indexedAt: Date.now(),
-            }
-            updatedDocs.set(doc.id, doc)
-            updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
-            await indexDocument(doc)
-            newCount++
+            throw new Error('Decryption failed and no cached metadata')
           }
+
+          const parsed = parseHtmlDocument(htmlContent, {
+            id: meta.id,
+            filePath: `imported://${meta.fileName}`,
+            fileName: meta.fileName,
+            source: meta.source,
+            category: meta.category,
+          })
+          doc = {
+            ...parsed,
+            isRead: false,
+            readCount: 0,
+            tags: [],
+            indexedAt: Date.now(),
+          }
+          updatedDocs.set(doc.id, doc)
+          updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+          await indexDocument(doc)
+          newCount++
         } catch {
-          // Import failed (file not found, parse error, etc.) — skip silently
+          // Import failed (file not found, decrypt/parse error, etc.) — skip silently
         }
       }
 
@@ -375,7 +382,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
   },
 
-  importDocument: async (file, source, category, password) => {
+  importDocument: async (file, source, category) => {
     // Parse HTML before uploading so the document metadata is available locally
     const htmlContent = await file.text()
     const parsed = parseHtmlDocument(htmlContent, {
@@ -386,7 +393,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       category,
     })
 
-    const result = await importDocument(file.name, htmlContent, source, category, password, {
+    const result = await importDocument(file.name, htmlContent, source, category, {
       title: parsed.title,
       wordCount: parsed.wordCount,
       language: parsed.language,

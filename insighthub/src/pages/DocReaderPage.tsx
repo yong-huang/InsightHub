@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
-  ChevronDown, Highlighter, BrainCircuit, Bookmark, Lock,
+  ChevronDown, Highlighter, BrainCircuit, Bookmark,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -16,12 +16,11 @@ import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
-import { fetchImportedDocs, fetchAndDecryptImportedDoc } from '@/services/importService'
+import { fetchAndDecryptImportedDoc } from '@/services/importService'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
-import { DecryptDialog } from '@/components/DocReader/DecryptDialog'
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -50,40 +49,38 @@ export function DocReaderPage() {
   const toggleRead = useDocumentStore(s => s.toggleRead)
   const url = useDocumentUrl(docId || '')
 
-  // Encrypted document state
-  const [isEncrypted, setIsEncrypted] = useState(false)
-  const [decryptedUrl, setDecryptedUrl] = useState<string | null>(null)
+  // Imported (encrypted) document: transparently decrypt into a blob URL for iframe
+  const [importedBlobUrl, setImportedBlobUrl] = useState<string | null>(null)
 
-  // Check if this is an encrypted imported doc
   useEffect(() => {
     if (!docId?.startsWith('imported-')) {
-      setIsEncrypted(false)
+      setImportedBlobUrl(null)
       return
     }
-    fetchImportedDocs().then(docs => {
-      const record = docs.find(d => d.id === docId)
-      setIsEncrypted(!!record?.encrypted)
-    }).catch(() => {})
+    let cancelled = false
+    fetchAndDecryptImportedDoc(docId)
+      .then(htmlContent => {
+        if (cancelled) return
+        const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' })
+        setImportedBlobUrl(URL.createObjectURL(blob))
+      })
+      .catch(() => {
+        if (!cancelled) setImportedBlobUrl(null)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [docId])
 
-  const handleDecrypt = useCallback(async (password: string): Promise<string> => {
-    if (!docId) throw new Error('No document ID')
-    const htmlContent = await fetchAndDecryptImportedDoc(docId, password)
-    const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' })
-    const blobUrl = URL.createObjectURL(blob)
-    setDecryptedUrl(blobUrl)
-    return htmlContent
-  }, [docId])
-
-  // Clean up blob URL on unmount
+  // Clean up blob URL on unmount or doc change
   useEffect(() => {
     return () => {
-      if (decryptedUrl) URL.revokeObjectURL(decryptedUrl)
+      if (importedBlobUrl) URL.revokeObjectURL(importedBlobUrl)
     }
-  }, [decryptedUrl])
+  }, [importedBlobUrl])
 
-  // Use decrypted blob URL for encrypted docs, normal URL otherwise
-  const iframeSrc: string | undefined = isEncrypted ? (decryptedUrl ?? undefined) : url
+  // Use decrypted blob URL for imported docs, normal URL otherwise
+  const iframeSrc: string | undefined = importedBlobUrl ?? url
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
@@ -330,31 +327,12 @@ export function DocReaderPage() {
     )
   }
 
-  // Encrypted doc awaiting password
-  if (isEncrypted && !decryptedUrl) {
+  // Imported doc: show loading while decrypting
+  if (docId?.startsWith('imported-') && !importedBlobUrl) {
     return (
-      <div className="doc-reader-page">
-        <div className="doc-reader-toolbar">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
-            <ArrowLeft size={16} /> 返回
-          </button>
-          <div className="doc-reader-toolbar-info">
-            <span className={`badge badge-${doc.source}`}>
-              {doc.source === 'mindinsight' ? 'Mind' : 'Tech'}
-            </span>
-            {catInfo && <span className="badge">{catInfo.label}</span>}
-            <span className="badge" style={{ background: 'rgba(167, 139, 250, 0.15)', color: 'var(--accent-purple)' }}>
-              <Lock size={12} /> 加密文档
-            </span>
-          </div>
-        </div>
-        <div className="doc-reader-titlebar">
-          <h1>{doc.title}</h1>
-        </div>
-        <DecryptDialog
-          onDecrypt={handleDecrypt}
-          onCancel={() => navigate(fromPath || `/${doc.source}`)}
-        />
+      <div className="empty-state">
+        <Loader2 size={32} className="spin" />
+        <h3>正在解密文档...</h3>
       </div>
     )
   }
@@ -412,11 +390,6 @@ export function DocReaderPage() {
             <FileText size={12} />
             {doc.wordCount.toLocaleString()} 字
           </span>
-          {isEncrypted && decryptedUrl && (
-            <span className="badge" style={{ background: 'rgba(167, 139, 250, 0.15)', color: 'var(--accent-purple)' }}>
-              <Lock size={12} /> 已解密
-            </span>
-          )}
         </div>
 
         <div className="doc-reader-toolbar-actions">

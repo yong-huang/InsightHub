@@ -1,6 +1,6 @@
 import type { ImportedDocumentRecord, Document } from '@/types'
 import { parseHtmlDocument } from '@/utils/htmlParser'
-import { encrypt, decrypt, type EncryptedPayload } from '@/services/cryptoService'
+import { encrypt, decrypt, isEncryptedPayload } from '@/services/cryptoService'
 
 export async function fetchImportedDocs(): Promise<ImportedDocumentRecord[]> {
   const res = await fetch('/api/imported-documents')
@@ -13,22 +13,16 @@ export async function importDocument(
   htmlContent: string,
   source: 'mindinsight' | 'techinsight',
   category: string,
-  password?: string,
   parsedMeta?: { title?: string; wordCount?: number; language?: string },
 ): Promise<{ id: string }> {
-  let encrypted = false
-  let payload = htmlContent
-
-  if (password) {
-    const enc = await encrypt(htmlContent, password)
-    payload = JSON.stringify(enc)
-    encrypted = true
-  }
+  // Always encrypt the HTML content before uploading
+  const enc = await encrypt(htmlContent)
+  const payload = JSON.stringify(enc)
 
   const res = await fetch('/api/imported-documents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ htmlContent: payload, fileName, source, category, encrypted, ...parsedMeta }),
+    body: JSON.stringify({ htmlContent: payload, fileName, source, category, encrypted: true, ...parsedMeta }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Import failed' }))
@@ -49,25 +43,19 @@ export async function fetchImportedDocHtml(docId: string): Promise<string> {
 }
 
 /**
- * Fetch an imported document's raw content and decrypt it if encrypted.
+ * Fetch an imported document's raw content and decrypt it transparently.
  * Returns the plaintext HTML string.
  */
-export async function fetchAndDecryptImportedDoc(
-  docId: string,
-  password: string,
-): Promise<string> {
+export async function fetchAndDecryptImportedDoc(docId: string): Promise<string> {
   const raw = await fetchImportedDocHtml(docId)
-  try {
-    const payload: EncryptedPayload = JSON.parse(raw)
-    if (payload.salt && payload.iv && payload.data) {
-      return decrypt(payload, password)
-    }
-  } catch {}
+  if (isEncryptedPayload(raw)) {
+    return decrypt(JSON.parse(raw))
+  }
   return raw
 }
 
 export async function convertImportedToDocument(record: ImportedDocumentRecord): Promise<Document> {
-  const htmlContent = await fetchImportedDocHtml(record.id)
+  const htmlContent = await fetchAndDecryptImportedDoc(record.id)
   const parsed = parseHtmlDocument(htmlContent, {
     id: record.id,
     filePath: `imported://${record.fileName}`,

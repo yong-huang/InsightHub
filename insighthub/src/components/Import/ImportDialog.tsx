@@ -20,18 +20,13 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
   const importDoc = useDocumentStore(s => s.importDocument)
   const categories = getCategoriesBySource(activeWorkspace)
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || '')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [importing, setImporting] = useState(false)
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<{ file: string; ok: boolean; error?: string }[]>([])
   const [done, setDone] = useState(false)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  const useEncryption = password.length > 0
-
   const handleImport = async () => {
-    if (useEncryption && password !== confirmPassword) return
     setImporting(true)
     setCurrent(0)
     setResults([])
@@ -40,7 +35,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
     for (let i = 0; i < files.length; i++) {
       setCurrent(i + 1)
       try {
-        await importDoc(files[i], activeWorkspace, selectedCategory, useEncryption ? password : undefined)
+        await importDoc(files[i], activeWorkspace, selectedCategory)
         importResults.push({ file: files[i].name, ok: true })
       } catch (e) {
         importResults.push({ file: files[i].name, ok: false, error: e instanceof Error ? e.message : 'Unknown error' })
@@ -96,38 +91,9 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
               </select>
             </div>
 
-            <div className="import-encryption-section">
-              <label>
-                <Lock size={14} />
-                加密存储
-              </label>
-              <p className="import-encryption-hint">设置密码后，文件将以 AES-256 加密存储，阅读时需要输入密码</p>
-              <input
-                type="password"
-                placeholder="密码（留空则不加密）"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                disabled={importing}
-              />
-              {useEncryption && (
-                <input
-                  type="password"
-                  placeholder="确认密码"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  disabled={importing}
-                  style={{
-                    borderColor: confirmPassword && password !== confirmPassword
-                      ? 'var(--accent-red)'
-                      : undefined,
-                  }}
-                />
-              )}
-              {useEncryption && confirmPassword && password !== confirmPassword && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)' }}>
-                  两次输入的密码不一致
-                </span>
-              )}
+            <div className="import-encryption-hint">
+              <Lock size={14} />
+              <span>文件将以 AES-256 加密后存储</span>
             </div>
 
             {importing && (
@@ -141,13 +107,9 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
             {!importing && (
               <div className="import-dialog-actions">
                 <button className="btn btn-secondary" onClick={onClose}>取消</button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleImport}
-                  disabled={useEncryption && password !== confirmPassword}
-                >
+                <button className="btn btn-primary" onClick={handleImport}>
                   <Upload size={14} />
-                  {useEncryption ? '加密导入' : '导入'} {files.length} 个文件
+                  导入 {files.length} 个文件
                 </button>
               </div>
             )}
