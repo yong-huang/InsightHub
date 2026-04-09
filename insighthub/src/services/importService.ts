@@ -15,14 +15,21 @@ export async function importDocument(
   category: string,
   parsedMeta?: { title?: string; wordCount?: number; language?: string },
 ): Promise<{ id: string }> {
-  // Always encrypt the HTML content before uploading
-  const enc = await encrypt(htmlContent)
-  const payload = JSON.stringify(enc)
+  // Encrypt the body for transport (no-op if crypto.subtle unavailable)
+  const encrypted = await encrypt(htmlContent)
+  const bodyContent = typeof encrypted === 'string' ? encrypted : JSON.stringify(encrypted)
 
   const res = await fetch('/api/imported-documents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ htmlContent: payload, fileName, source, category, encrypted: true, ...parsedMeta }),
+    body: JSON.stringify({
+      htmlContent: bodyContent,
+      fileName,
+      source,
+      category,
+      encrypted: typeof encrypted !== 'string',
+      ...parsedMeta,
+    }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Import failed' }))
@@ -43,13 +50,12 @@ export async function fetchImportedDocHtml(docId: string): Promise<string> {
 }
 
 /**
- * Fetch an imported document's raw content and decrypt it transparently.
- * Returns the plaintext HTML string.
+ * Fetch an imported document and transparently decrypt if needed.
  */
 export async function fetchAndDecryptImportedDoc(docId: string): Promise<string> {
   const raw = await fetchImportedDocHtml(docId)
   if (isEncryptedPayload(raw)) {
-    return decrypt(JSON.parse(raw))
+    return decrypt(raw)
   }
   return raw
 }
