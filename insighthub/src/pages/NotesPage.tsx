@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, FileText, MessageSquare, Highlighter, BookOpen } from 'lucide-react'
+import { ArrowLeft, Search, FileText, MessageSquare, Highlighter, BookOpen, Download } from 'lucide-react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { WikiLinkRenderer } from '@/components/DocReader/WikiLinkRenderer'
+import { buildTitleLookup } from '@/utils/bidirectionalLinks'
+import { exportNotesAsMarkdown } from '@/utils/notesExporter'
 import type { Annotation } from '@/types'
 
 type NoteFilter = 'all' | 'highlight' | 'comment'
@@ -28,6 +31,8 @@ export function NotesPage() {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const [filter, setFilter] = useState<NoteFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+
+  const titleLookup = useMemo(() => buildTitleLookup(documents), [documents])
 
   // Extract a readable title from documentId when the document is missing
   const getDocTitle = (docId: string) => {
@@ -144,6 +149,13 @@ export function NotesPage() {
                 </button>
               ))}
             </div>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => exportNotesAsMarkdown({ annotations: filteredAnnotations, getDocTitle })}
+              title="导出为 Markdown"
+            >
+              <Download size={14} /> 导出
+            </button>
             <div className="search-page-input-wrap" style={{ flex: '1 1 240px', minWidth: 200 }}>
               <Search size={16} />
               <input
@@ -195,7 +207,7 @@ export function NotesPage() {
                         {ann.type === 'comment' && ann.comment && (
                           <div className="notes-item-comment">
                             <MessageSquare size={12} />
-                            <span>{ann.comment}</span>
+                            <WikiLinkRenderer text={ann.comment} titleLookup={titleLookup} />
                           </div>
                         )}
                         <div className="notes-item-meta">

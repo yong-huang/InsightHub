@@ -5,6 +5,7 @@ import { useTagStore } from '@/stores/tagStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 export function useInitializeApp() {
   const setTheme = usePreferenceStore(s => s.setTheme)
@@ -16,6 +17,7 @@ export function useInitializeApp() {
   const loadSavedQuizzes = useQuizStore(s => s.loadSavedQuizzes)
   const loadQuizSettingsFromServer = usePreferenceStore(s => s.loadQuizSettingsFromServer)
   const loadAnnotations = useAnnotationStore(s => s.loadAnnotations)
+  const loadConceptCards = useConceptCardStore(s => s.loadCards)
 
   useEffect(() => {
     // Apply theme
@@ -29,5 +31,6 @@ export function useInitializeApp() {
     loadSavedQuizzes()
     loadQuizSettingsFromServer()
     loadAnnotations()
-  }, [setTheme, theme, initializeDocuments, loadTags, loadHistory, loadQuizHistory, loadSavedQuizzes, loadQuizSettingsFromServer, loadAnnotations])
+    loadConceptCards()
+  }, [setTheme, theme, initializeDocuments, loadTags, loadHistory, loadQuizHistory, loadSavedQuizzes, loadQuizSettingsFromServer, loadAnnotations, loadConceptCards])
 }

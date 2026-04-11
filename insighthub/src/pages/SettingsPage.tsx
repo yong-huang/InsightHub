@@ -16,6 +16,7 @@ export function SettingsPage() {
   const {
     quizDifficulty, quizQuestionCount,
     setQuizDifficulty, setQuizQuestionCount,
+    conceptMaxCount, setConceptMaxCount,
   } = usePreferenceStore()
 
   const [localUrl, setLocalUrl] = useState('')
@@ -23,6 +24,7 @@ export function SettingsPage() {
   const [localApiKey, setLocalApiKey] = useState('')
   const [localDifficulty, setLocalDifficulty] = useState<Difficulty>(quizDifficulty)
   const [localCount, setLocalCount] = useState(String(quizQuestionCount))
+  const [localConceptCount, setLocalConceptCount] = useState(String(conceptMaxCount))
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -64,6 +66,7 @@ export function SettingsPage() {
       if (res.ok) {
         setQuizDifficulty(localDifficulty)
         setQuizQuestionCount(localCount)
+        setConceptMaxCount(Number(localConceptCount) || 10)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       }
@@ -211,6 +214,23 @@ export function SettingsPage() {
               onBlur={() => {
                 const n = Math.max(1, Math.min(20, Number(localCount) || 5))
                 setLocalCount(String(n))
+              }}
+            />
+          </div>
+          <div className="settings-field">
+            <label>概念数量</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              className="settings-input"
+              value={localConceptCount}
+              onChange={e => {
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                setLocalConceptCount(val)
+              }}
+              onBlur={() => {
+                const n = Math.max(1, Math.min(50, Number(localConceptCount) || 10))
+                setLocalConceptCount(String(n))
               }}
             />
           </div>

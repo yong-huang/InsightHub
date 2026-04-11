@@ -67,8 +67,21 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
 export async function callAIStream(
   messages: ChatMessage[],
   onChunk?: (text: string) => void,
+  externalSignal?: AbortSignal,
 ): Promise<AIResponse> {
   const controller = new AbortController()
+
+  // Link external abort signal so caller can stop the stream
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort()
+    } else {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
+  }
+
+  // Track whether abort came from idle timeout (internal) vs external signal
+  let abortedByTimeout = false
 
   try {
     const response = await fetch(PROXY_URL, {
@@ -98,7 +111,7 @@ export async function callAIStream(
     let idleTimer: ReturnType<typeof setTimeout>
     const resetIdle = () => {
       clearTimeout(idleTimer)
-      idleTimer = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS)
+      idleTimer = setTimeout(() => { abortedByTimeout = true; controller.abort() }, IDLE_TIMEOUT_MS)
     }
     resetIdle()
 
@@ -140,6 +153,13 @@ export async function callAIStream(
     return { success: true, data: content }
   } catch (e: any) {
     if (e.name === 'AbortError') {
+      // External abort → treat accumulated content as valid result
+      // Timeout abort → report error
+      if (externalSignal?.aborted && !abortedByTimeout) {
+        // Caller aborted; onChunk has already streamed content to UI.
+        // The caller reads streamingText from its own state, so we just signal success.
+        return { success: true, data: '' }
+      }
       return { success: false, error: '生成超时，模型响应过慢，请稍后重试' }
     }
     if (e instanceof TypeError && e.message.includes('fetch')) {

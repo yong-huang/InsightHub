@@ -4,6 +4,7 @@ import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   ChevronDown, Highlighter, BrainCircuit, Bookmark,
+  MessageCircle, Lightbulb, Languages,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -21,6 +22,12 @@ import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
+import { ChatPanel } from '@/components/DocReader/ChatPanel'
+import { AIBubble } from '@/components/DocReader/AIBubble'
+import { explainConcept, translateText } from '@/services/readerAiService'
+import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
+import { extractConcepts, createConceptCard } from '@/services/conceptService'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -86,7 +93,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -96,12 +103,22 @@ export function DocReaderPage() {
   const [tagName, setTagName] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
+  const [showConceptMenu, setShowConceptMenu] = useState(false)
+  const conceptMenuRef = useRef<HTMLDivElement>(null)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [showSummaryPanel, setShowSummaryPanel] = useState(false)
   const [summaryText, setSummaryText] = useState<string | null>(null)
   const [isSummaryGenerating, setIsSummaryGenerating] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [showChatPanel, setShowChatPanel] = useState(false)
+  const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
+  const [explainState, setExplainState] = useState<{
+    text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
+  } | null>(null)
+  const [translateState, setTranslateState] = useState<{
+    text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
+  } | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(() => docId ? storageService.isReadLater(docId) : false)
   const menuRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
@@ -112,6 +129,26 @@ export function DocReaderPage() {
   const docAnnotations = useMemo(
     () => allAnnotations.filter(a => a.documentId === docId),
     [allAnnotations, docId]
+  )
+
+  // Bidirectional links
+  const titleLookup = useMemo(() => buildTitleLookup(allDocuments), [allDocuments])
+  const backlinks = useMemo(
+    () => docId ? findBacklinks(docId, allAnnotations, titleLookup) : [],
+    [docId, allAnnotations, titleLookup],
+  )
+
+  // Concept extraction
+  const conceptCards = useConceptCardStore(s => s.cards)
+  const conceptAddCards = useConceptCardStore(s => s.addCards)
+  const extractingDocIds = useConceptCardStore(s => s.extractingDocIds)
+  const extractingErrors = useConceptCardStore(s => s.extractingErrors)
+  const setExtractingDocId = useConceptCardStore(s => s.setExtractingDocId)
+  const setExtractingError = useConceptCardStore(s => s.setExtractingError)
+  const isExtractingConcepts = !!docId && extractingDocIds.has(docId)
+  const docConceptCount = useMemo(
+    () => docId ? conceptCards.filter(c => c.sourceDocId === docId).length : 0,
+    [docId, conceptCards],
   )
   const {
     selectionInfo,
@@ -132,15 +169,18 @@ export function DocReaderPage() {
 
   // Close dropdown on outside click
   useEffect(() => {
-    if (!showRegenerateMenu) return
+    if (!showRegenerateMenu && !showConceptMenu) return
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowRegenerateMenu(false)
       }
+      if (conceptMenuRef.current && !conceptMenuRef.current.contains(e.target as Node)) {
+        setShowConceptMenu(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [showRegenerateMenu])
+  }, [showRegenerateMenu, showConceptMenu])
 
   // CSS class hides navbar/sidebar/toolbar, iframe fills viewport
   useEffect(() => {
@@ -209,6 +249,10 @@ export function DocReaderPage() {
     setShowSummaryPanel(false)
     setIsSummaryGenerating(false)
     setSummaryError(null)
+    setShowChatPanel(false)
+    setChatSelectedText(undefined)
+    setExplainState(null)
+    setTranslateState(null)
     if (docId) {
       const cached = storageService.getSummaries()[docId]
       setSummaryText(cached || null)
@@ -315,6 +359,79 @@ export function DocReaderPage() {
     }
   }, [removeHighlight, doc?.id])
 
+  const handleExtractConcepts = useCallback(async (mode: 'new' | 'regenerate' | 'append') => {
+    if (!doc || !docId) return
+    setShowConceptMenu(false)
+    setExtractingDocId(docId, true)
+    setExtractingError(docId, null)
+
+    if (mode === 'regenerate') {
+      const existing = useConceptCardStore.getState().cards.filter(c => c.sourceDocId === docId)
+      for (const c of existing) {
+        useConceptCardStore.getState().removeCard(c.id)
+      }
+    }
+
+    const remaining = mode === 'append'
+      ? conceptMaxCount - useConceptCardStore.getState().cards.filter(c => c.sourceDocId === docId).length
+      : conceptMaxCount
+    const count = Math.max(1, remaining)
+
+    const result = await extractConcepts(doc.title, doc.contentText, count)
+    setExtractingDocId(docId, false)
+    if (!result.success) {
+      setExtractingError(docId, result.error || '提取失败')
+    } else if (Array.isArray(result.data)) {
+      const cards = (result.data as any[]).map(c => createConceptCard(c, docId))
+      conceptAddCards(cards)
+    }
+  }, [doc, docId, conceptMaxCount, conceptAddCards, setExtractingDocId, setExtractingError])
+
+  const handleExplain = useCallback(() => {
+    if (!selectionInfo) return
+    const rect = selectionInfo.rect
+    const selectedText = selectionInfo.text
+    // Get surrounding context from the paragraph
+    let surroundingText = ''
+    try {
+      surroundingText = selectionInfo.range.commonAncestorContainer instanceof Text
+        ? selectionInfo.range.commonAncestorContainer.parentElement?.closest('p,div,li,td,th')?.textContent || ''
+        : (selectionInfo.range.commonAncestorContainer as HTMLElement).closest('p,div,li,td,th')?.textContent || ''
+    } catch {}
+    clearSelection()
+    setExplainState({ text: selectedText, streamingText: '', isStreaming: true, error: null, rect })
+    explainConcept(selectedText, surroundingText, (chunk) => {
+      setExplainState(prev => prev ? { ...prev, streamingText: chunk } : prev)
+    }).then(result => {
+      setExplainState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || '解释失败') } : prev)
+    })
+  }, [selectionInfo, clearSelection])
+
+  const handleTranslate = useCallback(() => {
+    if (!selectionInfo) return
+    const rect = selectionInfo.rect
+    const selectedText = selectionInfo.text
+    clearSelection()
+    setTranslateState({ text: selectedText, streamingText: '', isStreaming: true, error: null, rect })
+    translateText(selectedText, (chunk) => {
+      setTranslateState(prev => prev ? { ...prev, streamingText: chunk } : prev)
+    }).then(result => {
+      setTranslateState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || '翻译失败') } : prev)
+    })
+  }, [selectionInfo, clearSelection])
+
+  const handleAskAI = useCallback(() => {
+    if (!selectionInfo) return
+    const text = selectionInfo.text
+    clearSelection()
+    setChatSelectedText(text)
+    setShowChatPanel(true)
+  }, [selectionInfo, clearSelection])
+
+  const handleChatSelectionUsed = useCallback(() => {
+    setChatSelectedText(undefined)
+  }, [])
+
   if (!doc) {
     return (
       <div className="empty-state">
@@ -393,21 +510,14 @@ export function DocReaderPage() {
         </div>
 
         <div className="doc-reader-toolbar-actions">
-          {doc.isRead ? (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => toggleRead(doc.id)}
-            >
-              <CheckCircle2 size={14} /> 取消已读
-            </button>
-          ) : (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => markAsRead(doc.id)}
-            >
-              <CheckCircle2 size={14} /> 标记已读
-            </button>
-          )}
+          {/* Read status toggle */}
+          <button
+            className={`btn btn-sm ${doc.isRead ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => doc.isRead ? toggleRead(doc.id) : markAsRead(doc.id)}
+            title={doc.isRead ? '点击标记为未读' : '点击标记为已读'}
+          >
+            <CheckCircle2 size={14} /> {doc.isRead ? '已读' : '未读'}
+          </button>
 
           {/* Annotation panel toggle */}
           <button
@@ -415,10 +525,7 @@ export function DocReaderPage() {
             onClick={() => setShowAnnotationPanel(v => !v)}
             title="笔记面板"
           >
-            <Highlighter size={14} />
-            {docAnnotations.length > 0 && (
-              <span style={{ fontSize: '0.7rem' }}>{docAnnotations.length}</span>
-            )}
+            <Highlighter size={14} /> 笔记{docAnnotations.length > 0 && ` ${docAnnotations.length}`}
           </button>
 
           {/* Summary panel toggle */}
@@ -434,64 +541,60 @@ export function DocReaderPage() {
             }}
             title="AI 摘要"
           >
-            <BrainCircuit size={14} />
+            <BrainCircuit size={14} /> 摘要
           </button>
 
-          {/* Quiz button area */}
-          {isGenerating ? (
-            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> 生成中...
+          {/* Chat panel toggle */}
+          <button
+            className={`btn btn-sm ${showChatPanel ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowChatPanel(v => !v)}
+            title="AI 问答"
+          >
+            <MessageCircle size={14} /> 问答
+          </button>
+
+          {/* Extract concepts button */}
+          {isExtractingConcepts ? (
+            <span className="btn btn-secondary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
+              <Loader2 size={14} className="spin" /> 概念
             </span>
-          ) : generatingError ? (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={generatingError}>
-                {generatingError}
-              </span>
+          ) : docConceptCount > 0 ? (
+            <div ref={conceptMenuRef} style={{ position: 'relative', display: 'inline-flex' }}>
               <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleGenerate(existingQuiz ? 'regenerate' : 'new')}
-              >
-                <RefreshCw size={14} /> 重试
-              </button>
-            </div>
-          ) : existingQuiz ? (
-            <div className="quiz-toolbar-group" ref={menuRef} style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-              <span className="badge" style={{ fontSize: '0.75rem' }}>
-                {existingQuiz.questions.length} 道题
-              </span>
-              <Link
-                to={`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`}
                 className="btn btn-primary btn-sm"
+                onClick={() => setShowConceptMenu(v => !v)}
               >
-                <Sparkles size={14} /> 开始测验
-              </Link>
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setShowRegenerateMenu(v => !v)}
-                >
-                  <RefreshCw size={14} /> <ChevronDown size={12} />
-                </button>
-                {showRegenerateMenu && (
-                  <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
-                    position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                    background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
-                    borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
-                    minWidth: 140, overflow: 'hidden',
-                  }}>
-                    <button
-                      className="dropdown-item"
-                      style={{
-                        display: 'block', width: '100%', padding: '8px 14px',
-                        border: 'none', background: 'none', cursor: 'pointer',
-                        textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
-                      }}
-                      onClick={() => handleGenerate('regenerate')}
-                      onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                    >
-                      重新生成
-                    </button>
+                <Lightbulb size={14} /> 概念 {docConceptCount}
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ padding: '6px 6px' }}
+                onClick={() => setShowConceptMenu(v => !v)}
+                title="更多选项"
+              >
+                <ChevronDown size={12} />
+              </button>
+              {showConceptMenu && (
+                <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                  background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
+                  borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
+                  minWidth: 140, overflow: 'hidden',
+                }}>
+                  <button
+                    className="dropdown-item"
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      border: 'none', background: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
+                    }}
+                    onClick={() => handleExtractConcepts('regenerate')}
+                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
+                  >
+                    重新生成
+                  </button>
+                  {docConceptCount < conceptMaxCount && (
                     <button
                       className="dropdown-item"
                       style={{
@@ -500,39 +603,116 @@ export function DocReaderPage() {
                         background: 'none', cursor: 'pointer',
                         textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
                       }}
-                      onClick={() => handleGenerate('append')}
+                      onClick={() => handleExtractConcepts('append')}
                       onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                       onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                     >
-                      追加题目
+                      追加概念
                     </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => handleExtractConcepts('new')}
+            >
+              <Lightbulb size={14} /> 概念
+            </button>
+          )}
+
+          {/* Quiz button area */}
+          {isGenerating ? (
+            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
+              <Loader2 size={14} className="spin" /> 测试
+            </span>
+          ) : generatingError ? (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => handleGenerate(existingQuiz ? 'regenerate' : 'new')}
+              title={generatingError}
+            >
+              <RefreshCw size={14} /> 重试
+            </button>
+          ) : existingQuiz ? (
+            <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
+              <Link
+                to={`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`}
+                className="btn btn-primary btn-sm"
+              >
+                <Sparkles size={14} /> 测试 {existingQuiz.questions.length}
+              </Link>
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '6px 6px' }}
+                onClick={() => setShowRegenerateMenu(v => !v)}
+                title="更多选项"
+              >
+                <ChevronDown size={12} />
+              </button>
+              {showRegenerateMenu && (
+                <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                  background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
+                  borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
+                  minWidth: 140, overflow: 'hidden',
+                }}>
+                  <button
+                    className="dropdown-item"
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      border: 'none', background: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
+                    }}
+                    onClick={() => handleGenerate('regenerate')}
+                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
+                  >
+                    重新生成
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      border: 'none', borderTop: '1px solid var(--border-primary)',
+                      background: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
+                    }}
+                    onClick={() => handleGenerate('append')}
+                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
+                  >
+                    追加题目
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button
               className="btn btn-primary btn-sm"
               onClick={() => handleGenerate('new')}
             >
-              <Sparkles size={14} /> 生成测验
+              <Sparkles size={14} /> 测试
             </button>
           )}
 
+          {/* Bookmark toggle */}
           <button
             className={`btn btn-sm ${isBookmarked ? 'btn-primary' : 'btn-secondary'}`}
             onClick={toggleReadLater}
-            title={isBookmarked ? '取消稍后阅读' : '稍后阅读'}
+            title={isBookmarked ? '取消收藏' : '收藏'}
           >
-            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
+            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} /> 收藏
           </button>
 
+          {/* Fullscreen */}
           <button
             className="btn btn-ghost btn-sm"
             onClick={toggleFullscreen}
             title="全屏阅读"
           >
-            <Maximize size={16} />
+            <Maximize size={16} /> 全屏
           </button>
         </div>
       </div>
@@ -589,6 +769,28 @@ export function DocReaderPage() {
             )}
           </div>
         </div>
+
+        {backlinks.length > 0 && (
+          <div className="backlinks-panel" style={{ marginTop: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
+              反向链接({backlinks.length})：
+            </span>
+            {backlinks.slice(0, 5).map(ann => {
+              const srcDoc = allDocuments.get(ann.documentId)
+              return (
+                <Link
+                  key={ann.id}
+                  to={`/doc/${ann.documentId}`}
+                  className="wiki-link"
+                  style={{ fontSize: '0.8rem', marginRight: '0.5rem' }}
+                  title={ann.comment}
+                >
+                  {srcDoc?.title || '文档'}中的引用
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="doc-reader-content">
@@ -600,9 +802,10 @@ export function DocReaderPage() {
           title={doc.title}
         />
 
-        {!isFullscreen && showAnnotationPanel && (
+        {showAnnotationPanel && (
           <AnnotationPanel
             annotations={docAnnotations}
+            titleLookup={titleLookup}
             onScrollTo={scrollToAnnotation}
             onRemove={handleRemoveAnnotation}
             onUpdateComment={handleUpdateComment}
@@ -612,13 +815,25 @@ export function DocReaderPage() {
           />
         )}
 
-        {!isFullscreen && showSummaryPanel && (
+        {showSummaryPanel && (
           <SummaryPanel
             summaryText={summaryText}
             isGenerating={isSummaryGenerating}
             error={summaryError}
             onGenerate={handleGenerateSummary}
             onClose={() => setShowSummaryPanel(false)}
+          />
+        )}
+
+        {showChatPanel && (
+          <ChatPanel
+            documentId={docId || ''}
+            documentTitle={doc.title}
+            documentContent={doc.contentText}
+            iframeRef={iframeRef}
+            selectedText={chatSelectedText}
+            onClose={() => { setShowChatPanel(false); setChatSelectedText(undefined) }}
+            onSelectionUsed={handleChatSelectionUsed}
           />
         )}
       </div>
@@ -629,6 +844,9 @@ export function DocReaderPage() {
           selectionInfo={selectionInfo}
           onHighlight={handleHighlight}
           onComment={() => setShowCommentDialog(true)}
+          onExplain={handleExplain}
+          onTranslate={handleTranslate}
+          onAskAI={handleAskAI}
           onRemoveHighlights={handleRemoveHighlights}
           onClose={clearSelection}
         />
@@ -651,8 +869,35 @@ export function DocReaderPage() {
         <AnnotationPopup
           annotation={activeAnnotation}
           rect={activeAnnotationRect}
+          titleLookup={titleLookup}
           onClose={clearActiveAnnotation}
           onRemove={handleRemoveAnnotation}
+        />
+      )}
+
+      {/* AI Explain bubble */}
+      {explainState && (
+        <AIBubble
+          rect={explainState.rect}
+          title="概念解释"
+          icon={<Lightbulb size={14} />}
+          streamingText={explainState.streamingText}
+          isStreaming={explainState.isStreaming}
+          error={explainState.error}
+          onClose={() => setExplainState(null)}
+        />
+      )}
+
+      {/* AI Translate bubble */}
+      {translateState && (
+        <AIBubble
+          rect={translateState.rect}
+          title="翻译"
+          icon={<Languages size={14} />}
+          streamingText={translateState.streamingText}
+          isStreaming={translateState.isStreaming}
+          error={translateState.error}
+          onClose={() => setTranslateState(null)}
         />
       )}
     </div>

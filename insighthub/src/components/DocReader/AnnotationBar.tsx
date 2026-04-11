@@ -1,17 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { MessageSquare, Eraser } from 'lucide-react'
+import { MessageSquare, Eraser, Lightbulb, Languages, MessageCircle } from 'lucide-react'
 import type { SelectionInfo } from '@/hooks/useAnnotationIframe'
 
 interface AnnotationBarProps {
   selectionInfo: SelectionInfo
   onHighlight: (color: string) => void
   onComment: () => void
+  onExplain: () => void
+  onTranslate: () => void
+  onAskAI: () => void
   onRemoveHighlights: (annotationIds: string[]) => void
   onClose: () => void
 }
 
-export function AnnotationBar({ selectionInfo, onHighlight, onComment, onRemoveHighlights, onClose }: AnnotationBarProps) {
+export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain, onTranslate, onAskAI, onRemoveHighlights, onClose }: AnnotationBarProps) {
   const barRef = useRef<HTMLDivElement>(null)
   const rect = selectionInfo.rect
   const hasExisting = selectionInfo.existingAnnotationIds.length > 0
@@ -67,6 +70,28 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onRemoveH
         title="添加批注"
       >
         <MessageSquare size={14} />
+      </button>
+      <div className="annotation-bar-divider" />
+      <button
+        className="annotation-bar-comment-btn"
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onExplain() }}
+        title="AI 解释"
+      >
+        <Lightbulb size={14} />
+      </button>
+      <button
+        className="annotation-bar-comment-btn"
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onTranslate() }}
+        title="AI 翻译"
+      >
+        <Languages size={14} />
+      </button>
+      <button
+        className="annotation-bar-comment-btn"
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onAskAI() }}
+        title="AI 提问"
+      >
+        <MessageCircle size={14} />
       </button>
       {hasExisting && (
         <>

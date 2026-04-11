@@ -1,5 +1,6 @@
-import type { Document, Tag } from '@/types'
+import type { Document, Tag, Annotation } from '@/types'
 import { CATEGORIES } from '@/utils/categoryMap'
+import { parseWikiLinks } from '@/utils/bidirectionalLinks'
 
 export interface GraphNode {
   id: string
@@ -27,6 +28,7 @@ export interface GraphOptions {
   readDocsOnly?: boolean
   filterSource?: 'all' | 'mindinsight' | 'techinsight'
   showDocuments?: boolean
+  annotations?: Annotation[]
 }
 
 const MIND_WARM = '#ff8c42'
@@ -53,6 +55,7 @@ export function buildGraphData(
     filterSource = 'all',
     showDocuments = true,
     readDocsOnly = false,
+    annotations = [],
   } = options
 
   const nodes: GraphNode[] = []
@@ -186,6 +189,26 @@ export function buildGraphData(
       }
       if (overlap >= 2) {
         addLink(`tag:${tagIds[i]}`, `tag:${tagIds[j]}`, 'co-occurrence')
+      }
+    }
+  }
+
+  // Reference edges from wiki links in annotations
+  if (showDocuments && annotations.length > 0) {
+    const titleToDocId = new Map<string, string>()
+    for (const doc of filteredDocs) {
+      titleToDocId.set(doc.title, doc.id)
+    }
+    for (const ann of annotations) {
+      if (!ann.comment) continue
+      const titles = parseWikiLinks(ann.comment)
+      const srcDocId = ann.documentId
+      if (!nodeIds.has(`doc:${srcDocId}`)) continue
+      for (const title of titles) {
+        const targetDocId = titleToDocId.get(title)
+        if (targetDocId && targetDocId !== srcDocId && nodeIds.has(`doc:${targetDocId}`)) {
+          addLink(`doc:${srcDocId}`, `doc:${targetDocId}`, 'references')
+        }
       }
     }
   }

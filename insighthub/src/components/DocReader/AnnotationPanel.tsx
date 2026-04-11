@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import type { Annotation } from '@/types'
 import { MessageSquare, Highlighter, Trash2, Pencil, Reply, Check, X, AlertTriangle } from 'lucide-react'
+import { WikiLinkRenderer } from '@/components/DocReader/WikiLinkRenderer'
 
 interface AnnotationPanelProps {
   annotations: Annotation[]
+  titleLookup: Map<string, string>
   onScrollTo: (id: string) => void
   onRemove: (id: string) => void
   onUpdateComment?: (annotationId: string, comment: string) => void
@@ -18,7 +20,7 @@ function formatTime(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateComment, onAddReply, staleAnnotationIds, onRemoveStale }: AnnotationPanelProps) {
+export function AnnotationPanel({ annotations, titleLookup, onScrollTo, onRemove, onUpdateComment, onAddReply, staleAnnotationIds, onRemoveStale }: AnnotationPanelProps) {
   const staleCount = staleAnnotationIds?.size ?? 0
 
   if (annotations.length === 0) {
@@ -64,6 +66,7 @@ export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateCom
             <AnnotationItem
               key={ann.id}
               annotation={ann}
+              titleLookup={titleLookup}
               onScrollTo={onScrollTo}
               onRemove={onRemove}
               onUpdateComment={onUpdateComment}
@@ -78,6 +81,7 @@ export function AnnotationPanel({ annotations, onScrollTo, onRemove, onUpdateCom
 
 function AnnotationItem({
   annotation: ann,
+  titleLookup,
   onScrollTo,
   onRemove,
   onUpdateComment,
@@ -85,6 +89,7 @@ function AnnotationItem({
   isStale,
 }: {
   annotation: Annotation
+  titleLookup: Map<string, string>
   onScrollTo: (id: string) => void
   onRemove: (id: string) => void
   onUpdateComment?: (annotationId: string, comment: string) => void
@@ -145,7 +150,9 @@ function AnnotationItem({
       </p>
 
       {ann.comment && !editing && (
-        <p className="annotation-panel-item-comment">{ann.comment}</p>
+        <p className="annotation-panel-item-comment">
+          <WikiLinkRenderer text={ann.comment} titleLookup={titleLookup} />
+        </p>
       )}
 
       {editing && (

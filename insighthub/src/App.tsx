@@ -15,6 +15,7 @@ import { KnowledgeGraphPage } from '@/pages/KnowledgeGraphPage'
 import { LearningPathPage } from '@/pages/LearningPathPage'
 import { PersonalMapPage } from '@/pages/PersonalMapPage'
 import { SpacedRepetitionPage } from '@/pages/SpacedRepetitionPage'
+import { TimelinePage } from '@/pages/TimelinePage'
 import { AchievementToast } from '@/components/AchievementToast'
 import { useInitializeApp } from '@/hooks/useInitializeApp'
 import { useKeyboard } from '@/hooks/useKeyboard'
@@ -47,6 +48,7 @@ function AppContent() {
             <Route path="/my-map" element={<PersonalMapPage />} />
             <Route path="/learning-path" element={<LearningPathPage />} />
             <Route path="/spaced-repetition" element={<SpacedRepetitionPage />} />
+            <Route path="/timeline" element={<TimelinePage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

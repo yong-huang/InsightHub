@@ -131,6 +131,25 @@ export interface Flashcard {
   createdAt: number
 }
 
+// ========== Concept Card Types ==========
+export interface ConceptCard {
+  id: string
+  conceptName: string
+  definition: string
+  examples: string[]
+  relatedConcepts: string[]
+  sourceDocId: string
+  sourceSection?: string
+  createdAt: number
+
+  // SM-2 scheduling fields
+  interval: number
+  repetition: number
+  efactor: number
+  nextReview: number
+  lastReview: number
+}
+
 // ========== Imported Document Types ==========
 export interface ImportedDocumentRecord {
   id: string
@@ -154,5 +173,6 @@ export interface UserPreferences {
   aiModel: string
   aiApiKey: string
   activeWorkspace: 'mindinsight' | 'techinsight'
+  conceptMaxCount: number
 }
 

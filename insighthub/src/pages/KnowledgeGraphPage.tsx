@@ -4,6 +4,7 @@ import { ArrowLeft, Maximize, Minimize } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
+import { useAnnotationStore } from '@/stores/annotationStore'
 import { ChartCard } from '@/components/stats/ChartCard'
 import { KnowledgeGraph } from '@/components/visualization/KnowledgeGraph'
 import type { GraphOptions } from '@/utils/graphBuilder'
@@ -13,6 +14,7 @@ export function KnowledgeGraphPage() {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const tags = useTagStore(s => s.tags)
+  const annotations = useAnnotationStore(s => s.annotations)
 
   const [showDocuments, setShowDocuments] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -49,7 +51,8 @@ export function KnowledgeGraphPage() {
   const currentOptions = useMemo((): GraphOptions => ({
     filterSource: activeWorkspace,
     showDocuments,
-  }), [activeWorkspace, showDocuments])
+    annotations,
+  }), [activeWorkspace, showDocuments, annotations])
 
   return (
     <div className="viz-page">

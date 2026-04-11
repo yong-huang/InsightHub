@@ -14,6 +14,8 @@ export const storageKeys = {
   READ_LATER: `${PREFIX}read-later`,
   ACHIEVEMENTS: `${PREFIX}achievements`,
   FLASHCARDS: `${PREFIX}flashcards`,
+  CHAT_HISTORY: `${PREFIX}chat-history`,
+  CONCEPT_CARDS: `${PREFIX}concept-cards`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -67,6 +69,7 @@ export const storageService = {
       aiModel: 'default',
       aiApiKey: '',
       activeWorkspace: 'mindinsight' as const,
+      conceptMaxCount: 10,
       ...stored,
     }
   },
@@ -210,5 +213,28 @@ export const storageService = {
   getFlashcards: () => getItem<any[]>(storageKeys.FLASHCARDS, []),
 
   setFlashcards: (cards: any[]) => setItem(storageKeys.FLASHCARDS, cards),
+
+  // Chat history per document
+  getChatHistory: (docId: string) => {
+    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+    return all[docId] || []
+  },
+
+  saveChatHistory: (docId: string, messages: any[]) => {
+    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+    all[docId] = messages
+    setItem(storageKeys.CHAT_HISTORY, all)
+  },
+
+  deleteChatHistory: (docId: string) => {
+    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+    delete all[docId]
+    setItem(storageKeys.CHAT_HISTORY, all)
+  },
+
+  // Concept cards
+  getConceptCards: () => getItem<any[]>(storageKeys.CONCEPT_CARDS, []),
+
+  setConceptCards: (cards: any[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
 
 }

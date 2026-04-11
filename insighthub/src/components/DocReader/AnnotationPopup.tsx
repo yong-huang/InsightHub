@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import type { Annotation } from '@/types'
 import { MessageSquare, X, Trash2 } from 'lucide-react'
+import { WikiLinkRenderer } from '@/components/DocReader/WikiLinkRenderer'
 
 interface AnnotationPopupProps {
   annotation: Annotation
   rect: DOMRect
+  titleLookup: Map<string, string>
   onClose: () => void
   onRemove: (id: string) => void
 }
@@ -15,7 +17,7 @@ function formatTime(ts: number): string {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function AnnotationPopup({ annotation: ann, rect, onClose, onRemove }: AnnotationPopupProps) {
+export function AnnotationPopup({ annotation: ann, rect, titleLookup, onClose, onRemove }: AnnotationPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
 
   // Position: below the mark, left-aligned
@@ -55,7 +57,7 @@ export function AnnotationPopup({ annotation: ann, rect, onClose, onRemove }: An
       {ann.comment && (
         <div className="annotation-popup-comment">
           <MessageSquare size={12} />
-          <span>{ann.comment}</span>
+          <WikiLinkRenderer text={ann.comment} titleLookup={titleLookup} />
         </div>
       )}
 

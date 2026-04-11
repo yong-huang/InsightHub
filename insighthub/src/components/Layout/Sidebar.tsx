@@ -5,13 +5,13 @@ import {
   Cpu, GitBranch, Cloud, Server, Network, Code,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy,
-  Map, User, Layers,
+  Map, User, Clock, Lightbulb,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
-import { useFlashcardStore } from '@/stores/flashcardStore'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
 import { ACHIEVEMENTS } from '@/services/achievementService'
 import { storageService } from '@/services/storageService'
@@ -40,14 +40,15 @@ export function Sidebar() {
   const tags = useTagStore(s => s.tags)
   const documents = useDocumentStore(s => s.documents)
   const allAnnotations = useAnnotationStore(s => s.annotations)
-  const flashcardCards = useFlashcardStore(s => s.cards)
-  const dueFlashcardCount = useMemo(() => {
+  const conceptCards = useConceptCardStore(s => s.cards)
+  const dueConceptCount = useMemo(() => {
     const now = Date.now()
-    return flashcardCards.filter(c => {
-      const doc = documents.get(c.documentId)
-      return doc?.source === activeWorkspace && c.nextReview <= now
+    return conceptCards.filter(c => {
+      const doc = documents.get(c.sourceDocId)
+      return (doc?.source === activeWorkspace || c.sourceDocId.startsWith(activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-'))
+        && c.nextReview <= now
     }).length
-  }, [flashcardCards, documents, activeWorkspace])
+  }, [conceptCards, documents, activeWorkspace])
   const noteCount = useMemo(() => {
     return allAnnotations.filter(a => {
       const doc = documents.get(a.documentId)
@@ -165,11 +166,15 @@ export function Sidebar() {
               <span className="sidebar-item-count">{achievementCount}/{ACHIEVEMENTS.length}</span>
             </Link>
             <Link to="/spaced-repetition" className="sidebar-item">
-              <span className="sidebar-item-icon"><Layers size={18} /></span>
-              <span className="sidebar-item-label">间隔复习</span>
-              {dueFlashcardCount > 0 && (
-                <span className="sidebar-item-count">{dueFlashcardCount}</span>
+              <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
+              <span className="sidebar-item-label">概念卡片</span>
+              {dueConceptCount > 0 && (
+                <span className="sidebar-item-count">{dueConceptCount}</span>
               )}
+            </Link>
+            <Link to="/timeline" className="sidebar-item">
+              <span className="sidebar-item-icon"><Clock size={18} /></span>
+              <span className="sidebar-item-label">时间线</span>
             </Link>
           </div>
         )}
@@ -215,11 +220,16 @@ export function Sidebar() {
           </Link>
         )}
         {sidebarCollapsed && (
-          <Link to="/spaced-repetition" className="sidebar-item" title="间隔复习">
-            <span className="sidebar-item-icon"><Layers size={18} /></span>
-            {dueFlashcardCount > 0 && (
-              <span className="sidebar-item-count">{dueFlashcardCount}</span>
+          <Link to="/spaced-repetition" className="sidebar-item" title="概念卡片">
+            <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
+            {dueConceptCount > 0 && (
+              <span className="sidebar-item-count">{dueConceptCount}</span>
             )}
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/timeline" className="sidebar-item" title="时间线">
+            <span className="sidebar-icon"><Clock size={18} /></span>
           </Link>
         )}
 

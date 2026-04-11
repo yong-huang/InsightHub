@@ -317,6 +317,9 @@ export function applyMarkToRange(range: Range, annotationId: string, color: stri
     if (textNode === range.endContainer) end = range.endOffset
 
     if (start < end) {
+      // Skip whitespace-only segments (indentation/newlines between tags)
+      const segment = (textNode.textContent || '').slice(start, end)
+      if (!segment.trim()) continue
       segments.push({ node: textNode, start, end })
     }
   }
@@ -386,6 +389,9 @@ export function restoreMarkFromRange(range: Range, annotationId: string, color: 
     if (textNode === range.endContainer) end = range.endOffset
 
     if (start < end) {
+      // Skip whitespace-only segments (indentation/newlines between tags)
+      const segment = (textNode.textContent || '').slice(start, end)
+      if (!segment.trim()) continue
       segments.push({ node: textNode, start, end })
     }
   }

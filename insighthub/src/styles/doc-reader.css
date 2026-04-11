@@ -80,3 +80,32 @@
   height: 100vh;
   border: none;
 }
+
+/* ========== Wiki Links ========== */
+.wiki-link {
+  color: var(--accent-blue);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.wiki-link:hover {
+  color: var(--accent-purple);
+}
+
+.wiki-link-unresolved {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  cursor: default;
+}
+
+/* ========== Backlinks Panel ========== */
+.backlinks-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border-subtle);
+}

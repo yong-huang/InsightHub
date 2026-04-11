@@ -1,15 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Layers, RotateCcw, Trash2, BookOpen,
+  Lightbulb, RotateCcw, Trash2, BookOpen,
   Clock, CheckCircle2, AlertCircle, Star, Zap,
 } from 'lucide-react'
-import { useFlashcardStore } from '@/stores/flashcardStore'
-import { useAnnotationStore } from '@/stores/annotationStore'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import { getCardStats, getDueCards, stripHtml } from '@/services/spacedRepetition'
-import type { Flashcard } from '@/types'
+import type { ConceptCard } from '@/types'
 
 type ViewMode = 'review' | 'list'
 
@@ -23,14 +21,15 @@ const GRADES = [
 ] as const
 
 export function SpacedRepetitionPage() {
-  const { cards, isLoaded, loadCards, generateCardsFromAnnotations, reviewCard, removeCard, skipCard } = useFlashcardStore()
-  const annotations = useAnnotationStore(s => s.annotations)
+  const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
 
-  // Filter cards by current workspace
   const workspaceCards = useMemo(() =>
-    cards.filter(c => documents.get(c.documentId)?.source === activeWorkspace),
+    cards.filter(c => {
+      const doc = documents.get(c.sourceDocId)
+      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-')
+    }),
     [cards, documents, activeWorkspace]
   )
 
@@ -41,26 +40,27 @@ export function SpacedRepetitionPage() {
   const [sessionDone, setSessionDone] = useState(false)
   const [slidingOut, setSlidingOut] = useState(false)
 
-  // Load cards on mount
   useEffect(() => {
     if (!isLoaded) loadCards()
   }, [isLoaded, loadCards])
 
-  // Auto-generate cards from annotations in current workspace
-  const workspaceAnnotations = useMemo(() =>
-    annotations.filter(a => documents.get(a.documentId)?.source === activeWorkspace),
-    [annotations, documents, activeWorkspace]
-  )
+  const dueCards = useMemo(() => {
+    const now = Date.now()
+    return workspaceCards
+      .filter(c => c.nextReview <= now)
+      .sort((a, b) => a.nextReview - b.nextReview)
+  }, [workspaceCards])
 
-  useEffect(() => {
-    if (isLoaded && workspaceAnnotations.length > 0) {
-      const getDocTitle = (docId: string) => documents.get(docId)?.title
-      generateCardsFromAnnotations(workspaceAnnotations, getDocTitle)
+  const stats = useMemo(() => {
+    let due = 0, newCount = 0, learning = 0, mastered = 0
+    for (const c of workspaceCards) {
+      if (c.nextReview <= Date.now()) due++
+      if (c.lastReview === 0) newCount++
+      else if (c.interval < 21) learning++
+      else mastered++
     }
-  }, [isLoaded, workspaceAnnotations.length]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const dueCards = useMemo(() => getDueCards(workspaceCards), [workspaceCards])
-  const stats = useMemo(() => getCardStats(workspaceCards), [workspaceCards])
+    return { total: workspaceCards.length, due, new: newCount, learning, mastered }
+  }, [workspaceCards])
 
   const currentCard = dueCards[currentIdx] ?? null
 
@@ -103,7 +103,6 @@ export function SpacedRepetitionPage() {
     setSessionDone(false)
   }, [])
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (sessionDone || viewMode !== 'review') return
@@ -127,8 +126,8 @@ export function SpacedRepetitionPage() {
     <div className="spaced-repetition-page">
       <div className="page-header">
         <div className="page-header-left">
-          <Layers size={24} />
-          <h1>间隔复习</h1>
+          <Lightbulb size={24} />
+          <h1>概念卡片</h1>
         </div>
         <div className="page-header-actions">
           <button
@@ -142,13 +141,12 @@ export function SpacedRepetitionPage() {
             className={`sr-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
             onClick={() => setViewMode('list')}
           >
-            <Layers size={16} />
+            <Lightbulb size={16} />
             全部卡片
           </button>
         </div>
       </div>
 
-      {/* Stats bar */}
       <div className="sr-stats-bar">
         <div className="sr-stat">
           <div className="sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
@@ -188,7 +186,6 @@ export function SpacedRepetitionPage() {
         </div>
       </div>
 
-      {/* Progress bar */}
       {viewMode === 'review' && sessionTotal > 0 && (
         <div className="sr-progress">
           <div className="sr-progress-bar">
@@ -209,7 +206,6 @@ export function SpacedRepetitionPage() {
   function renderReviewMode() {
     if (!isLoaded) return <div className="loading-screen"><div className="loading-text">加载中...</div></div>
 
-    // Session completed
     if (sessionDone) {
       const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
       return (
@@ -237,7 +233,6 @@ export function SpacedRepetitionPage() {
       )
     }
 
-    // No due cards
     if (dueCards.length === 0 && !sessionDone) {
       return (
         <div className="sr-summary">
@@ -245,7 +240,7 @@ export function SpacedRepetitionPage() {
           <h2>暂无待复习卡片</h2>
           <p className="sr-summary-desc">
             {stats.total === 0
-              ? '阅读文档时添加高亮或批注，系统会自动生成复习卡片。'
+              ? '在文档阅读页点击"概念"按钮提取概念卡片后，即可开始间隔复习。'
               : '所有卡片都已复习完毕，稍后再来看看吧。'}
           </p>
           <button className="sr-start-btn" onClick={startNewSession}>刷新</button>
@@ -253,7 +248,6 @@ export function SpacedRepetitionPage() {
       )
     }
 
-    // Active review session
     return (
       <div className="sr-card-area">
         <div className="sr-card-counter">{currentIdx + 1} / {dueCards.length}</div>
@@ -263,16 +257,23 @@ export function SpacedRepetitionPage() {
         >
           <div className="sr-card-inner">
             <div className="sr-card-front">
-              <div className="sr-card-doc">{currentCard?.documentTitle}</div>
-              <div className="sr-card-text">{currentCard ? stripHtml(currentCard.front) : ''}</div>
+              <div className="sr-card-doc">{getDocTitle(currentCard?.sourceDocId)}</div>
+              <div className="sr-card-text">{currentCard?.conceptName}</div>
               <div className="sr-card-hint">点击翻转 · 空格键</div>
             </div>
             <div className="sr-card-back">
-              <div className="sr-card-doc">{currentCard?.documentTitle}</div>
-              <div className="sr-card-text">{currentCard ? stripHtml(currentCard.back) : ''}</div>
-              {currentCard?.type === 'comment' && (
-                <div className="sr-card-label" style={{ borderLeftColor: currentCard.color }}>
-                  {currentCard.type === 'comment' ? '批注' : '高亮'}
+              <div className="sr-card-doc">{getDocTitle(currentCard?.sourceDocId)}</div>
+              <div className="sr-card-text">{currentCard?.definition}</div>
+              {currentCard?.examples && currentCard.examples.length > 0 && (
+                <div className="sr-card-examples">
+                  {currentCard.examples.map((ex, i) => (
+                    <div key={i} className="sr-card-example">{ex}</div>
+                  ))}
+                </div>
+              )}
+              {currentCard?.relatedConcepts && currentCard.relatedConcepts.length > 0 && (
+                <div className="sr-card-label">
+                  相关: {currentCard.relatedConcepts.join('、')}
                 </div>
               )}
             </div>
@@ -311,9 +312,9 @@ export function SpacedRepetitionPage() {
     if (workspaceCards.length === 0) {
       return (
         <div className="sr-summary">
-          <Layers size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
-          <h2>暂无卡片</h2>
-          <p className="sr-summary-desc">阅读文档时添加高亮或批注，系统会自动生成复习卡片。</p>
+          <Lightbulb size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
+          <h2>暂无概念卡片</h2>
+          <p className="sr-summary-desc">在文档阅读页点击"概念"按钮提取概念卡片后，即可开始间隔复习。</p>
         </div>
       )
     }
@@ -345,30 +346,32 @@ export function SpacedRepetitionPage() {
       </div>
     )
   }
+
+  function getDocTitle(docId?: string): string {
+    if (!docId) return ''
+    const doc = documents.get(docId)
+    return doc?.title || '未知文档'
+  }
 }
 
-function CardItem({ card, onRemove }: { card: Flashcard; onRemove: (id: string) => void }) {
+function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const documents = useDocumentStore(s => s.documents)
+  const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || '未知文档') : '未知文档'
 
   return (
-    <div className={`sr-list-item ${card.sourceDeleted ? 'sr-list-item-deleted' : ''}`}>
-      <div className="sr-list-item-color" style={{ background: card.color }} />
+    <div className="sr-list-item">
       <div className="sr-list-item-content">
-        <div className="sr-list-item-front">
-          {stripHtml(card.front).replace(/\n/g, ' ')}
-          {card.sourceDeleted && <span className="sr-list-item-deleted-tag">来源已删除</span>}
-        </div>
+        <div className="sr-list-item-front">{card.conceptName}</div>
         <div className="sr-list-item-meta">
-          <span className="sr-list-item-type">{card.type === 'comment' ? '批注' : '高亮'}</span>
+          <span className="sr-list-item-type">概念</span>
           <span className="sr-list-item-interval">
             {card.interval === 0 ? '新卡片' : card.interval >= 21 ? '已掌握' : `${card.interval}天后`}
           </span>
-          {!card.sourceDeleted && (
-            <Link to={`/doc/${card.documentId}`} className="sr-list-item-doc" onClick={e => e.stopPropagation()}>
-              <BookOpen size={12} />
-              {card.documentTitle}
-            </Link>
-          )}
+          <Link to={`/doc/${card.sourceDocId}`} className="sr-list-item-doc" onClick={e => e.stopPropagation()}>
+            <BookOpen size={12} />
+            {docTitle}
+          </Link>
         </div>
       </div>
       <div className="sr-list-item-actions">
