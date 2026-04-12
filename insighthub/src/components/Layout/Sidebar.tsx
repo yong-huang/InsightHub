@@ -5,7 +5,7 @@ import {
   Cpu, GitBranch, Cloud, Server, Network, Code,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy,
-  Map, User, Clock, Lightbulb,
+  Route, Lightbulb,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -144,6 +144,13 @@ export function Sidebar() {
                 <span className="sidebar-item-count">{readLaterCount}</span>
               )}
             </Link>
+            <Link to="/spaced-repetition" className="sidebar-item">
+              <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
+              <span className="sidebar-item-label">概念卡片</span>
+              {dueConceptCount > 0 && (
+                <span className="sidebar-item-count">{dueConceptCount}</span>
+              )}
+            </Link>
             <Link to="/stats" className="sidebar-item">
               <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
               <span className="sidebar-item-label">数据统计</span>
@@ -152,29 +159,14 @@ export function Sidebar() {
               <span className="sidebar-item-icon"><Network size={18} /></span>
               <span className="sidebar-item-label">知识图谱</span>
             </Link>
-            <Link to="/my-map" className="sidebar-item">
-              <span className="sidebar-item-icon"><User size={18} /></span>
-              <span className="sidebar-item-label">知识地图</span>
-            </Link>
             <Link to="/learning-path" className="sidebar-item">
-              <span className="sidebar-item-icon"><Map size={18} /></span>
+              <span className="sidebar-item-icon"><Route size={18} /></span>
               <span className="sidebar-item-label">学习路径</span>
             </Link>
             <Link to="/achievements" className="sidebar-item">
               <span className="sidebar-item-icon"><Trophy size={18} /></span>
               <span className="sidebar-item-label">成就系统</span>
               <span className="sidebar-item-count">{achievementCount}/{ACHIEVEMENTS.length}</span>
-            </Link>
-            <Link to="/spaced-repetition" className="sidebar-item">
-              <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
-              <span className="sidebar-item-label">概念卡片</span>
-              {dueConceptCount > 0 && (
-                <span className="sidebar-item-count">{dueConceptCount}</span>
-              )}
-            </Link>
-            <Link to="/timeline" className="sidebar-item">
-              <span className="sidebar-item-icon"><Clock size={18} /></span>
-              <span className="sidebar-item-label">时间线</span>
             </Link>
           </div>
         )}
@@ -195,6 +187,14 @@ export function Sidebar() {
           </Link>
         )}
         {sidebarCollapsed && (
+          <Link to="/spaced-repetition" className="sidebar-item" title="概念卡片">
+            <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
+            {dueConceptCount > 0 && (
+              <span className="sidebar-item-count">{dueConceptCount}</span>
+            )}
+          </Link>
+        )}
+        {sidebarCollapsed && (
           <Link to="/stats" className="sidebar-item" title="数据统计">
             <span className="sidebar-item-icon"><BarChart3 size={18} /></span>
           </Link>
@@ -205,31 +205,13 @@ export function Sidebar() {
           </Link>
         )}
         {sidebarCollapsed && (
-          <Link to="/my-map" className="sidebar-item" title="知识地图">
-            <span className="sidebar-item-icon"><User size={18} /></span>
-          </Link>
-        )}
-        {sidebarCollapsed && (
           <Link to="/learning-path" className="sidebar-item" title="学习路径">
-            <span className="sidebar-item-icon"><Map size={18} /></span>
+            <span className="sidebar-item-icon"><Route size={18} /></span>
           </Link>
         )}
         {sidebarCollapsed && (
           <Link to="/achievements" className="sidebar-item" title="成就系统">
             <span className="sidebar-item-icon"><Trophy size={18} /></span>
-          </Link>
-        )}
-        {sidebarCollapsed && (
-          <Link to="/spaced-repetition" className="sidebar-item" title="概念卡片">
-            <span className="sidebar-item-icon"><Lightbulb size={18} /></span>
-            {dueConceptCount > 0 && (
-              <span className="sidebar-item-count">{dueConceptCount}</span>
-            )}
-          </Link>
-        )}
-        {sidebarCollapsed && (
-          <Link to="/timeline" className="sidebar-item" title="时间线">
-            <span className="sidebar-icon"><Clock size={18} /></span>
           </Link>
         )}
 
