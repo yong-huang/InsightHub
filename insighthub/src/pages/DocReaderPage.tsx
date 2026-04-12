@@ -567,7 +567,7 @@ export function DocReaderPage() {
                 <Lightbulb size={14} /> 概念 {docConceptCount}
               </button>
               <button
-                className="btn btn-primary btn-sm"
+                className="btn btn-secondary btn-sm"
                 style={{ padding: '6px 6px' }}
                 onClick={() => setShowConceptMenu(v => !v)}
                 title="更多选项"
