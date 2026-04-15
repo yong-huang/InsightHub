@@ -1057,3 +1057,104 @@
 .timeline-item-time {
   color: var(--text-dim);
 }
+
+/* ========== Knowledge Tree ========== */
+.kt-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0;
+}
+
+.kt-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.35rem;
+}
+
+.kt-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.kt-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  transition: background 0.15s;
+  cursor: default;
+  user-select: none;
+}
+
+.kt-node.kt-clickable {
+  cursor: pointer;
+}
+
+.kt-node.kt-clickable:hover {
+  background: var(--bg-input);
+}
+
+.kt-node:not(.kt-clickable):hover {
+  background: var(--bg-card-hover, var(--bg-input));
+}
+
+.kt-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.kt-toggle:hover {
+  background: var(--border-subtle);
+}
+
+.kt-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.kt-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.kt-count {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.kt-children {
+  padding-left: 1.5rem;
+  border-left: 1.5px solid var(--border-subtle);
+  margin-left: 9px;
+}
+
+.kt-node[title]:hover::after {
+  content: none;
+}

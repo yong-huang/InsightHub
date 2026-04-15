@@ -62,6 +62,8 @@ InsightHub turns your learning data into actionable visual insights:
 
 - **Personal Knowledge Map** — A force-directed graph centered on "You", showing your personal knowledge landscape. Node size reflects engagement depth (reading + annotations + quizzes). Color-coded mastery levels from red (needs work) to cyan (mastered).
 
+- **Knowledge Tree** — A collapsible tree view organizing content by Category → Document → Concept. Documents show read status, concepts show definitions on hover. Provides a structured, hierarchical alternative to the graph view.
+
 - **GitHub-Style Reading Heatmap** — Track daily reading activity over time with a calendar heatmap, just like GitHub's contribution graph. See your reading streaks at a glance.
 
 - **Category Radar Chart** — A radar/spider chart showing your reading distribution across up to 15 categories. Instantly spot which areas you've covered and which you've neglected.
@@ -101,7 +103,7 @@ Turn your highlights and comments into durable knowledge:
 | **AI Integration** | Quiz generation (SSE streaming), document summarization, AI grading, configurable model endpoint |
 | **Annotations** | Multi-color highlights, inline comments with replies, click-to-view popup, XPath persistence with fuzzy restore |
 | **Spaced Repetition** | Auto flashcard generation, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
-| **Visualizations** | Knowledge graph, personal map, reading heatmap, category radar, quiz dashboard, reading habits, tag cloud, learning path |
+| **Visualizations** | Knowledge graph, personal map, knowledge tree, reading heatmap, category radar, quiz dashboard, reading habits, tag cloud, learning path |
 | **Gamification** | Achievement system with 20+ unlockable milestones, toast notifications |
 | **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation (MindInsight / TechInsight) |
 | **UI/UX** | Light/dark theme, responsive sidebar, keyboard shortcuts, iframe-based document reader |
@@ -156,16 +158,18 @@ insighthub/
 │   ├── components/
 │   │   ├── DocReader/           # Annotation bar, panel, popup, summary panel
 │   │   ├── Layout/              # App shell, sidebar with workspace switching
-│   │   ├── visualization/       # 9 interactive visualization components
+│   │   ├── visualization/       # 10 interactive visualization components
 │   │   │   ├── KnowledgeGraph   #   Force-directed document/category/tag graph
 │   │   │   ├── PersonalMap      #   Personal knowledge landscape graph
+│   │   │   ├── KnowledgeTree    #   Collapsible category→doc→concept tree
 │   │   │   ├── LearningPath     #   Timeline with milestone cards
 │   │   │   ├── CategoryRadar    #   Radar chart for category coverage
 │   │   │   ├── ReadingHeatmap   #   GitHub-style daily activity heatmap
 │   │   │   ├── QuizPerformance  #   Score gauge + trend + difficulty chart
 │   │   │   ├── ReadingHabits    #   Hourly/weekday distribution + streaks
 │   │   │   ├── TagCloud         #   Frequency-based word cloud
-│   │   │   └── TopEngaged       #   Ranked engagement list
+│   │   │   ├── TopEngaged       #   Ranked engagement list
+│   │   │   └── ReportHero       #   Summary hero cards for stats page
 │   │   └── stats/               # Chart containers and stat components
 │   ├── services/
 │   │   ├── aiService.ts         # SSE streaming, quiz gen, summarization, grading
@@ -200,7 +204,7 @@ Two knowledge bases, each with multiple categories:
 | Workspace | Categories |
 |-----------|-----------|
 | **MindInsight** | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
-| **TechInsight** | AI Frameworks, Algorithms, Cloud, Data Visualization, Dell, Infrastructure, Job, Programming, VMware |
+| **TechInsight** | AI Frameworks, Algorithms, Cloud, Dell, Infrastructure, Job, Programming, VMware |
 
 ### Workspace Switching
 

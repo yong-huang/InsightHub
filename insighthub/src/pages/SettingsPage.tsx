@@ -116,7 +116,7 @@ export function SettingsPage() {
   return (
     <div className="page-settings">
       <div className="page-header">
-        <h1><Settings size={24} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 设置</h1>
+        <h1><Settings size={22} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 设置</h1>
         <p>管理 AI 模型配置和测验偏好</p>
       </div>
 
@@ -240,7 +240,7 @@ export function SettingsPage() {
       {/* Save button */}
       <div className="settings-save-bar">
         <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-          <ArrowLeft size={14} /> 返回
+          <ArrowLeft size={18} /> 返回
         </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />} 保存设置

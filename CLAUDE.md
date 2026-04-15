@@ -56,9 +56,8 @@ All routes are wrapped in `<Layout />`. Key routes:
 - `/stats` — Data statistics with charts (reading heatmap, category radar, quiz performance, etc.)
 - `/read-later` — Read-later reading list
 - `/achievements` — Achievement system with unlock tracking
-- `/knowledge-graph` — Interactive knowledge graph visualization
-- `/my-map` — Personal knowledge map (user's engagement metrics)
-- `/learning-path` — Learning path visualization
+- `/knowledge-graph` — Tabbed page: knowledge graph (D3-force) / personal map / knowledge tree (collapsible Category→Doc→Concept hierarchy)
+- `/learning-path` — Tabbed page: learning path milestones / activity timeline
 - `/spaced-repetition` — Spaced repetition flashcard review (SM-2 algorithm)
 - `/settings` — AI model config, quiz preferences
 
@@ -71,6 +70,7 @@ All routes are wrapped in `<Layout />`. Key routes:
 - **annotationStore** — Annotations (highlights, comments), persists to localStorage + server. Marks flashcards as source-deleted on removal.
 - **preferenceStore** — Theme, quiz settings, sidebar state, active workspace.
 - **flashcardStore** — Flashcards with SM-2 scheduling, auto-generation from annotations, workspace filtering.
+- **conceptCardStore** — Concept cards with SM-2 scheduling, auto-extracted from documents via AI. Used by KnowledgeTree and SpacedRepetition pages.
 
 ### AI Quiz System (`src/services/aiService.ts`, `quizService.ts`)
 
@@ -133,7 +133,17 @@ CSS files:
 - `src/utils/personalMapBuilder.ts` — Personal knowledge map data builder
 - `src/utils/reportAggregator.ts` — Stats/report data aggregation
 - `src/utils/statsAggregator.ts` — Statistics chart data builders
+- `src/utils/timelineBuilder.ts` — Activity timeline data builder
+- `src/utils/markdownRenderer.ts` — Markdown-to-React renderer for AI summaries
+- `src/utils/bidirectionalLinks.ts` — Wiki-style bidirectional link resolver
+- `src/utils/notesExporter.ts` — Notes export to text/markdown
 - `src/services/aiService.ts` — AI API client (OpenAI-compatible, SSE streaming)
+- `src/services/readerAiService.ts` — AI document summary/chat for DocReader
+- `src/services/conceptService.ts` — Concept card extraction via AI
+- `src/services/quizService.ts` — Quiz generation and parsing logic
+- `src/services/searchService.ts` — FlexSearch index and query execution
+- `src/services/cryptoService.ts` — Document encryption/decryption utilities
+- `src/services/importService.ts` — Document import handling
 - `src/services/storageService.ts` — localStorage wrapper with `insighthub:` key prefix
 - `src/services/spacedRepetition.ts` — SM-2 algorithm, card creation, HTML stripping
 - `src/services/achievementService.ts` — Achievement definitions and unlock logic

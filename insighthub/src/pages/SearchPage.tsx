@@ -1,13 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Search, Clock, ArrowLeft } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { DocCard } from '@/components/shared/DocCard'
+import { parseSearchQuery } from '@/services/searchService'
 
 export function SearchPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
   const { results, isSearching, query, performSearch } = useSearchStore()
   const documents = useDocumentStore(s => s.documents)
@@ -18,13 +19,17 @@ export function SearchPage() {
     if (initialQuery) {
       performSearch(initialQuery)
     } else {
-      // Clear stale search state when navigating to /search without a query
       performSearch('')
     }
   }, [initialQuery])
 
+  const plainQuery = useMemo(() => parseSearchQuery(query).text, [query])
+
   const resultDocs = results
-    .map(r => documents.get(r.id))
+    .map(r => {
+      const doc = documents.get(r.id)
+      return doc ? { doc, snippet: r.snippet } : null
+    })
     .filter((d): d is NonNullable<typeof d> => !!d)
 
   const recentReads = getRecentReads().filter(d => d.source === activeWorkspace)
@@ -66,8 +71,8 @@ export function SearchPage() {
 
       {!isSearching && resultDocs.length > 0 && (
         <div className="doc-grid grid-3">
-          {resultDocs.map(doc => (
-            <DocCard key={doc.id} doc={doc} />
+          {resultDocs.map(({ doc, snippet }) => (
+            <DocCard key={doc.id} doc={doc} snippet={snippet} query={plainQuery} />
           ))}
         </div>
       )}

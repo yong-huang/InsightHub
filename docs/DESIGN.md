@@ -137,6 +137,7 @@ const useStore = create<StoreState>((set, get) => ({
 | annotationStore | `Annotation[]` | localStorage + `/api/annotations` |
 | quizStore | `savedQuizzes`, `quizHistory` | localStorage + `/api/quizzes` |
 | flashcardStore | `Flashcard[]` | localStorage only |
+| conceptCardStore | `ConceptCard[]` | localStorage only |
 | tagStore | `Tag[]` | localStorage + `/api/tags` |
 | searchStore | query, results | localStorage (history) |
 | preferenceStore | theme, workspace, sidebar | localStorage |
@@ -203,5 +204,7 @@ The document reader embeds HTML content in an iframe. A custom hook (`useAnnotat
 ### Visualization Components
 
 Graph visualizations (knowledge graph, learning path, personal map) use D3-force for layout and SVG for rendering. Data is built by utility functions in `src/utils/` (`graphBuilder.ts`, `pathBuilder.ts`, `personalMapBuilder.ts`).
+
+The **Knowledge Tree** is a recursive collapsible tree component showing Category → Document → Concept hierarchy. It uses pure React with CSS (no D3). Categories expand by default; documents show read status (green checkmark) and link to the doc reader; concepts show definitions on hover.
 
 Chart visualizations (stats, heatmap, radar) use Recharts with data aggregated by `reportAggregator.ts` and `statsAggregator.ts`.

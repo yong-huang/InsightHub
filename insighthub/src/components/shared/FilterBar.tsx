@@ -13,7 +13,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true, showSourceFilter = true, tags = [], onTagClear }: FilterBarProps) {
-  const hasFilters = filters.source || filters.category || filters.tag || filters.isRead !== undefined
+  const hasFilters = filters.source || filters.category || filters.tag || filters.isRead !== undefined || filters.sortBy
 
   const activeTag = filters.tag ? tags.find(t => t.id === filters.tag) : null
 
@@ -60,6 +60,20 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           <option value="">全部状态</option>
           <option value="true">已读</option>
           <option value="false">未读</option>
+        </select>
+
+        <select
+          className="filter-select"
+          value={filters.sortBy || ''}
+          onChange={e => onFilterChange({ sortBy: e.target.value || undefined })}
+        >
+          <option value="">默认排序</option>
+          <option value="title-asc">标题 A→Z</option>
+          <option value="title-desc">标题 Z→A</option>
+          <option value="lastRead-desc">最近阅读</option>
+          <option value="readCount-desc">最多阅读</option>
+          <option value="wordCount-desc">篇幅最长</option>
+          <option value="wordCount-asc">篇幅最短</option>
         </select>
 
         {/* Tag filter */}

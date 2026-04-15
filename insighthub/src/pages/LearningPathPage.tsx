@@ -72,7 +72,7 @@ export function LearningPathPage() {
   return (
     <div className="viz-page page-timeline">
       <div className="viz-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="page-header-row">
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
             <ArrowLeft size={18} />
           </button>

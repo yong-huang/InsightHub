@@ -566,9 +566,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Imported documents: metadata in .insighthub-imported-docs.json, HTML files in .insighthub-imports/
+      // Imported documents: written directly to TechInsight/<category>/, legacy metadata in .insighthub-imported-docs.json
       const importedDocsPath = path.resolve(process.cwd(), '.insighthub-imported-docs.json')
-      const importedDocsDir = path.resolve(process.cwd(), '.insighthub-imports')
       const IMPORT_DOC_SIZE_LIMIT = 5 * 1024 * 1024 // 5MB
 
       interface ImportedDocRecord {
@@ -578,7 +577,6 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         category: string
         importedAt: number
         encrypted?: boolean
-        // Cached metadata for encrypted docs (parsed before encryption)
         title?: string
         wordCount?: number
         language?: string
@@ -597,12 +595,14 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         fs.writeFileSync(importedDocsPath, JSON.stringify(docs, null, 2), 'utf-8')
       }
 
-      function importedDocHtmlPath(docId: string): string {
-        return path.join(importedDocsDir, `${docId}.html`)
+      // Legacy: resolve old imported-doc HTML from .insighthub-imports/
+      const legacyImportsDir = path.resolve(process.cwd(), '.insighthub-imports')
+      function legacyImportedDocHtmlPath(docId: string): string {
+        return path.join(legacyImportsDir, `${docId}.html`)
       }
 
       // GET /api/imported-documents — list imported docs metadata
-      // POST /api/imported-documents — save new imported doc
+      // POST /api/imported-documents — save new imported doc directly to TechInsight
       // DELETE /api/imported-documents?id=xxx — delete imported doc
       server.middlewares.use('/api/imported-documents', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
@@ -618,7 +618,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('end', () => {
             try {
               const body: any = JSON.parse(Buffer.concat(chunks).toString())
-              if (!body.htmlContent || !body.fileName || !body.source || !body.category) {
+              if (!body.htmlContent || !body.fileName || !body.category) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing required fields' }))
                 return
@@ -629,28 +629,18 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: `File too large (${Math.round(contentSize / 1024)}KB), max 5MB` }))
                 return
               }
-              const id = `imported-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-              // Ensure directory exists
-              if (!fs.existsSync(importedDocsDir)) {
-                fs.mkdirSync(importedDocsDir, { recursive: true })
-              }
-              // Write HTML to separate file
-              fs.writeFileSync(importedDocHtmlPath(id), body.htmlContent, 'utf-8')
-              // Save metadata only (no htmlContent)
-              const record: ImportedDocRecord = {
-                id,
-                fileName: body.fileName,
-                source: body.source,
-                category: body.category,
-                importedAt: Date.now(),
-                encrypted: !!body.encrypted,
-                title: body.title || undefined,
-                wordCount: body.wordCount || undefined,
-                language: body.language || undefined,
-              }
-              const docs = loadImportedDocsFile()
-              docs.push(record)
-              saveImportedDocsFile(docs)
+
+              // Generate ID matching scanDocuments format: ti-<category>-<name>
+              const nameWithoutExt = body.fileName.replace(/\.html$/, '')
+              const id = `ti-${body.category}-${nameWithoutExt}`
+              const destDir = path.join(options.techInsightDir, body.category)
+              const destPath = path.join(destDir, body.fileName)
+
+              // Ensure category directory exists
+              fs.mkdirSync(destDir, { recursive: true })
+              // Write HTML directly to TechInsight
+              fs.writeFileSync(destPath, body.htmlContent, 'utf-8')
+
               res.end(JSON.stringify({ ok: true, id }))
             } catch {
               res.statusCode = 400
@@ -668,12 +658,19 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             return
           }
           const docs = loadImportedDocsFile()
+          const target = docs.find(d => d.id === id)
           const filtered = docs.filter(d => d.id !== id)
           saveImportedDocsFile(filtered)
-          // Remove the HTML file
-          const htmlFile = importedDocHtmlPath(id)
-          if (fs.existsSync(htmlFile)) {
-            fs.unlinkSync(htmlFile)
+          // Remove the HTML file (try TechInsight dir first, then legacy imports dir)
+          if (target) {
+            const techPath = path.join(options.techInsightDir, target.category, target.fileName)
+            if (fs.existsSync(techPath)) {
+              fs.unlinkSync(techPath)
+            }
+          }
+          const legacyFile = legacyImportedDocHtmlPath(id)
+          if (fs.existsSync(legacyFile)) {
+            fs.unlinkSync(legacyFile)
           }
           res.end(JSON.stringify({ ok: true }))
           return
@@ -683,7 +680,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // GET /api/imported-doc/:docId — serve the HTML file for iframe
+      // GET /api/imported-doc/:docId — serve legacy imported HTML from .insighthub-imports/
       server.middlewares.use('/api/imported-doc', (req, res) => {
         if (req.method !== 'GET') {
           res.statusCode = 405
@@ -697,7 +694,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           res.end('Missing docId')
           return
         }
-        const htmlFile = importedDocHtmlPath(docId)
+        const htmlFile = legacyImportedDocHtmlPath(docId)
         if (!fs.existsSync(htmlFile) || !fs.statSync(htmlFile).isFile()) {
           res.statusCode = 404
           res.end('Not Found')

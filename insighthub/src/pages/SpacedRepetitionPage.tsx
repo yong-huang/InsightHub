@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  Lightbulb, RotateCcw, Trash2, BookOpen,
-  Clock, CheckCircle2, AlertCircle, Star, Zap,
+  ArrowLeft, Lightbulb, RotateCcw, Trash2, BookOpen,
+  Clock, CheckCircle2, AlertCircle, Star, Zap, Search,
 } from 'lucide-react'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -21,6 +21,7 @@ const GRADES = [
 ] as const
 
 export function SpacedRepetitionPage() {
+  const navigate = useNavigate()
   const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
@@ -33,9 +34,26 @@ export function SpacedRepetitionPage() {
     [cards, documents, activeWorkspace]
   )
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('review')
   const [flipped, setFlipped] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
+
+  const filteredCards = useMemo(() => {
+    if (!searchQuery.trim()) return workspaceCards
+    const q = searchQuery.toLowerCase()
+    return workspaceCards.filter(c => {
+      const doc = documents.get(c.sourceDocId)
+      return (
+        c.conceptName.toLowerCase().includes(q) ||
+        c.definition.toLowerCase().includes(q) ||
+        c.examples?.some(e => e.toLowerCase().includes(q)) ||
+        c.relatedConcepts?.some(r => r.toLowerCase().includes(q)) ||
+        (doc?.title.toLowerCase().includes(q))
+      )
+    })
+  }, [workspaceCards, searchQuery, documents])
+
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
   const [slidingOut, setSlidingOut] = useState(false)
@@ -46,10 +64,10 @@ export function SpacedRepetitionPage() {
 
   const dueCards = useMemo(() => {
     const now = Date.now()
-    return workspaceCards
+    return filteredCards
       .filter(c => c.nextReview <= now)
       .sort((a, b) => a.nextReview - b.nextReview)
-  }, [workspaceCards])
+  }, [filteredCards])
 
   const stats = useMemo(() => {
     let due = 0, newCount = 0, learning = 0, mastered = 0
@@ -124,27 +142,30 @@ export function SpacedRepetitionPage() {
 
   return (
     <div className="spaced-repetition-page">
-      <div className="page-header">
-        <div className="page-header-left">
-          <Lightbulb size={24} />
-          <h1>概念卡片</h1>
-        </div>
-        <div className="page-header-actions">
-          <button
-            className={`sr-view-toggle ${viewMode === 'review' ? 'active' : ''}`}
-            onClick={() => setViewMode('review')}
-          >
-            <RotateCcw size={16} />
-            复习模式
+      <div className="viz-page-header">
+        <div className="page-header-row">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+            <ArrowLeft size={18} />
           </button>
-          <button
-            className={`sr-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
-            onClick={() => setViewMode('list')}
-          >
-            <Lightbulb size={16} />
-            全部卡片
-          </button>
+          <h1 className="viz-page-title">概念卡片</h1>
+          <div className="page-header-actions">
+            <button
+              className={`sr-view-toggle ${viewMode === 'review' ? 'active' : ''}`}
+              onClick={() => setViewMode('review')}
+            >
+              <RotateCcw size={16} />
+              复习模式
+            </button>
+            <button
+              className={`sr-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <Lightbulb size={16} />
+              全部卡片
+            </button>
+          </div>
         </div>
+        <p className="viz-page-desc">通过间隔复习巩固 AI 从文档中提取的核心概念</p>
       </div>
 
       <div className="sr-stats-bar">
@@ -185,6 +206,19 @@ export function SpacedRepetitionPage() {
           </div>
         </div>
       </div>
+
+      {workspaceCards.length > 0 && (
+        <div className="search-page-input-wrap" style={{ margin: '0.75rem 0' }}>
+          <Search size={16} />
+          <input
+            type="search"
+            className="search-page-input"
+            placeholder="搜索概念卡片..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+        </div>
+      )}
 
       {viewMode === 'review' && sessionTotal > 0 && (
         <div className="sr-progress">
@@ -257,12 +291,20 @@ export function SpacedRepetitionPage() {
         >
           <div className="sr-card-inner">
             <div className="sr-card-front">
-              <div className="sr-card-doc">{getDocTitle(currentCard?.sourceDocId)}</div>
+              <div className="sr-card-doc">
+                <span className="sr-card-doc-icon">?</span>
+                {getDocTitle(currentCard?.sourceDocId)}
+              </div>
               <div className="sr-card-text">{currentCard?.conceptName}</div>
-              <div className="sr-card-hint">点击翻转 · 空格键</div>
+              <div className="sr-card-hint">点击翻转</div>
             </div>
             <div className="sr-card-back">
-              <div className="sr-card-doc">{getDocTitle(currentCard?.sourceDocId)}</div>
+              <div className="sr-card-back-header">
+                <div className="sr-card-doc">
+                  <span className="sr-card-doc-icon">Q</span>
+                  {currentCard?.conceptName}
+                </div>
+              </div>
               <div className="sr-card-text">{currentCard?.definition}</div>
               {currentCard?.examples && currentCard.examples.length > 0 && (
                 <div className="sr-card-examples">
@@ -319,9 +361,19 @@ export function SpacedRepetitionPage() {
       )
     }
 
+    if (filteredCards.length === 0) {
+      return (
+        <div className="sr-summary">
+          <Search size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
+          <h2>无匹配结果</h2>
+          <p className="sr-summary-desc">没有找到与"{searchQuery}"匹配的概念卡片</p>
+        </div>
+      )
+    }
+
     const now = Date.now()
-    const dueList = workspaceCards.filter(c => c.nextReview <= now)
-    const familiarList = workspaceCards.filter(c => c.nextReview > now)
+    const dueList = filteredCards.filter(c => c.nextReview <= now)
+    const familiarList = filteredCards.filter(c => c.nextReview > now)
 
     return (
       <div className="sr-card-list">
@@ -359,15 +411,22 @@ function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string
   const documents = useDocumentStore(s => s.documents)
   const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || '未知文档') : '未知文档'
 
+  const now = Date.now()
+  const isDue = card.nextReview <= now
+  const status = card.lastReview === 0 ? 'new' : card.interval >= 21 ? 'mastered' : card.interval >= 1 ? 'learning' : 'due'
+  const statusLabel = status === 'new' ? '新卡片' : status === 'mastered' ? '已掌握' : status === 'learning' ? `${card.interval}天后` : '待复习'
+  const statusColor = status === 'new' ? '#22c55e' : status === 'mastered' ? '#a855f7' : status === 'learning' ? '#3b82f6' : '#ef4444'
+
   return (
     <div className="sr-list-item">
+      <div className="sr-list-item-color" style={{ background: statusColor }} />
       <div className="sr-list-item-content">
         <div className="sr-list-item-front">{card.conceptName}</div>
+        {card.definition && (
+          <div className="sr-list-item-definition">{card.definition}</div>
+        )}
         <div className="sr-list-item-meta">
-          <span className="sr-list-item-type">概念</span>
-          <span className="sr-list-item-interval">
-            {card.interval === 0 ? '新卡片' : card.interval >= 21 ? '已掌握' : `${card.interval}天后`}
-          </span>
+          <span className={`sr-list-item-status ${status}`}>{statusLabel}</span>
           <Link to={`/doc/${card.sourceDocId}`} className="sr-list-item-doc" onClick={e => e.stopPropagation()}>
             <BookOpen size={12} />
             {docTitle}

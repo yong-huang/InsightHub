@@ -47,6 +47,7 @@ export interface SearchFilters {
   category?: string
   tag?: string
   isRead?: boolean | null
+  sortBy?: string
 }
 
 // ========== Quiz Types ==========

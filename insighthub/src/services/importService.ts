@@ -1,6 +1,5 @@
 import type { ImportedDocumentRecord, Document } from '@/types'
 import { parseHtmlDocument } from '@/utils/htmlParser'
-import { encrypt, decrypt, isEncryptedPayload } from '@/services/cryptoService'
 
 export async function fetchImportedDocs(): Promise<ImportedDocumentRecord[]> {
   const res = await fetch('/api/imported-documents')
@@ -15,19 +14,14 @@ export async function importDocument(
   category: string,
   parsedMeta?: { title?: string; wordCount?: number; language?: string },
 ): Promise<{ id: string }> {
-  // Encrypt the body for transport (no-op if crypto.subtle unavailable)
-  const encrypted = await encrypt(htmlContent)
-  const bodyContent = typeof encrypted === 'string' ? encrypted : JSON.stringify(encrypted)
-
   const res = await fetch('/api/imported-documents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      htmlContent: bodyContent,
+      htmlContent,
       fileName,
       source,
       category,
-      encrypted: typeof encrypted !== 'string',
       ...parsedMeta,
     }),
   })
@@ -49,19 +43,8 @@ export async function fetchImportedDocHtml(docId: string): Promise<string> {
   return res.text()
 }
 
-/**
- * Fetch an imported document and transparently decrypt if needed.
- */
-export async function fetchAndDecryptImportedDoc(docId: string): Promise<string> {
-  const raw = await fetchImportedDocHtml(docId)
-  if (isEncryptedPayload(raw)) {
-    return decrypt(raw)
-  }
-  return raw
-}
-
 export async function convertImportedToDocument(record: ImportedDocumentRecord): Promise<Document> {
-  const htmlContent = await fetchAndDecryptImportedDoc(record.id)
+  const htmlContent = await fetchImportedDocHtml(record.id)
   const parsed = parseHtmlDocument(htmlContent, {
     id: record.id,
     filePath: `imported://${record.fileName}`,

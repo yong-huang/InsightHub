@@ -5,7 +5,7 @@ import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
-import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml, fetchAndDecryptImportedDoc } from '@/services/importService'
+import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
 
 interface DocumentState {
   documents: Map<string, Document>
@@ -18,6 +18,7 @@ interface DocumentState {
 
   // Actions
   initializeDocuments: () => Promise<void>
+  reloadDocuments: () => Promise<void>
   setFilters: (filters: Partial<SearchFilters>) => void
   resetFilters: () => void
   markAsRead: (docId: string) => void
@@ -32,6 +33,122 @@ interface DocumentState {
 
 const DEFAULT_FILTERS: SearchFilters = {}
 
+async function loadAllDocuments(
+  get: () => DocumentState,
+  set: (partial: Partial<DocumentState>) => void,
+): Promise<void> {
+  const manifest = await fetchDocumentManifest()
+  set({ isLoading: true, loadProgress: { current: 0, total: manifest.length } })
+
+  // Load cached meta from localStorage
+  let metaMap = storageService.getDocumentMeta()
+
+  // Merge server-side read meta (server takes priority)
+  try {
+    const serverMeta = await fetch('/api/read-meta').then(r => r.json())
+    metaMap = { ...metaMap, ...serverMeta }
+    storageService.setDocumentMeta(metaMap)
+    // Also merge server read history
+    const serverHistory: any[] = await fetch('/api/read-history').then(r => r.json())
+    const localHistory = storageService.getReadHistory()
+    const localIds = new Set(localHistory.map(h => h.documentId))
+    const newEntries = serverHistory.filter(h => !localIds.has(h.documentId))
+    if (newEntries.length > 0) {
+      const merged = [...newEntries, ...localHistory].slice(0, 365)
+      storageService._setReadHistory(merged)
+    }
+  } catch {}
+
+  // Migrate read state for documents whose IDs changed due to directory reorganization.
+  // When files move between directories, their generated IDs change but the fileName stays
+  // the same. Detect orphaned meta entries (old IDs not in current manifest) and remap
+  // them to new documents with matching fileName.
+  const currentIds = new Set(manifest.map(e => e.id))
+  let migrated = false
+  for (const [oldId, meta] of Object.entries(metaMap)) {
+    if (currentIds.has(oldId)) continue // Still valid, no migration needed
+    // Find a current manifest entry with a matching fileName
+    const match = manifest.find(e => !metaMap[e.id] && oldId.endsWith(e.fileName.replace(/\.html$/, '')))
+    if (match) {
+      metaMap[match.id] = { ...meta, id: match.id }
+      delete metaMap[oldId]
+      migrated = true
+    }
+  }
+  if (migrated) storageService.setDocumentMeta(metaMap)
+
+  // Also migrate read history entries with old documentIds
+  if (migrated) {
+    const history = storageService.getReadHistory()
+    let historyChanged = false
+    const migratedHistory = history.map(entry => {
+      if (currentIds.has(entry.documentId)) return entry
+      const match = manifest.find(e => entry.documentId.endsWith(e.fileName.replace(/\.html$/, '')))
+      if (match) {
+        historyChanged = true
+        return { ...entry, documentId: match.id }
+      }
+      return entry
+    })
+    if (historyChanged) storageService._setReadHistory(migratedHistory)
+  }
+
+  const docs = new Map<string, Document>()
+  const categoryCounts: Record<string, number> = {}
+
+  clearIndex()
+
+  // Progressive indexing - batch fetch
+  const BATCH_SIZE = 20
+  for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
+    const batch = manifest.slice(i, i + BATCH_SIZE)
+    const promises = batch.map(async (entry) => {
+      try {
+        const doc = await fetchAndParseDocument(entry)
+        // Restore read state from cache
+        const meta: DocumentMeta | undefined = metaMap[doc.id]
+        if (meta) {
+          doc.isRead = meta.isRead
+          doc.lastReadAt = meta.lastReadAt
+          doc.readCount = meta.readCount
+        }
+        docs.set(doc.id, doc)
+
+        // Index for search
+        await indexDocument(doc)
+
+        // Count categories
+        categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
+      } catch (e) {
+        console.error(`Failed to load document: ${entry.filePath}`, e)
+      }
+    })
+    await Promise.all(promises)
+    set({ loadProgress: { current: i + batch.length, total: manifest.length } })
+  }
+
+  const docArray = Array.from(docs.values())
+  const readCount = docArray.filter(d => d.isRead).length
+  const categories = new Set(docArray.map(d => d.category))
+
+  set({
+    documents: docs,
+    isLoading: false,
+    categoryCounts,
+    stats: {
+      total: docArray.length,
+      read: readCount,
+      unread: docArray.length - readCount,
+      categories: categories.size,
+    },
+  })
+
+  get().applyFilters()
+
+  // Load imported documents
+  get().loadImportedDocuments()
+}
+
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   documents: new Map(),
   isLoading: true,
@@ -42,116 +159,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   stats: { total: 0, read: 0, unread: 0, categories: 0 },
 
   initializeDocuments: async () => {
-    const manifest = await fetchDocumentManifest()
-    set({ isLoading: true, loadProgress: { current: 0, total: manifest.length } })
+    // Skip if already loaded — startup guard
+    if (get().documents.size > 0) return
+    await loadAllDocuments(get, set)
+  },
 
-    // Load cached meta from localStorage
-    let metaMap = storageService.getDocumentMeta()
-
-    // Merge server-side read meta (server takes priority)
-    try {
-      const serverMeta = await fetch('/api/read-meta').then(r => r.json())
-      metaMap = { ...metaMap, ...serverMeta }
-      storageService.setDocumentMeta(metaMap)
-      // Also merge server read history
-      const serverHistory: any[] = await fetch('/api/read-history').then(r => r.json())
-      const localHistory = storageService.getReadHistory()
-      const localIds = new Set(localHistory.map(h => h.documentId))
-      const newEntries = serverHistory.filter(h => !localIds.has(h.documentId))
-      if (newEntries.length > 0) {
-        const merged = [...newEntries, ...localHistory].slice(0, 365)
-        storageService._setReadHistory(merged)
-      }
-    } catch {}
-
-    // Migrate read state for documents whose IDs changed due to directory reorganization.
-    // When files move between directories, their generated IDs change but the fileName stays
-    // the same. Detect orphaned meta entries (old IDs not in current manifest) and remap
-    // them to new documents with matching fileName.
-    const currentIds = new Set(manifest.map(e => e.id))
-    let migrated = false
-    for (const [oldId, meta] of Object.entries(metaMap)) {
-      if (currentIds.has(oldId)) continue // Still valid, no migration needed
-      // Find a current manifest entry with a matching fileName
-      const match = manifest.find(e => !metaMap[e.id] && oldId.endsWith(e.fileName.replace(/\.html$/, '')))
-      if (match) {
-        metaMap[match.id] = { ...meta, id: match.id }
-        delete metaMap[oldId]
-        migrated = true
-      }
-    }
-    if (migrated) storageService.setDocumentMeta(metaMap)
-
-    // Also migrate read history entries with old documentIds
-    if (migrated) {
-      const history = storageService.getReadHistory()
-      let historyChanged = false
-      const migratedHistory = history.map(entry => {
-        if (currentIds.has(entry.documentId)) return entry
-        const match = manifest.find(e => entry.documentId.endsWith(e.fileName.replace(/\.html$/, '')))
-        if (match) {
-          historyChanged = true
-          return { ...entry, documentId: match.id }
-        }
-        return entry
-      })
-      if (historyChanged) storageService._setReadHistory(migratedHistory)
-    }
-
-    const docs = new Map<string, Document>()
-    const categoryCounts: Record<string, number> = {}
-
+  reloadDocuments: async () => {
+    // Force full reload — clear everything first so loadAllDocuments runs fresh
+    set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 } })
     clearIndex()
-
-    // Progressive indexing - batch fetch
-    const BATCH_SIZE = 20
-    for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
-      const batch = manifest.slice(i, i + BATCH_SIZE)
-      const promises = batch.map(async (entry) => {
-        try {
-          const doc = await fetchAndParseDocument(entry)
-          // Restore read state from cache
-          const meta: DocumentMeta | undefined = metaMap[doc.id]
-          if (meta) {
-            doc.isRead = meta.isRead
-            doc.lastReadAt = meta.lastReadAt
-            doc.readCount = meta.readCount
-          }
-          docs.set(doc.id, doc)
-
-          // Index for search
-          await indexDocument(doc)
-
-          // Count categories
-          categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
-        } catch (e) {
-          console.error(`Failed to load document: ${entry.filePath}`, e)
-        }
-      })
-      await Promise.all(promises)
-      set({ loadProgress: { current: i + batch.length, total: manifest.length } })
-    }
-
-    const docArray = Array.from(docs.values())
-    const readCount = docArray.filter(d => d.isRead).length
-    const categories = new Set(docArray.map(d => d.category))
-
-    set({
-      documents: docs,
-      isLoading: false,
-      categoryCounts,
-      stats: {
-        total: docArray.length,
-        read: readCount,
-        unread: docArray.length - readCount,
-        categories: categories.size,
-      },
-    })
-
-    get().applyFilters()
-
-    // Load imported documents
-    get().loadImportedDocuments()
+    await loadAllDocuments(get, set)
   },
 
   setFilters: (newFilters) => {
@@ -271,6 +288,20 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       result = result.filter(d => d.isRead === filters.isRead)
     }
 
+    // Sorting
+    const sortBy = filters.sortBy || 'default'
+    if (sortBy !== 'default') {
+      result = [...result]
+      switch (sortBy) {
+        case 'title-asc':    result.sort((a, b) => a.title.localeCompare(b.title, 'zh')); break
+        case 'title-desc':   result.sort((a, b) => b.title.localeCompare(a.title, 'zh')); break
+        case 'lastRead-desc': result.sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0)); break
+        case 'readCount-desc': result.sort((a, b) => b.readCount - a.readCount); break
+        case 'wordCount-desc': result.sort((a, b) => b.wordCount - a.wordCount); break
+        case 'wordCount-asc':  result.sort((a, b) => a.wordCount - b.wordCount); break
+      }
+    }
+
     set({ filteredDocuments: result })
   },
 
@@ -308,7 +339,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           // Try to decrypt and parse. If decryption fails (key lost), fall back to cached metadata.
           let htmlContent: string
           try {
-            htmlContent = await fetchAndDecryptImportedDoc(meta.id)
+            htmlContent = await fetchImportedDocHtml(meta.id)
           } catch {
             // Decryption failed — use cached metadata as fallback stub
             if (meta.title || meta.wordCount) {
@@ -387,7 +418,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const htmlContent = await file.text()
     const parsed = parseHtmlDocument(htmlContent, {
       id: '', // will be set after upload
-      filePath: `imported://${file.name}`,
+      filePath: `../TechInsight/${category}/${file.name}`,
       fileName: file.name,
       source,
       category,
@@ -398,8 +429,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       wordCount: parsed.wordCount,
       language: parsed.language,
     })
+
     const doc: Document = {
       ...parsed,
+      id: result.id,
       isRead: false,
       readCount: 0,
       tags: [],
@@ -434,7 +467,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   removeDocument: async (docId) => {
-    if (!docId.startsWith('imported-')) return
+    if (!docId.startsWith('imported-') && !docId.startsWith('ti-')) return
 
     const { documents, categoryCounts, stats } = get()
     const doc = documents.get(docId)

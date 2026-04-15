@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
 import { Upload, FileText, X, CheckCircle, AlertCircle, Lock } from 'lucide-react'
-import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { getCategoriesBySource } from '@/utils/categoryMap'
 
@@ -16,9 +15,8 @@ function formatFileSize(bytes: number): string {
 }
 
 export function ImportDialog({ files, onClose }: ImportDialogProps) {
-  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const importDoc = useDocumentStore(s => s.importDocument)
-  const categories = getCategoriesBySource(activeWorkspace)
+  const categories = getCategoriesBySource('techinsight')
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || '')
   const [importing, setImporting] = useState(false)
   const [current, setCurrent] = useState(0)
@@ -35,7 +33,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
     for (let i = 0; i < files.length; i++) {
       setCurrent(i + 1)
       try {
-        await importDoc(files[i], activeWorkspace, selectedCategory)
+        await importDoc(files[i], 'techinsight', selectedCategory)
         importResults.push({ file: files[i].name, ok: true })
       } catch (e) {
         importResults.push({ file: files[i].name, ok: false, error: e instanceof Error ? e.message : 'Unknown error' })

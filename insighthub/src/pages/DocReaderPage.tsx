@@ -17,7 +17,7 @@ import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
-import { fetchAndDecryptImportedDoc } from '@/services/importService'
+import { fetchImportedDocHtml } from '@/services/importService'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
@@ -65,7 +65,7 @@ export function DocReaderPage() {
       return
     }
     let cancelled = false
-    fetchAndDecryptImportedDoc(docId)
+    fetchImportedDocHtml(docId)
       .then(htmlContent => {
         if (cancelled) return
         const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' })
@@ -495,7 +495,7 @@ export function DocReaderPage() {
     <div className="doc-reader-page">
       <div className="doc-reader-toolbar">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
-          <ArrowLeft size={16} /> 返回
+          <ArrowLeft size={18} /> 返回
         </button>
 
         <div className="doc-reader-toolbar-info">

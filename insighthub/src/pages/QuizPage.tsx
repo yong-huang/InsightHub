@@ -177,7 +177,7 @@ export function QuizPage() {
           className="btn btn-ghost btn-sm"
           style={{ marginRight: '0.5rem' }}
         >
-          <ArrowLeft size={14} /> 退出
+          <ArrowLeft size={18} /> 退出
         </Link>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
           {answeredCount} / {questions.length} 已作答

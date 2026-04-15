@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -8,29 +8,27 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 export function useInitializeApp() {
-  const setTheme = usePreferenceStore(s => s.setTheme)
+  const initialized = useRef(false)
+
   const theme = usePreferenceStore(s => s.theme)
-  const initializeDocuments = useDocumentStore(s => s.initializeDocuments)
-  const loadTags = useTagStore(s => s.loadTags)
-  const loadHistory = useSearchStore(s => s.loadHistory)
-  const loadQuizHistory = useQuizStore(s => s.loadHistory)
-  const loadSavedQuizzes = useQuizStore(s => s.loadSavedQuizzes)
-  const loadQuizSettingsFromServer = usePreferenceStore(s => s.loadQuizSettingsFromServer)
-  const loadAnnotations = useAnnotationStore(s => s.loadAnnotations)
-  const loadConceptCards = useConceptCardStore(s => s.loadCards)
 
+  // Apply theme reactively
   useEffect(() => {
-    // Apply theme
     document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
 
-    // Load all data
-    initializeDocuments()
-    loadTags()
-    loadHistory()
-    loadQuizHistory()
-    loadSavedQuizzes()
-    loadQuizSettingsFromServer()
-    loadAnnotations()
-    loadConceptCards()
-  }, [setTheme, theme, initializeDocuments, loadTags, loadHistory, loadQuizHistory, loadSavedQuizzes, loadQuizSettingsFromServer, loadAnnotations, loadConceptCards])
+  // Initialize all data — run once only
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+
+    useDocumentStore.getState().initializeDocuments()
+    useTagStore.getState().loadTags()
+    useSearchStore.getState().loadHistory()
+    useQuizStore.getState().loadHistory()
+    useQuizStore.getState().loadSavedQuizzes()
+    usePreferenceStore.getState().loadQuizSettingsFromServer()
+    useAnnotationStore.getState().loadAnnotations()
+    useConceptCardStore.getState().loadCards()
+  }, [])
 }

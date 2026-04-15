@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Maximize, Minimize, Network, User } from 'lucide-react'
+import { ArrowLeft, Maximize, Minimize, Network, User, TreePine } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -9,9 +9,10 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { ChartCard } from '@/components/stats/ChartCard'
 import { KnowledgeGraph } from '@/components/visualization/KnowledgeGraph'
 import { PersonalMap } from '@/components/visualization/PersonalMap'
+import { KnowledgeTree } from '@/components/visualization/KnowledgeTree'
 import type { GraphOptions } from '@/utils/graphBuilder'
 
-type ActiveTab = 'graph' | 'map'
+type ActiveTab = 'graph' | 'map' | 'tree'
 
 export function KnowledgeGraphPage() {
   const navigate = useNavigate()
@@ -94,7 +95,7 @@ export function KnowledgeGraphPage() {
   return (
     <div className="viz-page">
       <div className="viz-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="page-header-row">
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
             <ArrowLeft size={18} />
           </button>
@@ -115,15 +116,28 @@ export function KnowledgeGraphPage() {
             <User size={15} />
             知识地图
           </button>
+          <button
+            className={`viz-tab ${activeTab === 'tree' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tree')}
+          >
+            <TreePine size={15} />
+            知识树
+          </button>
         </div>
         <p className="viz-page-desc">
           {activeTab === 'graph'
             ? '可视化文档、分类和标签之间的关系网络'
-            : '基于你的学习行为，可视化知识掌握程度'}
+            : activeTab === 'map'
+            ? '基于你的学习行为，可视化知识掌握程度'
+            : '以树形结构浏览分类、文档与概念的层级关系'}
         </p>
       </div>
 
-      {activeTab === 'graph' ? (
+      {activeTab === 'tree' ? (
+        <ChartCard title="知识树">
+          <KnowledgeTree />
+        </ChartCard>
+      ) : activeTab === 'graph' ? (
         <ChartCard
           title="知识关系图谱"
           extra={

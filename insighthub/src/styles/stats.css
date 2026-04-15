@@ -7,12 +7,14 @@
 }
 
 .stats-page-title {
+  /* same as .page-header h1 */
   font-size: 1.5rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
 }
 
 .stats-page-desc {
+  /* same as .page-header p */
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
