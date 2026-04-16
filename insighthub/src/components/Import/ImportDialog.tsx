@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, Lock } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { getCategoriesBySource } from '@/utils/categoryMap'
 
@@ -87,11 +87,6 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
                   <option key={cat.key} value={cat.key}>{cat.label}</option>
                 ))}
               </select>
-            </div>
-
-            <div className="import-encryption-hint">
-              <Lock size={14} />
-              <span>文件将以 AES-256 加密后存储</span>
             </div>
 
             {importing && (

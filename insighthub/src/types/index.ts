@@ -158,7 +158,6 @@ export interface ImportedDocumentRecord {
   source: 'mindinsight' | 'techinsight'
   category: string
   importedAt: number
-  encrypted?: boolean
   title?: string
   wordCount?: number
   language?: string

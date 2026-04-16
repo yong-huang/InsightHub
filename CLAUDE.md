@@ -70,7 +70,7 @@ All routes are wrapped in `<Layout />`. Key routes:
 - **annotationStore** — Annotations (highlights, comments), persists to localStorage + server. Marks flashcards as source-deleted on removal.
 - **preferenceStore** — Theme, quiz settings, sidebar state, active workspace.
 - **flashcardStore** — Flashcards with SM-2 scheduling, auto-generation from annotations, workspace filtering.
-- **conceptCardStore** — Concept cards with SM-2 scheduling, auto-extracted from documents via AI. Used by KnowledgeTree and SpacedRepetition pages.
+- **conceptCardStore** — Concept cards with SM-2 scheduling, auto-extracted from documents via AI. Syncs to server. Used by KnowledgeTree and SpacedRepetition pages.
 
 ### AI Quiz System (`src/services/aiService.ts`, `quizService.ts`)
 
@@ -98,7 +98,7 @@ Defines a set of achievements unlocked by user actions (reading, annotating, qui
 
 The Vite plugin provides REST endpoints that persist to `.insighthub-*.json` files:
 - `/api/tags`, `/api/annotations`, `/api/quizzes`, `/api/quiz-history`
-- `/api/read-meta`, `/api/read-history`
+- `/api/read-meta`, `/api/read-history`, `/api/concept-cards`
 - `/api/ai/config` (editable AI settings)
 
 All stores load from localStorage first, then merge from server on startup.
@@ -142,7 +142,6 @@ CSS files:
 - `src/services/conceptService.ts` — Concept card extraction via AI
 - `src/services/quizService.ts` — Quiz generation and parsing logic
 - `src/services/searchService.ts` — FlexSearch index and query execution
-- `src/services/cryptoService.ts` — Document encryption/decryption utilities
 - `src/services/importService.ts` — Document import handling
 - `src/services/storageService.ts` — localStorage wrapper with `insighthub:` key prefix
 - `src/services/spacedRepetition.ts` — SM-2 algorithm, card creation, HTML stripping

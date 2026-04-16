@@ -366,12 +366,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         try {
           let doc: Document
 
-          // Try to decrypt and parse. If decryption fails (key lost), fall back to cached metadata.
+          // Try to fetch and parse. If fetch fails, fall back to cached metadata.
           let htmlContent: string
           try {
             htmlContent = await fetchImportedDocHtml(meta.id)
           } catch {
-            // Decryption failed — use cached metadata as fallback stub
+            // Fetch failed — use cached metadata as fallback stub
             if (meta.title || meta.wordCount) {
               doc = {
                 id: meta.id,
@@ -394,7 +394,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
               newCount++
               continue
             }
-            throw new Error('Decryption failed and no cached metadata')
+            throw new Error('Fetch failed and no cached metadata')
           }
 
           const parsed = parseHtmlDocument(htmlContent, {
@@ -416,7 +416,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           await indexDocument(doc)
           newCount++
         } catch {
-          // Import failed (file not found, decrypt/parse error, etc.) — skip silently
+          // Import failed (file not found, parse error, etc.) — skip silently
         }
       }
 

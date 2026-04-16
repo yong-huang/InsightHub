@@ -137,7 +137,7 @@ const useStore = create<StoreState>((set, get) => ({
 | annotationStore | `Annotation[]` | localStorage + `/api/annotations` |
 | quizStore | `savedQuizzes`, `quizHistory` | localStorage + `/api/quizzes` |
 | flashcardStore | `Flashcard[]` | localStorage only |
-| conceptCardStore | `ConceptCard[]` | localStorage only |
+| conceptCardStore | `ConceptCard[]` | localStorage + `/api/concept-cards` |
 | tagStore | `Tag[]` | localStorage + `/api/tags` |
 | searchStore | query, results | localStorage (history) |
 | preferenceStore | theme, workspace, sidebar | localStorage |

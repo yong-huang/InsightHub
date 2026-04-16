@@ -56,7 +56,7 @@ export function DocReaderPage() {
   const toggleRead = useDocumentStore(s => s.toggleRead)
   const url = useDocumentUrl(docId || '')
 
-  // Imported (encrypted) document: transparently decrypt into a blob URL for iframe
+  // Imported document: fetch and create blob URL for iframe
   const [importedBlobUrl, setImportedBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function DocReaderPage() {
     }
   }, [importedBlobUrl])
 
-  // Use decrypted blob URL for imported docs, normal URL otherwise
+  // Use blob URL for imported docs, normal URL otherwise
   const iframeSrc: string | undefined = importedBlobUrl ?? url
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
@@ -456,12 +456,12 @@ export function DocReaderPage() {
     )
   }
 
-  // Imported doc: show loading while decrypting
+  // Imported doc: show loading while fetching
   if (docId?.startsWith('imported-') && !importedBlobUrl) {
     return (
       <div className="empty-state">
         <Loader2 size={32} className="spin" />
-        <h3>正在解密文档...</h3>
+        <h3>正在加载文档...</h3>
       </div>
     )
   }
