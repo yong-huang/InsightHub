@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, FileText, Clock } from 'lucide-react'
 import type { Document } from '@/types'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText } from '@/services/searchService'
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 
 interface DocCardProps {
   doc: Document
@@ -12,7 +12,7 @@ interface DocCardProps {
 }
 
 /** Render highlighted text with <mark> tags */
-function HighlightedSnippet({ text, query }: { text: string; query: string }) {
+const HighlightedSnippet = memo(function HighlightedSnippet({ text, query }: { text: string; query: string }) {
   const highlighted = useMemo(() => highlightText(text, query), [text, query])
   if (!highlighted.includes('⫷')) return <>{highlighted}</>
   const parts = highlighted.split(/([⫷⫸])/)
@@ -28,9 +28,9 @@ function HighlightedSnippet({ text, query }: { text: string; query: string }) {
     }
   }
   return <>{nodes}</>
-}
+})
 
-export function DocCard({ doc, snippet, query }: DocCardProps) {
+export const DocCard = memo(function DocCard({ doc, snippet, query }: DocCardProps) {
   const catInfo = getCategoryInfo(doc.category)
   const location = useLocation()
 
@@ -75,4 +75,4 @@ export function DocCard({ doc, snippet, query }: DocCardProps) {
       )}
     </Link>
   )
-}
+})

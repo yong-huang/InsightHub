@@ -7,9 +7,23 @@ export interface DocumentManifestEntry {
   subcategory?: string
 }
 
-export async function fetchDocumentManifest(): Promise<DocumentManifestEntry[]> {
-  const url = '/api/documents'
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch document manifest: ${res.status}`)
-  return res.json()
+let manifestCache: Promise<DocumentManifestEntry[]> | null = null
+
+export function fetchDocumentManifest(): Promise<DocumentManifestEntry[]> {
+  if (!manifestCache) {
+    manifestCache = fetch('/api/documents')
+      .then(res => {
+        if (!res.ok) throw new Error(`Failed to fetch document manifest: ${res.status}`)
+        return res.json()
+      })
+      .catch(err => {
+        manifestCache = null // Allow retry on failure
+        throw err
+      })
+  }
+  return manifestCache
+}
+
+export function clearManifestCache(): void {
+  manifestCache = null
 }

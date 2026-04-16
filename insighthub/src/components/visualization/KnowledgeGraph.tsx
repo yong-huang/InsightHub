@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
 import { buildGraphData, type GraphNode, type GraphOptions } from '@/utils/graphBuilder'
 import type { Document, Tag } from '@/types'
@@ -44,6 +44,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simRef = useRef<any>(null)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const graphData = useMemo(
     () => buildGraphData(documents, tags, externalOptions || { filterSource: 'all', showDocuments: true }),
@@ -257,7 +258,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   const handleClick = useCallback((node: GraphNode) => {
     if (interactionRef.current.hasMoved) return
     if (node.type === 'document' && node.data?.docId) {
-      navigate(`/doc/${node.data.docId}`)
+      navigate(`/doc/${node.data.docId}`, { state: { from: location.pathname } })
     } else if (node.type === 'category' && node.data?.categoryKey) {
       const cat = node.data.categoryKey
       const source = cat === 'mindinsight' || cat === 'techinsight' ? cat : ''

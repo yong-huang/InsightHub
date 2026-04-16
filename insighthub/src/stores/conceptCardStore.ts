@@ -58,6 +58,14 @@ function getDueCards(cards: ConceptCard[]): ConceptCard[] {
     .sort((a, b) => a.nextReview - b.nextReview)
 }
 
+function syncCardsToServer(cards: ConceptCard[]): void {
+  fetch('/api/concept-cards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cards),
+  }).catch(() => {})
+}
+
 /**
  * Migrate old concept cards that don't have SM-2 fields.
  */
@@ -86,9 +94,24 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
   extractingErrors: {},
 
   loadCards: () => {
-    const cards = storageService.getConceptCards() as ConceptCard[]
-    const migrated = migrateCards(cards)
+    const localCards = storageService.getConceptCards() as ConceptCard[]
+    const migrated = migrateCards(localCards)
     set({ cards: migrated, isLoaded: true })
+    // Merge from server (LAN sync)
+    fetch('/api/concept-cards')
+      .then(r => r.json())
+      .then((serverCards: ConceptCard[]) => {
+        const localIds = new Set(migrated.map(c => c.id))
+        const merged = [...migrated]
+        for (const c of serverCards) {
+          if (!localIds.has(c.id)) merged.push(c)
+        }
+        storageService.setConceptCards(merged)
+        set({ cards: merged })
+        // Sync merged state back to server
+        syncCardsToServer(merged)
+      })
+      .catch(() => {})
   },
 
   addCards: (newCards: ConceptCard[]) => {
@@ -102,12 +125,14 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
     const updated = [...cards, ...unique]
     set({ cards: updated })
     storageService.setConceptCards(updated)
+    syncCardsToServer(updated)
   },
 
   removeCard: (id: string) => {
     const updated = get().cards.filter(c => c.id !== id)
     set({ cards: updated })
     storageService.setConceptCards(updated)
+    syncCardsToServer(updated)
   },
 
   setExtractingDocId: (docId: string, extracting: boolean) => {
@@ -134,6 +159,7 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
     )
     set({ cards: updated })
     storageService.setConceptCards(updated)
+    syncCardsToServer(updated)
   },
 
   skipCard: (cardId) => {
@@ -143,6 +169,7 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
     )
     set({ cards: updated })
     storageService.setConceptCards(updated)
+    syncCardsToServer(updated)
   },
 
   getDueCards: () => {

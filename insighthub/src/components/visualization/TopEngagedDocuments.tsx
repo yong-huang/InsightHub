@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import type { TopEngagedDoc } from '@/utils/reportAggregator'
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 
 export function TopEngagedDocuments({ title, data, unit }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   if (data.length === 0) {
     return <div className="stats-empty">暂无数据</div>
@@ -22,7 +23,7 @@ export function TopEngagedDocuments({ title, data, unit }: Props) {
           <div
             key={doc.id}
             className="report-top-item"
-            onClick={() => navigate(`/doc/${doc.id}`)}
+            onClick={() => navigate(`/doc/${doc.id}`, { state: { from: location.pathname } })}
           >
             <span className="report-top-rank">{i + 1}</span>
             <div className="report-top-info">

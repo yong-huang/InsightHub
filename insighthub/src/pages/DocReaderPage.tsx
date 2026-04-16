@@ -97,7 +97,15 @@ export function DocReaderPage() {
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
-  const generatingError = docId ? generatingErrors[docId] : undefined
+  // Ignore stale errors if quiz already exists (generation succeeded in background)
+  const generatingError = (docId && !existingQuiz) ? generatingErrors[docId] : undefined
+
+  // Clean up stale generating error when quiz exists
+  useEffect(() => {
+    if (docId && existingQuiz && generatingErrors[docId]) {
+      useQuizStore.getState().clearGeneration(docId)
+    }
+  }, [docId, existingQuiz, generatingErrors])
 
   const [showTagInput, setShowTagInput] = useState(false)
   const [tagName, setTagName] = useState('')
@@ -337,9 +345,10 @@ export function DocReaderPage() {
     setSummaryError(null)
     setIsSummaryGenerating(true)
 
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
     const result = await generateDocumentSummary(
       doc.title,
-      doc.contentText,
+      docWithContent?.contentText || doc.contentText,
       doc.sections,
       (text) => setSummaryText(text),
     )
@@ -377,7 +386,8 @@ export function DocReaderPage() {
       : conceptMaxCount
     const count = Math.max(1, remaining)
 
-    const result = await extractConcepts(doc.title, doc.contentText, count)
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    const result = await extractConcepts(doc.title, docWithContent?.contentText || doc.contentText, count)
     setExtractingDocId(docId, false)
     if (!result.success) {
       setExtractingError(docId, result.error || '提取失败')
@@ -425,8 +435,10 @@ export function DocReaderPage() {
     const text = selectionInfo.text
     clearSelection()
     setChatSelectedText(text)
+    // Ensure contentText is available for chat context
+    if (doc) useDocumentStore.getState().ensureContentText(doc.id)
     setShowChatPanel(true)
-  }, [selectionInfo, clearSelection])
+  }, [selectionInfo, clearSelection, doc])
 
   const handleChatSelectionUsed = useCallback(() => {
     setChatSelectedText(undefined)
@@ -466,9 +478,16 @@ export function DocReaderPage() {
     setShowTagInput(false)
   }
 
-  const handleGenerate = (mode: 'new' | 'regenerate' | 'append') => {
+  // Unassigned tags for the suggestion dropdown
+  const availableTags = useMemo(
+    () => allTags.filter(t => !t.documentIds.includes(docId || '')),
+    [allTags, docId]
+  )
+
+  const handleGenerate = async (mode: 'new' | 'regenerate' | 'append') => {
     setShowRegenerateMenu(false)
-    startGeneration(doc.id, mode, doc, quizDifficulty, quizQuestionCount)
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    startGeneration(doc.id, mode, docWithContent || doc, quizDifficulty, quizQuestionCount)
   }
 
   const handleHighlight = (color: string) => {
@@ -746,16 +765,49 @@ export function DocReaderPage() {
                 <Plus size={12} /> 标签
               </button>
             ) : (
-              <div className="tag-input-wrap">
+              <div className="tag-input-wrap" style={{ position: 'relative' }}>
                 <input
                   type="text"
                   value={tagName}
                   onChange={e => setTagName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddTag()}
-                  placeholder="标签名..."
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', width: '120px' }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAddTag()
+                    if (e.key === 'Escape') { setShowTagInput(false); setTagName('') }
+                  }}
+                  placeholder="输入或选择标签..."
+                  style={{ padding: '4px 8px', fontSize: '0.8rem', width: '140px' }}
                   autoFocus
                 />
+                {tagName.trim() === '' && availableTags.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+                    borderRadius: 6, maxHeight: 160, overflowY: 'auto',
+                    boxShadow: 'var(--shadow-md)', minWidth: 140,
+                  }}>
+                    {availableTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => {
+                          addDocumentToTag(tag.id, doc.id)
+                          setShowTagInput(false)
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          width: '100%', padding: '6px 10px', border: 'none',
+                          background: 'none', cursor: 'pointer', fontSize: '0.8rem',
+                          color: 'var(--text-primary)', textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: tag.color, flexShrink: 0 }} />
+                        {tag.name}
+                        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-dim)' }}>{tag.documentIds.length}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button className="btn btn-ghost btn-sm" onClick={handleAddTag}>
                   <Plus size={12} />
                 </button>

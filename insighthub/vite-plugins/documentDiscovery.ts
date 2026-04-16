@@ -566,6 +566,50 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
+      // Concept cards persistence: shared across all LAN clients via .insighthub-concept-cards.json
+      const conceptCardsPath = path.resolve(process.cwd(), '.insighthub-concept-cards.json')
+
+      server.middlewares.use('/api/concept-cards', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          try {
+            if (fs.existsSync(conceptCardsPath)) {
+              res.end(fs.readFileSync(conceptCardsPath, 'utf-8'))
+            } else {
+              res.end('[]')
+            }
+          } catch {
+            res.end('[]')
+          }
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const cards: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              if (!Array.isArray(cards)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected array' }))
+                return
+              }
+              fs.writeFileSync(conceptCardsPath, JSON.stringify(cards, null, 2), 'utf-8')
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
       // Imported documents: written directly to TechInsight/<category>/, legacy metadata in .insighthub-imported-docs.json
       const importedDocsPath = path.resolve(process.cwd(), '.insighthub-imported-docs.json')
       const IMPORT_DOC_SIZE_LIMIT = 5 * 1024 * 1024 // 5MB

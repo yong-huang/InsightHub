@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Lightbulb, RotateCcw, Trash2, BookOpen,
@@ -406,7 +406,7 @@ export function SpacedRepetitionPage() {
   }
 }
 
-function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string) => void }) {
+const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const documents = useDocumentStore(s => s.documents)
   const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || '未知文档') : '未知文档'
@@ -446,4 +446,4 @@ function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string
       </div>
     </div>
   )
-}
+})

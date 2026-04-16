@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Document, ImportedDocumentRecord, SearchFilters } from '@/types'
-import { fetchDocumentManifest } from '@/utils/documentManifest'
+import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
 import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
@@ -26,12 +26,14 @@ interface DocumentState {
   applyFilters: () => void
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
+  /** Fetch and cache contentText for a doc (freed after init to save memory) */
+  ensureContentText: (docId: string) => Promise<Document | undefined>
   loadImportedDocuments: () => Promise<void>
   importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string) => Promise<string>
   removeDocument: (docId: string) => Promise<void>
 }
 
-const DEFAULT_FILTERS: SearchFilters = {}
+const DEFAULT_FILTERS: SearchFilters = { sortBy: 'title-asc' }
 
 async function loadAllDocuments(
   get: () => DocumentState,
@@ -117,6 +119,9 @@ async function loadAllDocuments(
         // Index for search
         await indexDocument(doc)
 
+        // Free content text after indexing — no longer needed in memory
+        doc.contentText = ''
+
         // Count categories
         categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
       } catch (e) {
@@ -125,6 +130,8 @@ async function loadAllDocuments(
     })
     await Promise.all(promises)
     set({ loadProgress: { current: i + batch.length, total: manifest.length } })
+    // Yield to browser so progress bar repaints and UI stays responsive
+    await new Promise(r => setTimeout(r, 0))
   }
 
   const docArray = Array.from(docs.values())
@@ -165,7 +172,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   reloadDocuments: async () => {
-    // Force full reload — clear everything first so loadAllDocuments runs fresh
+    // Force full reload — clear caches first
+    clearManifestCache()
+    set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 } })
     set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 } })
     clearIndex()
     await loadAllDocuments(get, set)
@@ -306,6 +315,27 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   getDocument: (docId) => get().documents.get(docId),
+
+  ensureContentText: async (docId) => {
+    const doc = get().documents.get(docId)
+    if (!doc) return undefined
+    if (doc.contentText) return doc
+    // Content was freed — re-fetch HTML and extract text
+    try {
+      const categoryPath = doc.subcategory ? `${doc.category}/${doc.subcategory}` : doc.category
+      const url = import.meta.env.DEV
+        ? `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}`
+        : `/docs/${doc.source}/${categoryPath}/${doc.fileName}`
+      const res = await fetch(url)
+      if (!res.ok) return doc
+      const html = await res.text()
+      const text = new DOMParser().parseFromString(html, 'text/html').body?.textContent || ''
+      doc.contentText = text.replace(/\s+/g, ' ').trim()
+      return doc
+    } catch {
+      return doc
+    }
+  },
 
   getRecentReads: () => {
     const { documents } = get()

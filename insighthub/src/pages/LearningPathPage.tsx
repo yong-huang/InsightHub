@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy,
 } from 'lucide-react'
@@ -48,6 +48,7 @@ function formatTime(ts: number): string {
 
 export function LearningPathPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const annotations = useAnnotationStore(s => s.annotations)
@@ -135,7 +136,7 @@ export function LearningPathPage() {
                       <TimelineItem
                         key={entry.id}
                         entry={entry}
-                        onClick={() => entry.documentId && navigate(`/doc/${entry.documentId}`)}
+                        onClick={() => entry.documentId && navigate(`/doc/${entry.documentId}`, { state: { from: location.pathname } })}
                       />
                     ))}
                   </div>

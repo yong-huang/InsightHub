@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
 import { buildPersonalMapData, type EngagementMetrics } from '@/utils/personalMapBuilder'
 import { type GraphNode } from '@/utils/graphBuilder'
@@ -57,6 +57,7 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simRef = useRef<any>(null)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const graphData = useMemo(
     () => buildPersonalMapData(documents, tags, quizHistory, annotations, { showDocuments, showTags }),
@@ -355,7 +356,7 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
     }
     if (node.id === 'user:me') return
     if (node.type === 'document' && node.data?.docId) {
-      navigate(`/doc/${node.data.docId}`)
+      navigate(`/doc/${node.data.docId}`, { state: { from: location.pathname } })
     } else if (node.type === 'category' && node.data?.categoryKey) {
       const cat = node.data.categoryKey
       const doc = Array.from(documents.values()).find(d => d.category === cat)

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Maximize, Minimize, Network, User, TreePine } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -22,7 +22,9 @@ export function KnowledgeGraphPage() {
   const quizHistory = useQuizStore(s => s.quizHistory)
   const annotations = useAnnotationStore(s => s.annotations)
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('graph')
+  const [searchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as ActiveTab | null
+  const [activeTab, setActiveTab] = useState<ActiveTab>(tabFromUrl === 'map' || tabFromUrl === 'tree' ? tabFromUrl : 'graph')
   const [showDocuments, setShowDocuments] = useState(true)
   const [showTags, setShowTags] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -104,21 +106,21 @@ export function KnowledgeGraphPage() {
         <div className="viz-tab-bar">
           <button
             className={`viz-tab ${activeTab === 'graph' ? 'active' : ''}`}
-            onClick={() => setActiveTab('graph')}
+            onClick={() => { setActiveTab('graph'); navigate('/knowledge-graph', { replace: true }) }}
           >
             <Network size={15} />
             知识图谱
           </button>
           <button
             className={`viz-tab ${activeTab === 'map' ? 'active' : ''}`}
-            onClick={() => setActiveTab('map')}
+            onClick={() => { setActiveTab('map'); navigate('/knowledge-graph?tab=map', { replace: true }) }}
           >
             <User size={15} />
             知识地图
           </button>
           <button
             className={`viz-tab ${activeTab === 'tree' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tree')}
+            onClick={() => { setActiveTab('tree'); navigate('/knowledge-graph?tab=tree', { replace: true }) }}
           >
             <TreePine size={15} />
             知识树

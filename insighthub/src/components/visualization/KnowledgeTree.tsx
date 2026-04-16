@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight,
@@ -12,6 +12,7 @@ import {
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
+import { useQuizStore } from '@/stores/quizStore'
 import { getCategoriesBySource } from '@/utils/categoryMap'
 import type { Document } from '@/types'
 
@@ -26,7 +27,7 @@ interface TreeNodeProps {
   tooltip?: string
 }
 
-function TreeNode({ label, icon, color, count, defaultOpen = false, children, onClick, tooltip }: TreeNodeProps) {
+const TreeNode = memo(function TreeNode({ label, icon, color, count, defaultOpen = false, children, onClick, tooltip }: TreeNodeProps) {
   const [open, setOpen] = useState(defaultOpen)
   const hasChildren = Boolean(children)
   const toggle = useCallback(() => setOpen(v => !v), [])
@@ -48,15 +49,17 @@ function TreeNode({ label, icon, color, count, defaultOpen = false, children, on
       {hasChildren && open && <div className="kt-children">{children}</div>}
     </div>
   )
-}
+})
 
 export function KnowledgeTree() {
   const navigate = useNavigate()
+  const fromPath = '/knowledge-graph?tab=tree'
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const conceptCards = useConceptCardStore(s => s.cards)
+  const quizHistory = useQuizStore(s => s.quizHistory)
 
-  const { tree, conceptsByDoc } = useMemo(() => {
+  const { tree, conceptsByDoc, quizCountByDoc } = useMemo(() => {
     const categories = getCategoriesBySource(activeWorkspace)
 
     // Group docs by category
@@ -76,14 +79,21 @@ export function KnowledgeTree() {
       conceptsByDoc.set(card.sourceDocId, list)
     }
 
+    // Count quiz attempts per doc
+    const quizCountByDoc = new Map<string, number>()
+    for (const attempt of quizHistory) {
+      quizCountByDoc.set(attempt.documentId, (quizCountByDoc.get(attempt.documentId) ?? 0) + 1)
+    }
+
     const tree = categories.map(cat => {
       const docs = docsByCategory.get(cat.key) ?? []
       const totalConcepts = docs.reduce((sum, d) => sum + (conceptsByDoc.get(d.id)?.length ?? 0), 0)
-      return { cat, docs, totalConcepts }
+      const totalQuizzes = docs.reduce((sum, d) => sum + (quizCountByDoc.get(d.id) ?? 0), 0)
+      return { cat, docs, totalConcepts, totalQuizzes }
     }).filter(g => g.docs.length > 0)
 
-    return { tree, conceptsByDoc }
-  }, [activeWorkspace, documents, conceptCards])
+    return { tree, conceptsByDoc, quizCountByDoc }
+  }, [activeWorkspace, documents, conceptCards, quizHistory])
 
   const stats = useMemo(() => {
     let totalDocs = 0
@@ -101,13 +111,13 @@ export function KnowledgeTree() {
         <TreePine size={16} />
         <span>{tree.length} 个分类 · {stats.totalDocs} 篇文档 · {stats.totalConcepts} 个概念</span>
       </div>
-      {tree.map(({ cat, docs, totalConcepts }) => (
+      {tree.map(({ cat, docs, totalConcepts, totalQuizzes }) => (
         <TreeNode
           key={cat.key}
           label={cat.label}
           icon={<FolderOpen size={15} />}
           color="var(--accent-blue)"
-          count={`${docs.length} 文档 / ${totalConcepts} 概念`}
+          count={`${docs.length} 文档 / ${totalConcepts} 概念 / ${totalQuizzes} 测试`}
           defaultOpen={true}
         >
           {docs
@@ -115,6 +125,10 @@ export function KnowledgeTree() {
             .sort((a, b) => a.title.localeCompare(b.title, 'zh'))
             .map(doc => {
               const concepts = conceptsByDoc.get(doc.id) ?? []
+              const quizCount = quizCountByDoc.get(doc.id) ?? 0
+              const countParts: string[] = []
+              if (concepts.length > 0) countParts.push(`${concepts.length} 概念`)
+              if (quizCount > 0) countParts.push(`${quizCount} 测试`)
               return (
                 <TreeNode
                   key={doc.id}
@@ -125,9 +139,9 @@ export function KnowledgeTree() {
                       : <FileText size={14} />
                   }
                   color="var(--accent-green)"
-                  count={concepts.length > 0 ? concepts.length : undefined}
+                  count={countParts.length > 0 ? countParts.join(' / ') : undefined}
                   defaultOpen={false}
-                  onClick={() => navigate(`/doc/${doc.id}`)}
+                  onClick={() => navigate(`/doc/${doc.id}`, { state: { from: fromPath } })}
                 >
                   {concepts.map(card => (
                     <TreeNode
