@@ -1,9 +1,8 @@
+# Dependencies
 node_modules/
-dist/
-.vite/
+
+# OS
 .DS_Store
-*.local
+
+# Claude
 .claude/
-dochub/
-.insighthub-*.json
-.insighthub-imports/
