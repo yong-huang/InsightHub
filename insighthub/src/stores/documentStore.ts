@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Document, ImportedDocumentRecord, SearchFilters } from '@/types'
+import type { Document, ImportedDocumentRecord, SearchFilters, Source } from '@/types'
 import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
 import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
@@ -29,7 +29,7 @@ interface DocumentState {
   /** Fetch and cache contentText for a doc (freed after init to save memory) */
   ensureContentText: (docId: string) => Promise<Document | undefined>
   loadImportedDocuments: () => Promise<void>
-  importDocument: (file: File, source: 'mindinsight' | 'techinsight', category: string) => Promise<string>
+  importDocument: (file: File, source: Source, category: string) => Promise<string>
   removeDocument: (docId: string) => Promise<void>
 }
 
@@ -448,7 +448,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const htmlContent = await file.text()
     const parsed = parseHtmlDocument(htmlContent, {
       id: '', // will be set after upload
-      filePath: `../TechInsight/${category}/${file.name}`,
+      filePath: `../${source === 'leetcodeinsight' ? 'LeetcodeInsight' : source === 'mindinsight' ? 'MindInsight' : 'TechInsight'}/${category}/${file.name}`,
       fileName: file.name,
       source,
       category,

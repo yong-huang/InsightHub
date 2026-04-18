@@ -1,10 +1,10 @@
-import type { Document } from '@/types'
-import { CATEGORIES } from '@/utils/categoryMap'
+import type { Document, Source } from '@/types'
+import { CATEGORIES, type Workspace } from '@/utils/categoryMap'
 
 export interface PathMilestone {
   categoryKey: string
   label: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   icon: string
   readCount: number
   totalCount: number
@@ -15,6 +15,7 @@ export interface PathMilestone {
 export interface PathData {
   mindinsight: PathMilestone[]
   techinsight: PathMilestone[]
+  leetcodeinsight: PathMilestone[]
   overallProgress: number
   nextRecommendations: PathMilestone[]
 }
@@ -41,7 +42,7 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
   }
 
   // Mark next recommended (first incomplete category per source)
-  const markRecommended = (source: 'mindinsight' | 'techinsight') => {
+  const markRecommended = (source: Source) => {
     const sourceCategories = CATEGORIES.filter(c => c.source === source)
     const sorted = sourceCategories
       .map(c => results[c.key])
@@ -57,12 +58,17 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
 
   markRecommended('mindinsight')
   markRecommended('techinsight')
+  markRecommended('leetcodeinsight')
 
   const mindinsight = CATEGORIES.filter(c => c.source === 'mindinsight')
     .map(c => results[c.key])
     .sort((a, b) => b.progress - a.progress)
 
   const techinsight = CATEGORIES.filter(c => c.source === 'techinsight')
+    .map(c => results[c.key])
+    .sort((a, b) => b.progress - a.progress)
+
+  const leetcodeinsight = CATEGORIES.filter(c => c.source === 'leetcodeinsight')
     .map(c => results[c.key])
     .sort((a, b) => b.progress - a.progress)
 
@@ -73,5 +79,5 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
 
   const nextRecommendations = Object.values(results).filter(m => m.isNextRecommended)
 
-  return { mindinsight, techinsight, overallProgress, nextRecommendations }
+  return { mindinsight, techinsight, leetcodeinsight, overallProgress, nextRecommendations }
 }

@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import type { SearchFilters, Tag } from '@/types'
-import { CATEGORIES, getSourceLabel } from '@/utils/categoryMap'
+import { CATEGORIES, getSourceLabel, WORKSPACE_META } from '@/utils/categoryMap'
 
 interface FilterBarProps {
   filters: SearchFilters
@@ -27,8 +27,9 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
           >
             <option value="">全部来源</option>
-            <option value="mindinsight">{getSourceLabel('mindinsight')}</option>
-            <option value="techinsight">{getSourceLabel('techinsight')}</option>
+            {(Object.keys(WORKSPACE_META) as Array<keyof typeof WORKSPACE_META>).map(key => (
+              <option key={key} value={key}>{getSourceLabel(key)}</option>
+            ))}
           </select>
         )}
 

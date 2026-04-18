@@ -2,7 +2,14 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
 import { buildGraphData, type GraphNode, type GraphOptions } from '@/utils/graphBuilder'
-import type { Document, Tag } from '@/types'
+import type { Document, Tag, Source } from '@/types'
+import { WORKSPACE_META } from '@/utils/categoryMap'
+
+const SOURCE_COLORS_LEGEND: Record<string, string> = {
+  mindinsight: '#ff8c42',
+  techinsight: '#326ce5',
+  leetcodeinsight: '#4ecdc4',
+}
 
 interface SimNode extends GraphNode {
   x: number
@@ -397,8 +404,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
           ))
         ) : (
           <div className="kg-legend-item">
-            <span className="kg-legend-dot" style={{ background: externalOptions?.filterSource === 'mindinsight' ? '#ff8c42' : '#326ce5' }} />
-            <span>{externalOptions?.filterSource === 'mindinsight' ? 'MindInsight' : 'TechInsight'}</span>
+            <span className="kg-legend-dot" style={{ background: SOURCE_COLORS_LEGEND[externalOptions?.filterSource || 'techinsight'] || '#326ce5' }} />
+            <span>{WORKSPACE_META[(externalOptions?.filterSource || 'techinsight') as keyof typeof WORKSPACE_META]?.label || 'TechInsight'}</span>
           </div>
         )}
         <div className="kg-legend-item">

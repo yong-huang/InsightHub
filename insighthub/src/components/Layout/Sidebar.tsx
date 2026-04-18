@@ -2,17 +2,17 @@ import { useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
-  Cpu, GitBranch, Cloud, Server, Network, Code,
+  Cpu, GitBranch, Cloud, Server, Network, Code, Code2,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy,
-  Route, Lightbulb,
+  Route, Lightbulb, Layers, Type, LinkIcon, Archive, Calculator, Puzzle, Search, FileText,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
-import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
+import { getCategoriesBySource, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
 import { ACHIEVEMENTS } from '@/services/achievementService'
 import { storageService } from '@/services/storageService'
 
@@ -29,9 +29,24 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Server: <Server size={18} />,
   Network: <Network size={18} />,
   Code: <Code size={18} />,
+  Code2: <Code2 size={18} />,
   BarChart3: <BarChart3 size={18} />,
   Monitor: <Monitor size={18} />,
   Briefcase: <Briefcase size={18} />,
+  Layers: <Layers size={18} />,
+  Type: <Type size={18} />,
+  Link: <LinkIcon size={18} />,
+  Archive: <Archive size={18} />,
+  Calculator: <Calculator size={18} />,
+  Puzzle: <Puzzle size={18} />,
+  Search: <Search size={18} />,
+  FileText: <FileText size={18} />,
+}
+
+const WORKSPACE_PREFIX: Record<Workspace, string> = {
+  mindinsight: 'mi-',
+  techinsight: 'ti-',
+  leetcodeinsight: 'li-',
 }
 
 export function Sidebar() {
@@ -45,7 +60,7 @@ export function Sidebar() {
     const now = Date.now()
     return conceptCards.filter(c => {
       const doc = documents.get(c.sourceDocId)
-      return (doc?.source === activeWorkspace || c.sourceDocId.startsWith(activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-'))
+      return (doc?.source === activeWorkspace || c.sourceDocId.startsWith(WORKSPACE_PREFIX[activeWorkspace]))
         && c.nextReview <= now
     }).length
   }, [conceptCards, documents, activeWorkspace])

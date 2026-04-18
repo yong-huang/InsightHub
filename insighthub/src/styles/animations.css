@@ -38,6 +38,13 @@
   background-clip: text;
 }
 
+.gradient-text-green {
+  background: linear-gradient(135deg, var(--accent-green), #22d3ee, var(--accent-blue-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* ========== Fade In ========== */
 @keyframes fadeIn {
   from { opacity: 0; }

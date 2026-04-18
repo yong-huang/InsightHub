@@ -7,7 +7,19 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { WikiLinkRenderer } from '@/components/DocReader/WikiLinkRenderer'
 import { buildTitleLookup } from '@/utils/bidirectionalLinks'
 import { exportNotesAsMarkdown } from '@/utils/notesExporter'
-import type { Annotation } from '@/types'
+import type { Annotation, Source } from '@/types'
+
+const SOURCE_SHORT: Record<Source, string> = {
+  mindinsight: 'Mind',
+  techinsight: 'Tech',
+  leetcodeinsight: 'LC',
+}
+
+const WORKSPACE_PREFIX: Record<string, string> = {
+  mindinsight: 'mi-',
+  techinsight: 'ti-',
+  leetcodeinsight: 'li-',
+}
 
 type NoteFilter = 'all' | 'highlight' | 'comment'
 
@@ -48,7 +60,7 @@ export function NotesPage() {
     const doc = documents.get(docId)
     if (doc) return doc.source === activeWorkspace
     // Fallback: use documentId prefix
-    const wsPrefix = activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-'
+    const wsPrefix = WORKSPACE_PREFIX[activeWorkspace] || 'ti-'
     return docId.startsWith(wsPrefix)
   }
 
@@ -187,7 +199,7 @@ export function NotesPage() {
                     </span>
                     {group.source && (
                       <span className={`badge badge-${group.source}`}>
-                        {group.source === 'mindinsight' ? 'Mind' : 'Tech'}
+                        {SOURCE_SHORT[group.source as Source] ?? 'Doc'}
                       </span>
                     )}
                     <span className="notes-group-count">{group.annotations.length} 条笔记</span>

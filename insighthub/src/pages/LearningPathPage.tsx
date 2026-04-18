@@ -9,6 +9,7 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useFlashcardStore } from '@/stores/flashcardStore'
 import { buildPathData } from '@/utils/pathBuilder'
+import { WORKSPACE_META } from '@/utils/categoryMap'
 import { buildTimeline, groupByDate, type TimelineTypeFilter, type TimelineEntry } from '@/utils/timelineBuilder'
 import { ChartCard } from '@/components/stats/ChartCard'
 import { LearningPath } from '@/components/visualization/LearningPath'
@@ -103,7 +104,7 @@ export function LearningPathPage() {
       </div>
 
       {activeTab === 'path' ? (
-        <ChartCard title={`${activeWorkspace === 'mindinsight' ? 'MindInsight' : 'TechInsight'} 学习路径`}>
+        <ChartCard title={`${WORKSPACE_META[activeWorkspace]?.label || 'LeetcodeInsight'} 学习路径`}>
           <LearningPath data={pathData} source={activeWorkspace} />
         </ChartCard>
       ) : (

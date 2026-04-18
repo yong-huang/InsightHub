@@ -33,6 +33,8 @@ function AppContent() {
             <Route path="/mindinsight/:category" element={<CategoryPage />} />
             <Route path="/techinsight" element={<CategoryPage />} />
             <Route path="/techinsight/:category" element={<CategoryPage />} />
+            <Route path="/leetcodeinsight" element={<CategoryPage />} />
+            <Route path="/leetcodeinsight/:category" element={<CategoryPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/doc/:docId" element={<DocReaderPage />} />
             <Route path="/quiz/:quizId" element={<QuizPage />} />

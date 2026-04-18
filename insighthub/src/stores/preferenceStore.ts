@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { storageService } from '@/services/storageService'
-import type { UserPreferences, Difficulty } from '@/types'
+import type { UserPreferences, Difficulty, Source } from '@/types'
 
 interface PreferenceState extends UserPreferences {
   setTheme: (theme: 'light' | 'dark') => void
@@ -13,7 +13,7 @@ interface PreferenceState extends UserPreferences {
   setAiApiUrl: (url: string) => void
   setAiModel: (model: string) => void
   setAiApiKey: (key: string) => void
-  setWorkspace: (ws: 'mindinsight' | 'techinsight') => void
+  setWorkspace: (ws: Source) => void
   loadQuizSettingsFromServer: () => Promise<void>
 }
 

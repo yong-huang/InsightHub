@@ -2,10 +2,17 @@ import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, FileText, Clock, X, ArrowRight } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
-import { getCategoryInfo } from '@/utils/categoryMap'
+import { getCategoryInfo, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
 import { highlightText, parseSearchQuery } from '@/services/searchService'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
+import type { Source } from '@/types'
+
+const SOURCE_ICON_STYLE: Record<Source, { background: string; color: string }> = {
+  mindinsight: { background: 'rgba(255, 140, 66, 0.15)', color: 'var(--accent-orange)' },
+  techinsight: { background: 'rgba(50, 108, 229, 0.15)', color: 'var(--accent-blue)' },
+  leetcodeinsight: { background: 'rgba(78, 205, 196, 0.15)', color: 'var(--accent-green)' },
+}
 
 /** Render highlighted text with <mark> tags, splitting on ⫷…⫸ delimiters */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -36,7 +43,7 @@ function FilterTags({ query }: { query: string }) {
   if (filters.isRead === true) tags.push({ label: '已读', color: 'var(--accent-green)' })
   if (filters.isRead === false) tags.push({ label: '未读', color: 'var(--accent-orange)' })
   if (filters.hasAnnotation) tags.push({ label: '有笔记', color: 'var(--accent-purple)' })
-  if (filters.source) tags.push({ label: filters.source === 'mindinsight' ? 'MindInsight' : 'TechInsight', color: 'var(--accent-blue)' })
+  if (filters.source) tags.push({ label: WORKSPACE_META[filters.source as Workspace]?.label || filters.source, color: 'var(--accent-blue)' })
   if (tags.length === 0) return null
   return (
     <div className="search-filter-tags">
@@ -191,14 +198,7 @@ export function SearchDialog() {
                   onClick={() => navigateToResult(r.id)}
                   onMouseEnter={() => setSelectedIndex(i)}
                 >
-                  <div className="search-result-icon" style={{
-                    background: r.source === 'mindinsight'
-                      ? 'rgba(255, 140, 66, 0.15)'
-                      : 'rgba(50, 108, 229, 0.15)',
-                    color: r.source === 'mindinsight'
-                      ? 'var(--accent-orange)'
-                      : 'var(--accent-blue)',
-                  }}>
+                  <div className="search-result-icon" style={SOURCE_ICON_STYLE[r.source] || SOURCE_ICON_STYLE.techinsight}>
                     <FileText size={16} />
                   </div>
                   <div className="search-result-info">
@@ -208,7 +208,7 @@ export function SearchDialog() {
                     <div className="search-result-meta">
                       {catInfo?.label || r.category}
                       <span style={{ margin: '0 4px' }}>·</span>
-                      {r.source === 'mindinsight' ? 'MindInsight' : 'TechInsight'}
+                      {WORKSPACE_META[r.source as Workspace]?.label || r.source}
                     </div>
                     {r.snippet && (
                       <div className="search-result-snippet">

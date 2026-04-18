@@ -1,8 +1,10 @@
+import type { Source } from '@/types'
+
 export interface DocumentManifestEntry {
   id: string
   filePath: string
   fileName: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   category: string
   subcategory?: string
 }

@@ -102,7 +102,7 @@ function buildAchievementEntries(): TimelineEntry[] {
 }
 
 export interface TimelineOptions {
-  source?: 'mindinsight' | 'techinsight' | 'all'
+  source?: 'mindinsight' | 'techinsight' | 'leetcodeinsight' | 'all'
   typeFilter?: TimelineTypeFilter
   limit?: number
 }

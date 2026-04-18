@@ -1,4 +1,4 @@
-import type { ImportedDocumentRecord, Document } from '@/types'
+import type { ImportedDocumentRecord, Document, Source } from '@/types'
 import { parseHtmlDocument } from '@/utils/htmlParser'
 
 export async function fetchImportedDocs(): Promise<ImportedDocumentRecord[]> {
@@ -10,7 +10,7 @@ export async function fetchImportedDocs(): Promise<ImportedDocumentRecord[]> {
 export async function importDocument(
   fileName: string,
   htmlContent: string,
-  source: 'mindinsight' | 'techinsight',
+  source: Source,
   category: string,
   parsedMeta?: { title?: string; wordCount?: number; language?: string },
 ): Promise<{ id: string }> {

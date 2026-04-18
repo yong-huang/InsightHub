@@ -1,16 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import {
   GraduationCap, Film, BookOpen, Brain,
-  Cpu, GitBranch, Cloud, Server, Network, Code,
+  Cpu, GitBranch, Cloud, Server, Network, Code, Code2,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
-  Sparkles,
+  Sparkles, Layers, Type, Link, Archive, Calculator, Puzzle, Search, FileText,
 } from 'lucide-react'
 import { WORKSPACE_META } from '@/utils/categoryMap'
 import type { PathData, PathMilestone } from '@/utils/pathBuilder'
+import type { Source } from '@/types'
 
 interface Props {
   data: PathData
-  source: 'mindinsight' | 'techinsight'
+  source: Source
 }
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -26,9 +27,24 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Server: <Server size={16} />,
   Network: <Network size={16} />,
   Code: <Code size={16} />,
+  Code2: <Code2 size={16} />,
   BarChart3: <BarChart3 size={16} />,
   Monitor: <Monitor size={16} />,
   Briefcase: <Briefcase size={16} />,
+  Layers: <Layers size={16} />,
+  Type: <Type size={16} />,
+  Link: <Link size={16} />,
+  Archive: <Archive size={16} />,
+  Calculator: <Calculator size={16} />,
+  Puzzle: <Puzzle size={16} />,
+  Search: <Search size={16} />,
+  FileText: <FileText size={16} />,
+}
+
+const SOURCE_BAR_CLASS: Record<string, string> = {
+  mindinsight: 'lp-overall-bar-mind',
+  techinsight: 'lp-overall-bar-tech',
+  leetcodeinsight: 'lp-overall-bar-leetc',
 }
 
 function getStatus(milestone: PathMilestone): 'completed' | 'in-progress' | 'not-started' {
@@ -96,7 +112,7 @@ export function LearningPath({ data, source }: Props) {
         </div>
         <div className="lp-overall-bar">
           <div
-            className={source === 'mindinsight' ? 'lp-overall-bar-mind' : 'lp-overall-bar-tech'}
+            className={SOURCE_BAR_CLASS[source] || 'lp-overall-bar-tech'}
             style={{ width: `${overallPct}%` }}
           />
         </div>

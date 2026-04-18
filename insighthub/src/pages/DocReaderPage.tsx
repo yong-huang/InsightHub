@@ -18,6 +18,13 @@ import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
+import type { Source } from '@/types'
+
+const SOURCE_SHORT: Record<Source, string> = {
+  mindinsight: 'Mind',
+  techinsight: 'Tech',
+  leetcodeinsight: 'LC',
+}
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
@@ -519,7 +526,7 @@ export function DocReaderPage() {
 
         <div className="doc-reader-toolbar-info">
           <span className={`badge badge-${doc.source}`}>
-            {doc.source === 'mindinsight' ? 'Mind' : 'Tech'}
+            {SOURCE_SHORT[doc.source] ?? 'Doc'}
           </span>
           {catInfo && <span className="badge">{catInfo.label}</span>}
           <span className="badge">

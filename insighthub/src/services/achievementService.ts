@@ -26,6 +26,7 @@ export interface Metrics {
   readCategoryKeys: Set<string>
   hasMindInsight: boolean
   hasTechInsight: boolean
+  hasLeetcodeInsight: boolean
   // Quiz
   quizCount: number
   hasPerfectScore: boolean
@@ -85,7 +86,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'streak-3', name: '连续三天', description: '连续 3 天有阅读记录', icon: 'Flame', color: '--accent-orange', category: 'streak' },
   { id: 'streak-7', name: '一周坚持', description: '连续 7 天有阅读记录', icon: 'Flame', color: '--accent-orange', category: 'streak' },
   { id: 'streak-30', name: '月度打卡', description: '连续 30 天有阅读记录', icon: 'Flame', color: '--accent-red', category: 'streak' },
-  { id: 'explorer', name: '探索者', description: '同时探索两个来源 (MindInsight + TechInsight)', icon: 'Compass', color: '--accent-blue', category: 'streak' },
+  { id: 'explorer', name: '探索者', description: '同时探索多个来源 (MindInsight + TechInsight + LeetcodeInsight)', icon: 'Compass', color: '--accent-blue', category: 'streak' },
   { id: 'searcher', name: '搜索达人', description: '累计搜索 20 次', icon: 'Search', color: '--accent-blue', category: 'streak' },
   { id: 'tagger', name: '标签整理', description: '创建 10 个标签', icon: 'Tag', color: '--accent-green', category: 'streak' },
   { id: 'bookmarker', name: '稍后阅读', description: '收藏 5 篇文档到稍后阅读', icon: 'Bookmark', color: '--accent-orange', category: 'streak' },
@@ -145,6 +146,7 @@ export function collectMetrics(): Metrics {
   const readCategoryKeys = new Set(readDocs.map(d => d.category))
   const hasMindInsight = readDocs.some(d => d.source === 'mindinsight')
   const hasTechInsight = readDocs.some(d => d.source === 'techinsight')
+  const hasLeetcodeInsight = readDocs.some(d => d.source === 'leetcodeinsight')
   const longDocCount = readDocs.filter(d => d.wordCount >= 10000).length
 
   // Quiz metrics
@@ -211,7 +213,7 @@ export function collectMetrics(): Metrics {
   const summaryCount = Object.keys(storageService.getSummaries()).length
 
   return {
-    readCount, totalWords, readCategoryKeys, hasMindInsight, hasTechInsight,
+    readCount, totalWords, readCategoryKeys, hasMindInsight, hasTechInsight, hasLeetcodeInsight,
     quizCount, hasPerfectScore, consecutiveHighScores, difficulties, totalQuizQuestions, perfectScoreCount,
     totalAnnotations, hasHighlight, hasComment, highlightColors, totalReplies, hasReply,
     searchCount, tagCount,
@@ -261,7 +263,7 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
     case 'streak-3': return metrics.currentStreak >= 3
     case 'streak-7': return metrics.currentStreak >= 7
     case 'streak-30': return metrics.currentStreak >= 30
-    case 'explorer': return metrics.hasMindInsight && metrics.hasTechInsight
+    case 'explorer': return [metrics.hasMindInsight, metrics.hasTechInsight, metrics.hasLeetcodeInsight].filter(Boolean).length >= 2
     case 'searcher': return metrics.searchCount >= 20
     case 'tagger': return metrics.tagCount >= 10
     case 'bookmarker': return metrics.readLaterCount >= 5

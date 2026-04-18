@@ -1,5 +1,5 @@
-import type { Document, Tag, Annotation } from '@/types'
-import { CATEGORIES } from '@/utils/categoryMap'
+import type { Document, Tag, Annotation, Source } from '@/types'
+import { CATEGORIES, getSourceLabel, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
 import { parseWikiLinks } from '@/utils/bidirectionalLinks'
 
 export interface GraphNode {
@@ -26,16 +26,18 @@ export interface GraphOptions {
   maxDocNodes?: number
   minTagDocs?: number
   readDocsOnly?: boolean
-  filterSource?: 'all' | 'mindinsight' | 'techinsight'
+  filterSource?: 'all' | Source
   showDocuments?: boolean
   annotations?: Annotation[]
 }
 
 const MIND_WARM = '#ff8c42'
 const TECH_COOL = '#326ce5'
+const LC_GREEN = '#4ecdc4'
 const SOURCE_COLORS: Record<string, string> = {
   mindinsight: MIND_WARM,
   techinsight: TECH_COOL,
+  leetcodeinsight: LC_GREEN,
 }
 
 const CATEGORY_COLORS = [
@@ -82,14 +84,14 @@ export function buildGraphData(
 
   // Source nodes
   const sources = filterSource === 'all'
-    ? ['mindinsight', 'techinsight'] as const
+    ? (Object.keys(WORKSPACE_META) as Workspace[])
     : [filterSource] as const
 
   for (const src of sources) {
     addNode({
       id: `source:${src}`,
       type: 'source',
-      label: src === 'mindinsight' ? 'MindInsight' : 'TechInsight',
+      label: WORKSPACE_META[src]?.label || src,
       color: SOURCE_COLORS[src],
       size: 30,
     })

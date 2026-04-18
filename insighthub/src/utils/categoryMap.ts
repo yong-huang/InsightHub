@@ -1,15 +1,18 @@
+import type { Source } from '@/types'
+
 export interface CategoryEntry {
   key: string
   label: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   icon: string
 }
 
-export type Workspace = 'mindinsight' | 'techinsight'
+export type Workspace = Source
 
-export const WORKSPACE_META = {
+export const WORKSPACE_META: Record<Workspace, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> = {
   mindinsight: { label: 'MindInsight', subtitle: '思想洞察', icon: 'Brain', gradientClass: 'gradient-text-warm', basePath: '/mindinsight' },
   techinsight: { label: 'TechInsight', subtitle: '技术洞察', icon: 'Cpu', gradientClass: 'gradient-text', basePath: '/techinsight' },
+  leetcodeinsight: { label: 'LeetcodeInsight', subtitle: '算法精练', icon: 'Code2', gradientClass: 'gradient-text-green', basePath: '/leetcodeinsight' },
 } as const
 
 export const CATEGORIES: CategoryEntry[] = [
@@ -30,21 +33,36 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'job', label: '求职面试', source: 'techinsight', icon: 'Briefcase' },
   { key: 'vmware', label: 'VMware', source: 'techinsight', icon: 'Monitor' },
   { key: 'programming', label: '编程语言', source: 'techinsight', icon: 'Code' },
+  // LeetcodeInsight
+  { key: 'arrays', label: '数组', source: 'leetcodeinsight', icon: 'Layers' },
+  { key: 'strings', label: '字符串', source: 'leetcodeinsight', icon: 'Type' },
+  { key: 'linked-list', label: '链表', source: 'leetcodeinsight', icon: 'Link' },
+  { key: 'stack', label: '栈', source: 'leetcodeinsight', icon: 'Archive' },
+  { key: 'math', label: '数学', source: 'leetcodeinsight', icon: 'Calculator' },
+  { key: 'dynamic-programming', label: '动态规划', source: 'leetcodeinsight', icon: 'Puzzle' },
+  { key: 'binary-search', label: '二分查找', source: 'leetcodeinsight', icon: 'Search' },
+  { key: 'summary', label: '总结汇总', source: 'leetcodeinsight', icon: 'FileText' },
 ]
 
 export function getCategoryInfo(key: string): CategoryEntry | undefined {
   return CATEGORIES.find(c => c.key === key)
 }
 
-export function getCategoriesBySource(source: 'mindinsight' | 'techinsight'): CategoryEntry[] {
+export function getCategoriesBySource(source: Source): CategoryEntry[] {
   return CATEGORIES.filter(c => c.source === source)
 }
 
-export function getSourceLabel(source: 'mindinsight' | 'techinsight'): string {
-  return source === 'mindinsight' ? 'MindInsight · 思想洞察' : 'TechInsight · 技术洞察'
+const SOURCE_LABELS: Record<Source, string> = {
+  mindinsight: 'MindInsight · 思想洞察',
+  techinsight: 'TechInsight · 技术洞察',
+  leetcodeinsight: 'LeetcodeInsight · 算法精练',
 }
 
-export function getSourceFromCategory(category: string): 'mindinsight' | 'techinsight' {
+export function getSourceLabel(source: Source): string {
+  return SOURCE_LABELS[source]
+}
+
+export function getSourceFromCategory(category: string): Source {
   const cat = CATEGORIES.find(c => c.key === category)
   return cat?.source ?? 'techinsight'
 }

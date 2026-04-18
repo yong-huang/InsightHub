@@ -4,6 +4,13 @@ import { Bookmark, Search, FileText, X, ArrowLeft } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { storageService } from '@/services/storageService'
 import { getCategoryInfo } from '@/utils/categoryMap'
+import type { Source } from '@/types'
+
+const SOURCE_SHORT: Record<Source, string> = {
+  mindinsight: 'Mind',
+  techinsight: 'Tech',
+  leetcodeinsight: 'LC',
+}
 
 function formatTime(ts: number): string {
   const d = new Date(ts)
@@ -110,7 +117,7 @@ export function ReadLaterPage() {
                       {item.doc.title}
                     </span>
                     <span className={`badge badge-${item.doc.source}`}>
-                      {item.doc.source === 'mindinsight' ? 'Mind' : 'Tech'}
+                      {SOURCE_SHORT[item.doc.source as Source] ?? 'Doc'}
                     </span>
                     {item.catInfo && <span className="badge">{item.catInfo.label}</span>}
                     <span className="read-later-item-time">{formatTime(item.addedAt)}</span>

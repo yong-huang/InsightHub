@@ -1,10 +1,13 @@
+// ========== Source Type ==========
+export type Source = 'mindinsight' | 'techinsight' | 'leetcodeinsight'
+
 // ========== Document Types ==========
 export interface Document {
   id: string
   title: string
   filePath: string
   fileName: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   category: string
   subcategory?: string
   language: 'zh' | 'en' | 'mixed'
@@ -37,13 +40,13 @@ export interface SearchResult {
   id: string
   title: string
   category: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   score: number
   snippet?: string
 }
 
 export interface SearchFilters {
-  source?: 'mindinsight' | 'techinsight'
+  source?: Source
   category?: string
   tag?: string
   isRead?: boolean | null
@@ -155,7 +158,7 @@ export interface ConceptCard {
 export interface ImportedDocumentRecord {
   id: string
   fileName: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   category: string
   importedAt: number
   title?: string
@@ -172,7 +175,7 @@ export interface UserPreferences {
   aiApiUrl: string
   aiModel: string
   aiApiKey: string
-  activeWorkspace: 'mindinsight' | 'techinsight'
+  activeWorkspace: Source
   conceptMaxCount: number
 }
 

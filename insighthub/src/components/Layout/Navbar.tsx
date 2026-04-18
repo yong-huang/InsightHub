@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, Sun, Moon, Brain, Cpu, ChevronDown, Check, Settings, Upload, BarChart3 } from 'lucide-react'
+import { Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
@@ -9,6 +9,7 @@ import { ImportDialog } from '@/components/Import/ImportDialog'
 const ICON_MAP: Record<string, React.ReactNode> = {
   Brain: <Brain size={18} />,
   Cpu: <Cpu size={18} />,
+  Code2: <Code2 size={18} />,
 }
 
 export function Navbar() {

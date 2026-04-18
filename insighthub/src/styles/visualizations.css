@@ -308,6 +308,11 @@
   transition: width 0.5s ease;
 }
 
+.lp-overall-bar-leetc {
+  background: linear-gradient(90deg, #4ecdc4, #22d3ee);
+  transition: width 0.5s ease;
+}
+
 .lp-overall-labels {
   display: flex;
   justify-content: space-between;

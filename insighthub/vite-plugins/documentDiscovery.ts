@@ -6,6 +6,7 @@ import { scanDocuments } from '../scripts/lib/scanDocuments'
 export interface DocumentDiscoveryOptions {
   mindInsightDir: string
   techInsightDir: string
+  leetcodeInsightDir?: string
   aiApiUrl?: string
   aiModel?: string
   aiApiKey?: string
@@ -73,7 +74,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // API endpoint: return document manifest
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
-          const manifest = scanDocuments(options.mindInsightDir, options.techInsightDir)
+          const manifest = scanDocuments(options.mindInsightDir, options.techInsightDir, options.leetcodeInsightDir)
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(manifest))
         } catch (e) {
@@ -760,10 +761,15 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           return
         }
 
-        const source = segments[0] // mindinsight or techinsight
+        const source = segments[0] // mindinsight, techinsight, or leetcodeinsight
         const relativePath = segments.slice(1).join(path.sep)
 
-        const baseDir = source === 'mindinsight' ? options.mindInsightDir : options.techInsightDir
+        const SOURCE_DIR_MAP: Record<string, string> = {
+          mindinsight: options.mindInsightDir,
+          techinsight: options.techInsightDir,
+          leetcodeinsight: options.leetcodeInsightDir || '',
+        }
+        const baseDir = SOURCE_DIR_MAP[source] || options.techInsightDir
         const absPath = path.resolve(baseDir, relativePath)
 
         // Security: ensure the resolved path is within the allowed directory

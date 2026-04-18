@@ -6,6 +6,7 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { DocGrid } from '@/components/shared/DocGrid'
 import { FilterBar } from '@/components/shared/FilterBar'
 import { getCategoryInfo, getSourceLabel, getSourceFromCategory, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import type { Source } from '@/types'
 
 export function CategoryPage() {
   const { category: categoryParam } = useParams<{ category?: string; tagId?: string }>()
@@ -19,11 +20,12 @@ export function CategoryPage() {
   const documents = useDocumentStore(s => s.documents)
   const navigate = useNavigate()
 
-  // Parse source from pathname (/mindinsight/... or /techinsight/...)
-  const source = useMemo((): 'mindinsight' | 'techinsight' | undefined => {
+  // Parse source from pathname (/mindinsight/... or /techinsight/... or /leetcodeinsight/...)
+  const source = useMemo((): Source | undefined => {
     const path = location.pathname
     if (path.startsWith('/mindinsight')) return 'mindinsight'
     if (path.startsWith('/techinsight')) return 'techinsight'
+    if (path.startsWith('/leetcodeinsight')) return 'leetcodeinsight'
     return undefined
   }, [location.pathname])
 

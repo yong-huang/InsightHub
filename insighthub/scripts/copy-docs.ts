@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
 import { scanDocuments } from './lib/scanDocuments'
+import type { Source } from '../src/types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -9,7 +10,14 @@ const __dirname = path.dirname(__filename)
 const BASE_DIR = path.resolve(__dirname, '..')
 const MINDINSIGHT_DIR = path.resolve(BASE_DIR, '../../MindInsight')
 const TECHINSIGHT_DIR = path.resolve(BASE_DIR, '../../TechInsight')
+const LEETCODEINSIGHT_DIR = path.resolve(BASE_DIR, '../../LeetcodeInsight')
 const OUTPUT_DIR = path.resolve(BASE_DIR, 'public/docs')
+
+const SOURCE_BASES: Record<Source, string> = {
+  mindinsight: MINDINSIGHT_DIR,
+  techinsight: TECHINSIGHT_DIR,
+  leetcodeinsight: LEETCODEINSIGHT_DIR,
+}
 
 function main() {
   console.log('Copying documents to public/docs/...')
@@ -19,11 +27,11 @@ function main() {
     fs.rmSync(OUTPUT_DIR, { recursive: true })
   }
 
-  const manifest = scanDocuments(MINDINSIGHT_DIR, TECHINSIGHT_DIR)
+  const manifest = scanDocuments(MINDINSIGHT_DIR, TECHINSIGHT_DIR, LEETCODEINSIGHT_DIR)
   let totalFiles = 0
 
   for (const entry of manifest) {
-    const sourceBase = entry.source === 'mindinsight' ? MINDINSIGHT_DIR : TECHINSIGHT_DIR
+    const sourceBase = SOURCE_BASES[entry.source]
     const categoryPath = entry.subcategory
       ? `${entry.category}/${entry.subcategory}`
       : entry.category

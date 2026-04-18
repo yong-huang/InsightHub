@@ -1,11 +1,12 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import type { Source } from '../../src/types'
 
 export interface DocumentManifestEntry {
   id: string
   filePath: string
   fileName: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
   category: string
   subcategory?: string
 }
@@ -39,9 +40,15 @@ function generateId(
   return `${source}-${dirParts}-${nameWithoutExt}`
 }
 
+const SOURCE_NAMES: Record<string, string> = {
+  mindinsight: 'MindInsight',
+  techinsight: 'TechInsight',
+  leetcodeinsight: 'LeetcodeInsight',
+}
+
 function scanDirectory(
   dir: string,
-  source: 'mindinsight' | 'techinsight',
+  source: Source,
   sourcePrefix: string,
 ): DocumentManifestEntry[] {
   const entries: DocumentManifestEntry[] = []
@@ -61,7 +68,7 @@ function scanDirectory(
     const category = parts[0] || ''
     const subcategory = parts.length > 2 ? parts.slice(1, -1).join(path.sep) : undefined
 
-    const sourceName = source === 'mindinsight' ? 'MindInsight' : 'TechInsight'
+    const sourceName = SOURCE_NAMES[source] || source
 
     entries.push({
       id: generateId(sourcePrefix, relativePath, fileName),
@@ -79,9 +86,14 @@ function scanDirectory(
 export function scanDocuments(
   mindInsightDir: string,
   techInsightDir: string,
+  leetcodeInsightDir?: string,
 ): DocumentManifestEntry[] {
-  return [
+  const result = [
     ...scanDirectory(mindInsightDir, 'mindinsight', 'mi'),
     ...scanDirectory(techInsightDir, 'techinsight', 'ti'),
   ]
+  if (leetcodeInsightDir) {
+    result.push(...scanDirectory(leetcodeInsightDir, 'leetcodeinsight', 'li'))
+  }
+  return result
 }

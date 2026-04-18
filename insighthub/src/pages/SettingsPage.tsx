@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2, ArrowLeft } from 'lucide-react'
+import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2, ArrowLeft, Database } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import type { Difficulty } from '@/types'
+import { exportAllData, importAllData } from '@/utils/dataExporter'
+import type { ExportData } from '@/utils/dataExporter'
 
 interface AIConfig {
   aiApiUrl: string
@@ -33,6 +35,10 @@ export function SettingsPage() {
 
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [dataMsg, setDataMsg] = useState<{ ok: boolean; msg: string } | null>(null)
 
   // Load AI config from server
   useEffect(() => {
@@ -233,6 +239,83 @@ export function SettingsPage() {
                 setLocalConceptCount(String(n))
               }}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Data Management */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <Database size={20} />
+          <h2>数据管理</h2>
+        </div>
+        <div className="settings-card-body">
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>
+            导出所有学习数据（阅读记录、批注、标签、测验、闪卡、概念卡片、成就等）为 JSON 文件，可用于备份或迁移到其他设备。
+          </p>
+          <div className="settings-actions">
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                setExporting(true)
+                setDataMsg(null)
+                try {
+                  await exportAllData()
+                  setDataMsg({ ok: true, msg: '导出成功！' })
+                } catch (e: any) {
+                  setDataMsg({ ok: false, msg: `导出失败: ${e.message}` })
+                } finally {
+                  setExporting(false)
+                }
+              }}
+              disabled={exporting || importing}
+            >
+              {exporting ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
+              {exporting ? '导出中...' : '导出全部数据'}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => document.getElementById('import-file-input')?.click()}
+              disabled={exporting || importing}
+            >
+              {importing ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
+              {importing ? '导入中...' : '导入数据'}
+            </button>
+            <input
+              id="import-file-input"
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                setDataMsg(null)
+                try {
+                  const text = await file.text()
+                  const data = JSON.parse(text) as ExportData
+                  if (data.version !== 1) {
+                    setDataMsg({ ok: false, msg: '不支持的备份文件格式' })
+                    return
+                  }
+                  if (!window.confirm('导入将覆盖当前所有数据，确认继续？')) return
+                  setImporting(true)
+                  const result = await importAllData(data)
+                  setDataMsg({ ok: true, msg: `导入成功！恢复了 ${result.localKeys} 项本地数据和 ${result.serverEndpoints} 项服务端数据。` })
+                  setTimeout(() => window.location.reload(), 1500)
+                } catch (err: any) {
+                  setDataMsg({ ok: false, msg: `导入失败: ${err.message}` })
+                } finally {
+                  setImporting(false)
+                  e.target.value = ''
+                }
+              }}
+            />
+            {dataMsg && (
+              <span className={`settings-test-result ${dataMsg.ok ? 'success' : 'error'}`}>
+                {dataMsg.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                {dataMsg.msg}
+              </span>
+            )}
           </div>
         </div>
       </div>

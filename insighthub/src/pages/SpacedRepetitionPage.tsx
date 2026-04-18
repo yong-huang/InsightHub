@@ -9,6 +9,12 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import type { ConceptCard } from '@/types'
 
+const WORKSPACE_PREFIX: Record<string, string> = {
+  mindinsight: 'mi-',
+  techinsight: 'ti-',
+  leetcodeinsight: 'li-',
+}
+
 type ViewMode = 'review' | 'list'
 
 const GRADES = [
@@ -29,7 +35,7 @@ export function SpacedRepetitionPage() {
   const workspaceCards = useMemo(() =>
     cards.filter(c => {
       const doc = documents.get(c.sourceDocId)
-      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(activeWorkspace === 'mindinsight' ? 'mi-' : 'ti-')
+      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(WORKSPACE_PREFIX[activeWorkspace] || 'ti-')
     }),
     [cards, documents, activeWorkspace]
   )

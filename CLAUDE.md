@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from two sources: MindInsight (academic, finance, history, literature, media-analysis, philosophy, pop-culture) and TechInsight (ai-frameworks, algorithms, cloud, dell, infrastructure, job, vmware, programming). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes. Features include text annotations (highlights and comments), spaced repetition flashcards, knowledge graph, achievements, and LAN sync across clients.
+InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from three sources: MindInsight (academic, finance, history, literature, media-analysis, philosophy, pop-culture), TechInsight (ai-frameworks, algorithms, cloud, dell, infrastructure, job, vmware, programming), and LeetcodeInsight (arrays, strings, linked-list, stack, math, dynamic-programming, binary-search, summary). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes. Features include text annotations (highlights and comments), spaced repetition flashcards, knowledge graph, achievements, and LAN sync across clients.
 
 ## Commands
 
@@ -26,9 +26,9 @@ No test framework is configured. There is no linter auto-fix script.
 
 **Document loading strategy**: Documents are discovered dynamically via a Vite plugin (`vite-plugins/documentDiscovery.ts`) that scans the source directories. At startup, `useInitializeApp` fetches the manifest from `/api/documents`, parses each HTML file via DOMParser (`src/utils/htmlParser.ts`), and stores results in `documentStore`. Documents are loaded in batches with progress tracking. Reading state (read count, timestamps) persists in localStorage via `storageService` and syncs to server-side JSON files for LAN access.
 
-**Dev vs Production document URLs**: In dev, documents are served from sibling project directories (`../MindInsight/`, `../TechInsight/`) via a custom `documentDiscovery` Vite plugin that provides `/dev-docs/` and `/api/documents` endpoints (configured in `vite.config.ts`). In production, `scripts/copy-docs.ts` copies them to `public/docs/` before the build. The `useDocumentUrl` hook switches between these automatically using `import.meta.env.DEV`.
+**Dev vs Production document URLs**: In dev, documents are served from sibling project directories (`../MindInsight/`, `../TechInsight/`, `../LeetcodeInsight/`) via a custom `documentDiscovery` Vite plugin that provides `/dev-docs/` and `/api/documents` endpoints (configured in `vite.config.ts`). In production, `scripts/copy-docs.ts` copies them to `public/docs/` before the build. The `useDocumentUrl` hook switches between these automatically using `import.meta.env.DEV`.
 
-**Absolute paths in vite.config.ts and useDocumentUrl.ts**: Both hardcode `/Users/hyhit/Desktop/workspace/projects/MindInsight` and `TechInsight` — these must be updated if the project moves.
+**Absolute paths in vite.config.ts and useDocumentUrl.ts**: Both hardcode `/Users/hyhit/Desktop/workspace/projects/MindInsight`, `TechInsight`, and `LeetcodeInsight` — these must be updated if the project moves.
 
 ### Data Flow
 
@@ -46,8 +46,8 @@ useInitializeApp (hook)
 
 All routes are wrapped in `<Layout />`. Key routes:
 - `/` — Home dashboard with stats and category overview
-- `/mindinsight`, `/techinsight` — Source-level category listing
-- `/mindinsight/:category`, `/techinsight/:category` — Filtered by category
+- `/mindinsight`, `/techinsight`, `/leetcodeinsight` — Source-level category listing
+- `/mindinsight/:category`, `/techinsight/:category`, `/leetcodeinsight/:category` — Filtered by category
 - `/doc/:docId` — Document reader (iframe embed) with annotation support
 - `/search` — Search results
 - `/quiz/:quizId` — AI quiz session (quizId is a composite of docId + timestamp)
@@ -146,4 +146,12 @@ CSS files:
 - `src/services/storageService.ts` — localStorage wrapper with `insighthub:` key prefix
 - `src/services/spacedRepetition.ts` — SM-2 algorithm, card creation, HTML stripping
 - `src/services/achievementService.ts` — Achievement definitions and unlock logic
-- `src/scripts/copy-docs.ts` — Build-time script that copies document directories
+- `scripts/copy-docs.ts` — Build-time script that copies document directories
+- `scripts/migrate-leetcode.ts` — One-time migration script (LeetCode files from TechInsight → LeetcodeInsight)
+
+### Document Source Prefixes
+
+Each workspace uses a two-letter prefix for document IDs:
+- `mi-` — MindInsight (e.g., `mi-academic-my-doc`)
+- `ti-` — TechInsight (e.g., `ti-algorithms-binary-search`)
+- `li-` — LeetcodeInsight (e.g., `li-arrays-leetcode-1-two-sum`)

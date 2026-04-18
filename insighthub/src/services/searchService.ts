@@ -1,5 +1,5 @@
 import { Document } from 'flexsearch'
-import type { SearchResult, SearchFilters } from '@/types'
+import type { SearchResult, SearchFilters, Source } from '@/types'
 import { CATEGORIES } from '@/utils/categoryMap'
 
 let searchIndex: Document | null = null
@@ -31,7 +31,7 @@ export async function indexDocument(doc: {
   title: string
   contentText: string
   category: string
-  source: 'mindinsight' | 'techinsight'
+  source: Source
 }): Promise<void> {
   if (!searchIndex) {
     searchIndex = createIndex()
@@ -73,7 +73,7 @@ export interface ParsedQuery {
   text: string
   filters: {
     category?: string
-    source?: 'mindinsight' | 'techinsight'
+    source?: Source
     isRead?: boolean
     hasAnnotation?: boolean
   }
@@ -106,6 +106,7 @@ export function parseSearchQuery(raw: string): ParsedQuery {
       const val = token.slice('source:'.length).toLowerCase()
       if (val === 'mindinsight') filters.source = 'mindinsight'
       else if (val === 'techinsight') filters.source = 'techinsight'
+      else if (val === 'leetcodeinsight') filters.source = 'leetcodeinsight'
     } else {
       textParts.push(token)
     }
