@@ -5,7 +5,7 @@ import {
   Cpu, GitBranch, Cloud, Server, Network, Code, Code2,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   Container, HardDrive, Wifi, Building2, Terminal,
-  ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy,
+  ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy, TerminalSquare,
   Route, Lightbulb, Layers, Type, LinkIcon, Archive, Calculator, Puzzle, Search, FileText,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -40,6 +40,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Wifi: <Wifi size={18} />,
   Building2: <Building2 size={18} />,
   Terminal: <Terminal size={18} />,
+  TerminalSquare: <TerminalSquare size={18} />,
   Layers: <Layers size={18} />,
   Type: <Type size={18} />,
   Link: <LinkIcon size={18} />,

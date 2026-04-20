@@ -26,6 +26,7 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'finance', label: '财务分析', source: 'mindinsight', icon: 'TrendingUp' },
   // TechInsight — 基础→进阶→基础设施→职业
   { key: 'programming', label: '编程语言', source: 'techinsight', icon: 'Code' },
+  { key: 'linux', label: 'Linux', source: 'techinsight', icon: 'TerminalSquare' },
   { key: 'algorithms', label: '算法精讲', source: 'techinsight', icon: 'GitBranch' },
   { key: 'dl-fundamentals', label: '深度学习', source: 'techinsight', icon: 'Sparkles' },
   { key: 'ai-frameworks', label: 'AI 框架', source: 'techinsight', icon: 'Cpu' },
