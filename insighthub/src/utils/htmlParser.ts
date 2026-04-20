@@ -50,10 +50,11 @@ function resolveDocPath(entry: DocumentManifestEntry): string {
   const categoryPath = entry.subcategory
     ? `${entry.category}/${entry.subcategory}`
     : entry.category
+  const middle = categoryPath ? `/${categoryPath}` : ''
   if (import.meta.env.DEV) {
-    return `/dev-docs/${entry.source}/${categoryPath}/${entry.fileName}`
+    return `/dev-docs/${entry.source}${middle}/${entry.fileName}`
   }
-  return `/docs/${entry.source}/${categoryPath}/${entry.fileName}`
+  return `/docs/${entry.source}${middle}/${entry.fileName}`
 }
 
 export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): Omit<Document, 'isRead' | 'lastReadAt' | 'readCount' | 'tags' | 'indexedAt'> {

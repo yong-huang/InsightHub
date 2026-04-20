@@ -1,8 +1,10 @@
-const TIMEOUT_MS = 60000
-const IDLE_TIMEOUT_MS = 120000 // No data received for 120s = timeout
+const TIMEOUT_MS = 120000
+const IDLE_TIMEOUT_MS = 180000 // No data received for 180s = timeout
 
 // Disable reasoning/thinking mode for Qwen3 models to avoid token waste
-const NO_THINK_KWARGS = { chat_template_kwargs: { enable_thinking: false } }
+// - chat_template_kwargs: vLLM / transformers
+// - think: Ollama
+const NO_THINK_KWARGS = { chat_template_kwargs: { enable_thinking: false }, think: false }
 
 // AI requests go through the Vite dev server proxy at /api/ai/chat/completions
 // Server handles AI URL, model, and API key
@@ -24,30 +26,59 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   try {
+    const reqBody = {
+      messages,
+      temperature: 0.7,
+      max_tokens: 4000,
+      ...NO_THINK_KWARGS,
+    }
+    console.log('[callAI] → POST /api/ai/chat/completions', { model: '(server-side)', max_tokens: reqBody.max_tokens, think: reqBody.think, msgCount: messages.length })
+
     const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        temperature: 0.7,
-        max_tokens: 4000,
-        ...NO_THINK_KWARGS,
-      }),
+      body: JSON.stringify(reqBody),
       signal: controller.signal,
     })
 
     clearTimeout(timeoutId)
 
+    console.log('[callAI] ← response:', response.status, response.statusText)
+
     if (!response.ok) {
       const errBody = await response.text().catch(() => '')
+      console.error('[callAI] error body:', errBody.slice(0, 200))
       return { success: false, error: `AI 服务返回错误: ${response.status} ${errBody.slice(0, 100)}` }
     }
 
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    const choice = data.choices?.[0]
+    let content = choice?.message?.content
 
+    console.log('[callAI] choice:', {
+      finish_reason: choice?.finish_reason,
+      hasContent: !!content,
+      contentLen: content?.length || 0,
+      hasReasoning: !!choice?.message?.reasoning,
+      reasoningLen: choice?.message?.reasoning?.length || 0,
+      usage: data.usage,
+    })
+
+    // Fallback: if model used thinking mode and content is empty but reasoning has output,
+    // extract any JSON-like content from reasoning as last resort
     if (!content) {
-      return { success: false, error: 'AI 服务未返回内容' }
+      const reasoning: string | undefined = choice?.message?.reasoning
+      if (reasoning) {
+        // Try to find JSON in reasoning (some models output JSON inside thinking)
+        const jsonMatch = reasoning.match(/\{[\s\S]*"questions"[\s\S]*\}/)
+        if (jsonMatch) {
+          content = jsonMatch[0]
+        } else {
+          return { success: false, error: `AI 思考模式占用了全部 token（${data.usage?.completion_tokens || '?'} tokens），未能生成内容。请尝试增加 max_tokens 或禁用思考模式。` }
+        }
+      } else {
+        return { success: false, error: 'AI 服务未返回内容' }
+      }
     }
 
     return { success: true, data: content }
@@ -90,7 +121,7 @@ export async function callAIStream(
       body: JSON.stringify({
         messages,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4096,
         stream: true,
         ...NO_THINK_KWARGS,
       }),
@@ -132,11 +163,17 @@ export async function callAIStream(
 
           try {
             const parsed = JSON.parse(payload)
-            const delta = parsed.choices?.[0]?.delta?.content
+            const choice = parsed.choices?.[0]
+            // Handle thinking mode: extract content from reasoning delta if content is empty
+            const delta = choice?.delta?.content || ''
+            const reasoningDelta = choice?.delta?.reasoning || ''
             if (delta) {
               content += delta
               resetIdle()
               onChunk?.(content)
+            } else if (reasoningDelta) {
+              // Model is thinking — accumulate but don't stream to UI
+              resetIdle()
             }
           } catch {}
         }
@@ -170,8 +207,8 @@ export async function callAIStream(
 }
 
 export function extractJSON(text: string): any {
-  // Strip <think>...</think> blocks (Qwen thinking mode)
-  let cleaned = text.trim().replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim()
+  // Strip <think...>...</think/> blocks (Qwen thinking mode)
+  let cleaned = text.trim().replace(/<think[\s\S]*?<\/think>\s*/g, '').trim()
 
   // If nothing left, the JSON might have been inside the think block — use original
   if (!cleaned) cleaned = text.trim()
@@ -185,25 +222,88 @@ export function extractJSON(text: string): any {
   // Try direct parse first
   try { return JSON.parse(cleaned) } catch {}
 
-  // Find JSON object/array
-  const objectMatch = cleaned.match(/\{[\s\S]*\}/)
-  const arrayMatch = cleaned.match(/\[[\s\S]*\]/)
-  const raw = objectMatch?.[0] || arrayMatch?.[0]
+  // Find the outermost JSON object by brace-matching (handles truncated output)
+  const objStart = cleaned.indexOf('{')
+  const arrStart = cleaned.indexOf('[')
+  let raw: string | undefined
+
+  if (objStart !== -1 && (arrStart === -1 || objStart < arrStart)) {
+    let depth = 0
+    for (let i = objStart; i < cleaned.length; i++) {
+      if (cleaned[i] === '{') depth++
+      else if (cleaned[i] === '}') depth--
+      if (depth === 0) {
+        raw = cleaned.slice(objStart, i + 1)
+        break
+      }
+    }
+    // No matching brace — likely truncated, use everything from { onward
+    if (!raw) raw = cleaned.slice(objStart)
+  } else if (arrStart !== -1) {
+    let depth = 0
+    for (let i = arrStart; i < cleaned.length; i++) {
+      if (cleaned[i] === '[') depth++
+      else if (cleaned[i] === ']') depth--
+      if (depth === 0) {
+        raw = cleaned.slice(arrStart, i + 1)
+        break
+      }
+    }
+    if (!raw) raw = cleaned.slice(arrStart)
+  }
 
   if (!raw) {
     throw new Error('无法从 AI 响应中提取 JSON')
   }
 
+  // Try to parse as-is
   try { return JSON.parse(raw) } catch {}
 
-  // Attempt common AI JSON error fixes
-  let fixed = raw
+  // If truncated, attempt to close open brackets/braces
+  let repaired = raw
+  const opens = (repaired.match(/[[{]/g) || []).length
+  const closes = (repaired.match(/[\]}]/g) || []).length
+  const missing = opens - closes
+  if (missing > 0) {
+    // Close a truncated string if mid-quote
+    const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length
+    if (quoteCount % 2 !== 0) repaired += '"'
+    repaired += ']'.repeat(Math.min(missing, 10)) + '}'.repeat(Math.min(missing, 10))
+  }
+
+  // Fix common LLM JSON issues by processing inside string literals
+  let fixed = repaired
   // Remove trailing commas before } or ]
   fixed = fixed.replace(/,\s*([}\]])/g, '$1')
-  // Replace Chinese punctuation inside JSON strings that leaked out
-  fixed = fixed.replace(/：/g, ':').replace(/，/g, ',').replace(/"/g, '"').replace(/"/g, '"')
-  // Remove control characters except newline/tab
-  fixed = fixed.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
+  // Replace Chinese punctuation that leaked into JSON
+  fixed = fixed.replace(/：/g, ':').replace(/，/g, ',').replace(/“/g, '"').replace(/”/g, '"')
+
+  // Escape literal newlines/controls inside JSON string values.
+  // LLMs (especially Qwen) frequently output unescaped newlines in explanations.
+  let out = ''
+  let inStr = false
+  for (let i = 0; i < fixed.length; i++) {
+    const ch = fixed[i]
+    if (inStr) {
+      if (ch === '\\') {
+        out += ch + (fixed[i + 1] || '')
+        i++
+      } else if (ch === '"') {
+        inStr = false
+        out += ch
+      } else if (ch === '\n' || ch === '\r') {
+        out += '\\n'
+      } else if (ch.charCodeAt(0) < 0x20) {
+        out += '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0')
+      } else {
+        out += ch
+      }
+    } else {
+      if (ch === '"') inStr = true
+      out += ch
+    }
+  }
+  fixed = out
 
   try { return JSON.parse(fixed) } catch {}
 
@@ -230,6 +330,7 @@ export async function generateQuizQuestions(
 1. 正确答案必须准确无误，绝对不能为了选项分布而牺牲答案正确性。correctAnswer 指向的选项内容必须与文档事实一致，且与 explanation 逻辑自洽。
 2. 建议将正确答案尽量分散在 A、B、C、D 中，但如果某个选项恰好是正确答案，不要为了分布而改变。
 3. 每道题的 explanation 必须说明为什么 correctAnswer 是正确的。
+4. 题目之间不要重复或高度相似，尽量覆盖文档的不同知识点。
 只返回 JSON，不要其他文字。
 格式：
 {"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"题目","options":["A选项","B选项","C选项","D选项"],"correctAnswer":"A","explanation":"解析"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"题目","correctAnswer":"true","explanation":"解析"}]}`,
@@ -240,15 +341,25 @@ export async function generateQuizQuestions(
     },
   ]
 
-  const result = await callAIStream(messages)
-  if (result.success && result.data) {
-    try {
-      result.data = extractJSON(result.data)
-    } catch (e: any) {
-      return { success: false, error: e.message }
-    }
+  const result = await callAI(messages)
+  console.log('[generateQuizQuestions] result:', { success: result.success, hasData: !!result.data, error: result.error })
+  if (!result.success || !result.data) {
+    return result
   }
-  return result
+
+  try {
+    const parsed = extractJSON(result.data)
+    const questions: any[] = (parsed.questions || []).map((q: any, i: number) => ({
+      ...q,
+      id: `q${i + 1}`,
+    }))
+    console.log(`[generateQuizQuestions] got ${questions.length} questions`)
+    return { success: true, data: { questions } }
+  } catch (e: any) {
+    console.warn(`[generateQuizQuestions] JSON parse failed:`, e.message)
+    console.warn(`[generateQuizQuestions] raw content (first 500):`, String(result.data).slice(0, 500))
+    return { success: false, error: e.message }
+  }
 }
 
 export async function gradeShortAnswers(

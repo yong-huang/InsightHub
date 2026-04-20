@@ -12,11 +12,12 @@ export function useDocumentUrl(docId: string): string {
   const categoryPath = doc.subcategory
     ? `${doc.category}/${doc.subcategory}`
     : doc.category
+  const middle = categoryPath ? `/${categoryPath}` : ''
 
   if (import.meta.env.DEV) {
-    return `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}?_=${doc.indexedAt}`
+    return `/dev-docs/${doc.source}${middle}/${doc.fileName}?_=${doc.indexedAt}`
   }
 
   // Production: files copied to public/docs/
-  return `/docs/${doc.source}/${categoryPath}/${doc.fileName}`
+  return `/docs/${doc.source}${middle}/${doc.fileName}`
 }

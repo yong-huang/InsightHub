@@ -1030,6 +1030,114 @@
   animation: fadeIn 0.2s ease;
 }
 
+/* Settings grid: two-column layout */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Profile list item */
+.settings-profile-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.settings-profile-item:hover {
+  background: var(--bg-card-hover);
+}
+.settings-profile-item.active {
+  border-color: var(--accent-blue);
+  background: rgba(50, 108, 229, 0.08);
+}
+.settings-profile-item.editing {
+  border-color: var(--accent-purple);
+  background: rgba(167, 139, 250, 0.06);
+}
+.settings-profile-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.settings-profile-item.active .settings-profile-dot {
+  background: var(--accent-blue);
+  box-shadow: 0 0 6px var(--accent-blue);
+}
+.settings-profile-item:not(.active) .settings-profile-dot {
+  background: var(--text-dim);
+}
+.settings-profile-name {
+  flex: 1;
+  font-size: 0.9rem;
+}
+.settings-profile-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(50, 108, 229, 0.15);
+  color: var(--accent-blue);
+}
+.settings-profile-actions {
+  display: flex;
+  gap: 4px;
+}
+.settings-profile-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.settings-profile-delete:hover {
+  color: var(--accent-red);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+/* Add new profile item (dashed) */
+.settings-profile-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.settings-profile-add:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* Edit section below profile list */
+.settings-edit-section {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.settings-edit-title {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 900px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 640px) {
   .settings-field {
     flex-direction: column;

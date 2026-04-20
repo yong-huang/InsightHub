@@ -61,40 +61,6 @@ async function loadAllDocuments(
     }
   } catch {}
 
-  // Migrate read state for documents whose IDs changed due to directory reorganization.
-  // When files move between directories, their generated IDs change but the fileName stays
-  // the same. Detect orphaned meta entries (old IDs not in current manifest) and remap
-  // them to new documents with matching fileName.
-  const currentIds = new Set(manifest.map(e => e.id))
-  let migrated = false
-  for (const [oldId, meta] of Object.entries(metaMap)) {
-    if (currentIds.has(oldId)) continue // Still valid, no migration needed
-    // Find a current manifest entry with a matching fileName
-    const match = manifest.find(e => !metaMap[e.id] && oldId.endsWith(e.fileName.replace(/\.html$/, '')))
-    if (match) {
-      metaMap[match.id] = { ...meta, id: match.id }
-      delete metaMap[oldId]
-      migrated = true
-    }
-  }
-  if (migrated) storageService.setDocumentMeta(metaMap)
-
-  // Also migrate read history entries with old documentIds
-  if (migrated) {
-    const history = storageService.getReadHistory()
-    let historyChanged = false
-    const migratedHistory = history.map(entry => {
-      if (currentIds.has(entry.documentId)) return entry
-      const match = manifest.find(e => entry.documentId.endsWith(e.fileName.replace(/\.html$/, '')))
-      if (match) {
-        historyChanged = true
-        return { ...entry, documentId: match.id }
-      }
-      return entry
-    })
-    if (historyChanged) storageService._setReadHistory(migratedHistory)
-  }
-
   const docs = new Map<string, Document>()
   const categoryCounts: Record<string, number> = {}
 

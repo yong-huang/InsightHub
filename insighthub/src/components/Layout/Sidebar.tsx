@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  GraduationCap, Film, BookOpen, Brain,
+  GraduationCap, Film, BookOpen, Brain, Sparkles,
   Cpu, GitBranch, Cloud, Server, Network, Code, Code2,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   Container, HardDrive, Wifi, Building2, Terminal,
@@ -24,6 +24,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Landmark: <Landmark size={18} />,
   BookOpen: <BookOpen size={18} />,
   Brain: <Brain size={18} />,
+  Sparkles: <Sparkles size={18} />,
   Cpu: <Cpu size={18} />,
   GitBranch: <GitBranch size={18} />,
   Cloud: <Cloud size={18} />,

@@ -716,7 +716,7 @@ export function DocReaderPage() {
             </div>
           ) : (
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-secondary btn-sm"
               onClick={() => handleGenerate('new')}
             >
               <Sparkles size={14} /> 测试

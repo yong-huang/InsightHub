@@ -1,6 +1,6 @@
-import * as fs from 'fs'
 import * as path from 'path'
 import type { Source } from '../../src/types'
+import { scanWithManifest } from './manifestManager'
 
 export interface DocumentManifestEntry {
   id: string
@@ -11,10 +11,10 @@ export interface DocumentManifestEntry {
   subcategory?: string
 }
 
-const EXCLUDE_DIRS = ['backups', 'template']
+export const EXCLUDE_DIRS = ['backups', 'template']
 const EXCLUDE_FILES = ['index.html']
 
-function isExcluded(filePath: string): boolean {
+export function isExcluded(filePath: string): boolean {
   const parts = filePath.split(path.sep)
   for (const exclude of EXCLUDE_DIRS) {
     if (parts.includes(exclude)) return true
@@ -25,7 +25,7 @@ function isExcluded(filePath: string): boolean {
   return false
 }
 
-function generateId(
+export function generateId(
   source: string,
   relativePath: string,
   fileName: string,
@@ -40,47 +40,10 @@ function generateId(
   return `${source}-${dirParts}-${nameWithoutExt}`
 }
 
-const SOURCE_NAMES: Record<string, string> = {
+export const SOURCE_NAMES: Record<string, string> = {
   mindinsight: 'MindInsight',
   techinsight: 'TechInsight',
   leetcodeinsight: 'LeetcodeInsight',
-}
-
-function scanDirectory(
-  dir: string,
-  source: Source,
-  sourcePrefix: string,
-): DocumentManifestEntry[] {
-  const entries: DocumentManifestEntry[] = []
-
-  if (!fs.existsSync(dir)) return entries
-
-  for (const rawEntry of fs.readdirSync(dir, { recursive: true })) {
-    if (typeof rawEntry !== 'string') continue
-    const absPath = path.join(dir, rawEntry)
-    if (!fs.statSync(absPath).isFile()) continue
-    if (!rawEntry.endsWith('.html')) continue
-
-    const relativePath = rawEntry // readdir recursive returns relative paths from dir
-    const fileName = path.basename(rawEntry)
-    if (isExcluded(relativePath)) continue
-    const parts = relativePath.split(path.sep).filter(s => s.length > 0)
-    const category = parts[0] || ''
-    const subcategory = parts.length > 2 ? parts.slice(1, -1).join(path.sep) : undefined
-
-    const sourceName = SOURCE_NAMES[source] || source
-
-    entries.push({
-      id: generateId(sourcePrefix, relativePath, fileName),
-      filePath: `../${sourceName}/${relativePath}`,
-      fileName,
-      source,
-      category,
-      subcategory,
-    })
-  }
-
-  return entries
 }
 
 export function scanDocuments(
@@ -89,11 +52,11 @@ export function scanDocuments(
   leetcodeInsightDir?: string,
 ): DocumentManifestEntry[] {
   const result = [
-    ...scanDirectory(mindInsightDir, 'mindinsight', 'mi'),
-    ...scanDirectory(techInsightDir, 'techinsight', 'ti'),
+    ...scanWithManifest(mindInsightDir, 'mindinsight', 'mi'),
+    ...scanWithManifest(techInsightDir, 'techinsight', 'ti'),
   ]
   if (leetcodeInsightDir) {
-    result.push(...scanDirectory(leetcodeInsightDir, 'leetcodeinsight', 'li'))
+    result.push(...scanWithManifest(leetcodeInsightDir, 'leetcodeinsight', 'li'))
   }
   return result
 }

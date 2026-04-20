@@ -36,7 +36,7 @@ export async function extractConcepts(
 
   try {
     const parsed = extractJSON(result.data)
-    const concepts: RawConcept[] = parsed.concepts || []
+    const concepts: RawConcept[] = (parsed.concepts || []).slice(0, maxCount)
     result.data = concepts
   } catch (e: any) {
     return { success: false as const, error: e.message }

@@ -6,7 +6,6 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
-import { runIdMigration } from '@/utils/idMigration'
 
 export function useInitializeApp() {
   const initialized = useRef(false)
@@ -22,8 +21,6 @@ export function useInitializeApp() {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-
-    runIdMigration()
 
     useDocumentStore.getState().initializeDocuments()
     useTagStore.getState().loadTags()
