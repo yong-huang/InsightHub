@@ -16,6 +16,7 @@ export const storageKeys = {
   FLASHCARDS: `${PREFIX}flashcards`,
   CHAT_HISTORY: `${PREFIX}chat-history`,
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
+  PRESENTATIONS: `${PREFIX}presentations`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -236,5 +237,10 @@ export const storageService = {
   getConceptCards: () => getItem<any[]>(storageKeys.CONCEPT_CARDS, []),
 
   setConceptCards: (cards: any[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
+
+  // Presentations
+  getPresentations: () => getItem<any[]>(storageKeys.PRESENTATIONS, []),
+
+  setPresentations: (presentations: any[]) => setItem(storageKeys.PRESENTATIONS, presentations),
 
 }

@@ -40,13 +40,16 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'dell', label: 'Dell 方案', source: 'techinsight', icon: 'Database' },
   { key: 'job', label: '求职面试', source: 'techinsight', icon: 'Briefcase' },
   // LeetcodeInsight — 基础数据结构→算法→综合
-  { key: 'arrays', label: '数组', source: 'leetcodeinsight', icon: 'Layers' },
-  { key: 'strings', label: '字符串', source: 'leetcodeinsight', icon: 'Type' },
+  { key: 'two-pointers', label: '双指针', source: 'leetcodeinsight', icon: 'MoveHorizontal' },
+  { key: 'sliding-window', label: '滑动窗口', source: 'leetcodeinsight', icon: 'PanelLeftClose' },
   { key: 'linked-list', label: '链表', source: 'leetcodeinsight', icon: 'Link' },
   { key: 'stack', label: '栈', source: 'leetcodeinsight', icon: 'Archive' },
-  { key: 'math', label: '数学', source: 'leetcodeinsight', icon: 'Calculator' },
-  { key: 'binary-search', label: '二分查找', source: 'leetcodeinsight', icon: 'Search' },
+  { key: 'hashmap', label: '哈希表', source: 'leetcodeinsight', icon: 'Table2' },
+  { key: 'binary-search', label: '二分查找', source: 'leetcodeinsight', icon: 'Binary' },
+  { key: 'backtracking', label: '回溯', source: 'leetcodeinsight', icon: 'Undo2' },
   { key: 'dynamic-programming', label: '动态规划', source: 'leetcodeinsight', icon: 'Puzzle' },
+  { key: 'strings', label: '字符串', source: 'leetcodeinsight', icon: 'Type' },
+  { key: 'math', label: '数学', source: 'leetcodeinsight', icon: 'Calculator' },
   { key: 'summary', label: '总结汇总', source: 'leetcodeinsight', icon: 'FileText' },
 ]
 

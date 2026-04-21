@@ -7,6 +7,8 @@ import {
   Container, HardDrive, Wifi, Building2, Terminal,
   ChevronLeft, ChevronRight, Tag, MessageSquare, Bookmark, Trophy, TerminalSquare,
   Route, Lightbulb, Layers, Type, LinkIcon, Archive, Calculator, Puzzle, Search, FileText,
+  MoveHorizontal, PanelLeftClose, Table2, Binary, Undo2,
+  Presentation,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -50,6 +52,11 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Puzzle: <Puzzle size={18} />,
   Search: <Search size={18} />,
   FileText: <FileText size={18} />,
+  MoveHorizontal: <MoveHorizontal size={18} />,
+  PanelLeftClose: <PanelLeftClose size={18} />,
+  Table2: <Table2 size={18} />,
+  Binary: <Binary size={18} />,
+  Undo2: <Undo2 size={18} />,
 }
 
 const WORKSPACE_PREFIX: Record<Workspace, string> = {
@@ -192,6 +199,10 @@ export function Sidebar() {
               <span className="sidebar-item-label">成就系统</span>
               <span className="sidebar-item-count">{achievementCount}/{ACHIEVEMENTS.length}</span>
             </Link>
+            <Link to="/presentations" className="sidebar-item">
+              <span className="sidebar-item-icon"><Presentation size={18} /></span>
+              <span className="sidebar-item-label">演示文稿</span>
+            </Link>
           </div>
         )}
         {sidebarCollapsed && (
@@ -236,6 +247,11 @@ export function Sidebar() {
         {sidebarCollapsed && (
           <Link to="/achievements" className="sidebar-item" title="成就系统">
             <span className="sidebar-item-icon"><Trophy size={18} /></span>
+          </Link>
+        )}
+        {sidebarCollapsed && (
+          <Link to="/presentations" className="sidebar-item" title="演示文稿">
+            <span className="sidebar-item-icon"><Presentation size={18} /></span>
           </Link>
         )}
 

@@ -4,7 +4,8 @@ import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   ChevronDown, Highlighter, BrainCircuit, Bookmark,
-  MessageCircle, Lightbulb, Languages,
+  MessageCircle, Lightbulb, Languages, Presentation,
+  ShieldCheck,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -15,7 +16,7 @@ import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
-import { generateDocumentSummary } from '@/services/aiService'
+import { generateDocumentSummary, evaluateDocumentAccuracy } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
 import type { Source } from '@/types'
@@ -29,6 +30,7 @@ import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
+import { EvaluationPanel } from '@/components/DocReader/EvaluationPanel'
 import { ChatPanel } from '@/components/DocReader/ChatPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { explainConcept, translateText } from '@/services/readerAiService'
@@ -126,6 +128,10 @@ export function DocReaderPage() {
   const [summaryText, setSummaryText] = useState<string | null>(null)
   const [isSummaryGenerating, setIsSummaryGenerating] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [showEvalPanel, setShowEvalPanel] = useState(false)
+  const [evalResult, setEvalResult] = useState<string | null>(null)
+  const [isEvalGenerating, setIsEvalGenerating] = useState(false)
+  const [evalError, setEvalError] = useState<string | null>(null)
   const [showChatPanel, setShowChatPanel] = useState(false)
   const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
@@ -265,6 +271,9 @@ export function DocReaderPage() {
     setShowSummaryPanel(false)
     setIsSummaryGenerating(false)
     setSummaryError(null)
+    setShowEvalPanel(false)
+    setIsEvalGenerating(false)
+    setEvalError(null)
     setShowChatPanel(false)
     setChatSelectedText(undefined)
     setExplainState(null)
@@ -272,9 +281,12 @@ export function DocReaderPage() {
     if (docId) {
       const cached = storageService.getSummaries()[docId]
       setSummaryText(cached || null)
+      const evalCached = storageService.getSummaries()[`eval-${docId}`]
+      setEvalResult(evalCached || null)
       setIsBookmarked(storageService.isReadLater(docId))
     } else {
       setSummaryText(null)
+      setEvalResult(null)
       setIsBookmarked(false)
     }
   }, [docId])
@@ -367,6 +379,28 @@ export function DocReaderPage() {
     } else if (result.data && docId) {
       setSummaryText(result.data)
       storageService.saveSummary(docId, result.data)
+    }
+  }, [doc, docId])
+
+  const handleEvaluate = useCallback(async () => {
+    if (!doc) return
+    setEvalResult(null)
+    setEvalError(null)
+    setIsEvalGenerating(true)
+
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    const result = await evaluateDocumentAccuracy(
+      doc.title,
+      docWithContent?.contentText || doc.contentText,
+      (text) => setEvalResult(text),
+    )
+
+    setIsEvalGenerating(false)
+    if (!result.success) {
+      setEvalError(result.error || '评估失败')
+    } else if (result.data && docId) {
+      setEvalResult(result.data)
+      storageService.saveSummary(`eval-${docId}`, result.data)
     }
   }, [doc, docId])
 
@@ -557,6 +591,15 @@ export function DocReaderPage() {
             <Highlighter size={14} /> 笔记{docAnnotations.length > 0 && ` ${docAnnotations.length}`}
           </button>
 
+          {/* Chat panel toggle */}
+          <button
+            className={`btn btn-sm ${showChatPanel || chatHistorySize > 0 ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowChatPanel(v => !v)}
+            title="AI 问答"
+          >
+            <MessageCircle size={14} /> 问答
+          </button>
+
           {/* Summary panel toggle */}
           <button
             className={`btn btn-sm ${showSummaryPanel || summaryText ? 'btn-primary' : 'btn-secondary'}`}
@@ -573,14 +616,27 @@ export function DocReaderPage() {
             <BrainCircuit size={14} /> 摘要
           </button>
 
-          {/* Chat panel toggle */}
-          <button
-            className={`btn btn-sm ${showChatPanel || chatHistorySize > 0 ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setShowChatPanel(v => !v)}
-            title="AI 问答"
-          >
-            <MessageCircle size={14} /> 问答
-          </button>
+          {/* Evaluation button */}
+          {isEvalGenerating ? (
+            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
+              <Loader2 size={14} className="spin" /> 评估
+            </span>
+          ) : (
+            <button
+              className={`btn btn-sm ${showEvalPanel || evalResult ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => {
+                setShowEvalPanel(v => {
+                  if (!v && !evalResult && !isEvalGenerating && !evalError) {
+                    handleEvaluate()
+                  }
+                  return !v
+                })
+              }}
+              title="AI 评估"
+            >
+              <ShieldCheck size={14} /> 评估
+            </button>
+          )}
 
           {/* Extract concepts button */}
           {isExtractingConcepts ? (
@@ -735,6 +791,15 @@ export function DocReaderPage() {
             <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} /> 收藏
           </button>
 
+          {/* Present button */}
+          <Link
+            to={`/presentation/${doc.id}`}
+            className="btn btn-secondary btn-sm"
+            title="演示"
+          >
+            <Presentation size={14} /> 演示
+          </Link>
+
           {/* Fullscreen */}
           <button
             className="btn btn-ghost btn-sm"
@@ -884,6 +949,16 @@ export function DocReaderPage() {
             error={summaryError}
             onGenerate={handleGenerateSummary}
             onClose={() => setShowSummaryPanel(false)}
+          />
+        )}
+
+        {showEvalPanel && (
+          <EvaluationPanel
+            resultText={evalResult}
+            isGenerating={isEvalGenerating}
+            error={evalError}
+            onGenerate={handleEvaluate}
+            onClose={() => setShowEvalPanel(false)}
           />
         )}
 

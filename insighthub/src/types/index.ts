@@ -154,6 +154,17 @@ export interface ConceptCard {
   lastReview: number
 }
 
+// ========== Presentation Types ==========
+export interface Presentation {
+  id: string                 // pres-${Date.now()}
+  documentId: string
+  documentTitle: string
+  slideOrder: number[]       // ordered section indices
+  speakerNotes: Record<number, string>
+  createdAt: number
+  updatedAt: number
+}
+
 // ========== Imported Document Types ==========
 export interface ImportedDocumentRecord {
   id: string

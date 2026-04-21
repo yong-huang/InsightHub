@@ -444,3 +444,39 @@ export async function generateDocumentSummary(
 
   return callAIStream(messages, onChunk)
 }
+
+export async function evaluateDocumentAccuracy(
+  documentTitle: string,
+  documentContent: string,
+  onChunk?: (text: string) => void,
+): Promise<AIResponse> {
+  const truncatedContent = documentContent.slice(0, 6000)
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `你是一位严谨的领域专家审稿人。请对以下文档内容进行准确度评估，使用 Markdown 格式输出。
+
+输出格式要求：
+## 评分：X/100
+（给出一个整数分数，基于内容的准确性、完整性和可靠性）
+
+## 整体评价
+（1-2 句话概括文档质量）
+
+## 可能存在的问题
+（列出所有发现的问题，每项包含：问题所在的章节/主题、具体问题描述、建议修改方向。如果没有问题，说明"未发现明显问题"）
+
+## 值得肯定的方面
+（列出准确可靠、表述清晰的内容）
+
+要求：内容客观公正，使用中文。只输出 Markdown 文本，不要输出其他内容。`,
+    },
+    {
+      role: 'user',
+      content: `标题：${documentTitle}\n\n文档内容：\n${truncatedContent}`,
+    },
+  ]
+
+  return callAIStream(messages, onChunk)
+}
