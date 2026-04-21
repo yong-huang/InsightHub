@@ -26,6 +26,7 @@ export function SettingsPage() {
     quizDifficulty, quizQuestionCount,
     setQuizDifficulty, setQuizQuestionCount,
     conceptMaxCount, setConceptMaxCount,
+    enablePresentation, setEnablePresentation,
   } = usePreferenceStore()
 
   const [profiles, setProfiles] = useState<AIProfile[]>([])
@@ -469,9 +470,28 @@ export function SettingsPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Data Management — full width */}
+        {/* Feature Toggles */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <Zap size={20} />
+            <h2>功能开关</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="settings-field">
+              <label>演示模式</label>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={enablePresentation}
+                  onChange={e => setEnablePresentation(e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="settings-card">
         <div className="settings-card-header">
           <Database size={20} />

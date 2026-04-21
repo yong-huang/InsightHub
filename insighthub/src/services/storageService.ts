@@ -71,6 +71,7 @@ export const storageService = {
       aiApiKey: '',
       activeWorkspace: 'mindinsight' as const,
       conceptMaxCount: 10,
+      enablePresentation: false,
       ...stored,
     }
   },

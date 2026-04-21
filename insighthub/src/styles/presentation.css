@@ -8,7 +8,7 @@
   margin-top: -2vh;
   height: 100vh;
   height: 100dvh;
-  padding: 1rem;
+  padding: 0.5rem;
   background: var(--bg-primary);
   position: relative;
 }
@@ -16,7 +16,8 @@
 /* ========== Slide Container (16:9) ========== */
 
 .presentation-slide-wrapper {
-  width: min(90vw, 960px);
+  width: min(88vw, calc(78vh * 16 / 9));
+  max-height: 78vh;
   aspect-ratio: 16 / 9;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
@@ -37,7 +38,7 @@
 
 .presentation-slide-iframe-wrapper {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
 }
 
@@ -107,11 +108,11 @@
 /* ========== Progress Bar ========== */
 
 .presentation-progress {
-  width: min(90vw, 960px);
+  width: min(88vw, calc(78vh * 16 / 9));
   height: 4px;
   background: var(--bg-secondary);
   border-radius: 2px;
-  margin-top: 0.75rem;
+  margin-top: 0.4rem;
   overflow: hidden;
 }
 
@@ -128,7 +129,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .presentation-nav button {

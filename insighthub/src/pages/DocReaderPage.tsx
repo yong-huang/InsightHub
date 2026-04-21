@@ -102,7 +102,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount, conceptMaxCount } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount, enablePresentation } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -524,7 +524,12 @@ export function DocReaderPage() {
 
   // Unassigned tags for the suggestion dropdown
   const availableTags = useMemo(
-    () => allTags.filter(t => !t.documentIds.includes(docId || '')),
+    () => allTags.filter(t => {
+      if (t.documentIds.includes(docId || '')) return false
+      // Workspace isolation: only show tags that have documents from the same source
+      const prefix = (docId || '').slice(0, 3) // e.g. 'mi-', 'ti-', 'li-'
+      return t.documentIds.some(id => id.startsWith(prefix))
+    }),
     [allTags, docId]
   )
 
@@ -570,6 +575,86 @@ export function DocReaderPage() {
             <FileText size={12} />
             {doc.wordCount.toLocaleString()} 字
           </span>
+          <div className="tag-list">
+            {tags.map(tag => (
+              <span
+                key={tag.id}
+                className="tag-pill"
+                style={{ background: `${tag.color}20`, color: tag.color }}
+              >
+                {tag.name}
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeDocumentFromTag(tag.id, doc.id) }}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, border: 'none', borderRadius: '50%', background: 'rgba(0,0,0,0.15)', color: 'inherit', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: 0 }}
+                >
+                  <X size={8} />
+                </button>
+              </span>
+            ))}
+            {!showTagInput ? (
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                onClick={() => setShowTagInput(true)}
+              >
+                <Plus size={12} /> 标签
+              </button>
+            ) : (
+              <div className="tag-input-wrap" style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={tagName}
+                  onChange={e => setTagName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAddTag()
+                    if (e.key === 'Escape') { setShowTagInput(false); setTagName('') }
+                  }}
+                  placeholder="输入或选择标签..."
+                  style={{ padding: '4px 8px', fontSize: '0.8rem', width: '140px' }}
+                  autoFocus
+                />
+                {tagName.trim() === '' && availableTags.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
+                    borderRadius: 6, maxHeight: 160, overflowY: 'auto',
+                    boxShadow: 'var(--shadow-md)', minWidth: 140,
+                  }}>
+                    {availableTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => {
+                          addDocumentToTag(tag.id, doc.id)
+                          setShowTagInput(false)
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          width: '100%', padding: '6px 10px', border: 'none',
+                          background: 'none', cursor: 'pointer', fontSize: '0.8rem',
+                          color: 'var(--text-primary)', textAlign: 'left',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: tag.color, flexShrink: 0 }} />
+                        {tag.name}
+                        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-dim)' }}>{tag.documentIds.length}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={handleAddTag}>
+                  <Plus size={12} />
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setShowTagInput(false); setTagName('') }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="doc-reader-toolbar-actions">
@@ -792,6 +877,7 @@ export function DocReaderPage() {
           </button>
 
           {/* Present button */}
+          {enablePresentation && (
           <Link
             to={`/presentation/${doc.id}`}
             className="btn btn-secondary btn-sm"
@@ -799,6 +885,7 @@ export function DocReaderPage() {
           >
             <Presentation size={14} /> 演示
           </Link>
+          )}
 
           {/* Fullscreen */}
           <button
@@ -813,89 +900,6 @@ export function DocReaderPage() {
 
       <div className="doc-reader-titlebar">
         <h1>{doc.title}</h1>
-
-        <div style={{ marginTop: '0.5rem' }}>
-          <div className="tag-list">
-            {tags.map(tag => (
-              <span
-                key={tag.id}
-                className="tag-pill"
-                style={{ background: `${tag.color}20`, color: tag.color }}
-              >
-                {tag.name}
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeDocumentFromTag(tag.id, doc.id) }}
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, border: 'none', borderRadius: '50%', background: 'rgba(0,0,0,0.15)', color: 'inherit', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: 0 }}
-                >
-                  <X size={8} />
-                </button>
-              </span>
-            ))}
-            {!showTagInput ? (
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                onClick={() => setShowTagInput(true)}
-              >
-                <Plus size={12} /> 标签
-              </button>
-            ) : (
-              <div className="tag-input-wrap" style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  value={tagName}
-                  onChange={e => setTagName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleAddTag()
-                    if (e.key === 'Escape') { setShowTagInput(false); setTagName('') }
-                  }}
-                  placeholder="输入或选择标签..."
-                  style={{ padding: '4px 8px', fontSize: '0.8rem', width: '140px' }}
-                  autoFocus
-                />
-                {tagName.trim() === '' && availableTags.length > 0 && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, zIndex: 100,
-                    background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
-                    borderRadius: 6, maxHeight: 160, overflowY: 'auto',
-                    boxShadow: 'var(--shadow-md)', minWidth: 140,
-                  }}>
-                    {availableTags.map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => {
-                          addDocumentToTag(tag.id, doc.id)
-                          setShowTagInput(false)
-                        }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          width: '100%', padding: '6px 10px', border: 'none',
-                          background: 'none', cursor: 'pointer', fontSize: '0.8rem',
-                          color: 'var(--text-primary)', textAlign: 'left',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                      >
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: tag.color, flexShrink: 0 }} />
-                        {tag.name}
-                        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-dim)' }}>{tag.documentIds.length}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button className="btn btn-ghost btn-sm" onClick={handleAddTag}>
-                  <Plus size={12} />
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => { setShowTagInput(false); setTagName('') }}
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {backlinks.length > 0 && (
           <div className="backlinks-panel" style={{ marginTop: '0.5rem' }}>

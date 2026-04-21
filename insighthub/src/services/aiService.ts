@@ -445,6 +445,80 @@ export async function generateDocumentSummary(
   return callAIStream(messages, onChunk)
 }
 
+export async function generateSpeakerNotes(
+  documentTitle: string,
+  sections: { title: string; contentHtml: string }[],
+  onProgress?: (done: number, total: number) => void,
+  externalSignal?: AbortSignal,
+): Promise<Record<number, string>> {
+  // Strip HTML for each section, truncate to 800 chars
+  const stripHtml = (html: string) =>
+    html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+  const sectionTexts = sections.map(s => ({
+    title: s.title,
+    text: stripHtml(s.contentHtml).slice(0, 800),
+  }))
+
+  // Build the sections list for the prompt
+  const sectionsList = sectionTexts.map((s, i) => `Slide ${i + 1}: ${s.title}\n${s.text}`).join('\n\n---\n\n')
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `你是一位专业的演讲稿撰写助手，负责为幻灯片撰写口语化演讲稿。
+
+要求：
+1. 口语化风格，像在跟听众面对面交流，不要照念文档或标题
+2. 每页演讲稿对应 2-3 分钟演讲时长（约 300-500 字中文）
+3. 开头用引导性问题或场景描述切入，不要直接念标题
+4. 适当加入"大家可以看到"、"这里有个关键点"、"我们来看一下"等口语衔接
+5. 代码块或技术细节用通俗语言解释要点，不逐行读代码
+6. 结尾可以用一个简短的过渡句引出下一页
+7. 使用中文撰写
+
+返回格式（严格按此格式输出，每页之间用分隔线隔开）：
+--- Slide 1: 标题 ---
+演讲稿内容
+
+--- Slide 2: 标题 ---
+演讲稿内容
+
+（以此类推，为每一页幻灯片撰写演讲稿）
+
+只输出演讲稿内容，不要输出其他说明文字。`,
+    },
+    {
+      role: 'user',
+      content: `文档标题：${documentTitle}\n\n以下是各幻灯片的标题和内容摘要：\n\n${sectionsList}`,
+    },
+  ]
+
+  const result = await callAIStream(messages, undefined, externalSignal)
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error || 'AI 服务未返回内容')
+  }
+
+  // Parse the response into Record<number, string>
+  const notes: Record<number, string> = {}
+  const parts = result.data.split(/---\s*Slide\s+(\d+)\s*[:：]\s*/)
+
+  // parts[0] is any text before the first marker (ignore)
+  // Then alternating: title (index 1), content (index 2), title (index 3), content (index 4), ...
+  for (let i = 1; i < parts.length; i += 2) {
+    const slideNum = parseInt(parts[i], 10)
+    const content = (parts[i + 1] || '').trim()
+    if (!isNaN(slideNum) && content) {
+      notes[slideNum - 1] = content // 0-indexed
+    }
+  }
+
+  // Report progress as complete
+  onProgress?.(sections.length, sections.length)
+
+  return notes
+}
+
 export async function evaluateDocumentAccuracy(
   documentTitle: string,
   documentContent: string,

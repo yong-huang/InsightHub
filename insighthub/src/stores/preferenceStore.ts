@@ -8,6 +8,7 @@ interface PreferenceState extends UserPreferences {
   setQuizDifficulty: (d: Difficulty) => void
   setQuizQuestionCount: (n: number) => void
   setConceptMaxCount: (n: number) => void
+  setEnablePresentation: (v: boolean) => void
   setSidebarCollapsed: (c: boolean) => void
   toggleSidebar: () => void
   setAiApiUrl: (url: string) => void
@@ -27,6 +28,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   aiApiKey: storageService.getPreferences().aiApiKey,
   activeWorkspace: storageService.getPreferences().activeWorkspace,
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
+  enablePresentation: storageService.getPreferences().enablePresentation,
 
   setTheme: (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -56,6 +58,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     const prefs = storageService.getPreferences()
     storageService.setPreferences({ ...prefs, conceptMaxCount })
     set({ conceptMaxCount })
+  },
+
+  setEnablePresentation: (enablePresentation) => {
+    const prefs = storageService.getPreferences()
+    storageService.setPreferences({ ...prefs, enablePresentation })
+    set({ enablePresentation })
   },
 
   setSidebarCollapsed: (sidebarCollapsed) => {

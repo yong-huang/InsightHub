@@ -188,5 +188,6 @@ export interface UserPreferences {
   aiApiKey: string
   activeWorkspace: Source
   conceptMaxCount: number
+  enablePresentation: boolean
 }
 

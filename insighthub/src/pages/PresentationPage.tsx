@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Maximize,
-  MessageSquare, Edit3, ArrowLeft,
+  Edit3, ArrowLeft, FileText, Loader2, RefreshCw, X,
 } from 'lucide-react'
 import { parseSections, type ParsedSection } from '@/utils/sectionParser'
 import { usePresentationStore } from '@/stores/presentationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
+import { generateSpeakerNotes } from '@/services/aiService'
 
 /**
  * JS string injected into the presentation iframe.
@@ -30,22 +31,29 @@ const IFRAME_SETUP_JS = `
   ['script','nav','.nav','footer','header','noscript','.back-to-top'].forEach(function(sel) {
     document.querySelectorAll(sel).forEach(function(el) { el.remove(); });
   });
-  Array.from(document.body.querySelectorAll('style')).forEach(function(el) { el.remove(); });
+  // Remove external <link rel="stylesheet"> to avoid conflicts,
+  // but KEEP <style> tags so document layout (grid, flex, colors, fonts) is preserved.
+  Array.from(document.head.querySelectorAll('link[rel="stylesheet"]')).forEach(function(el) { el.remove(); });
 
   document.body.style.margin = '0';
   document.body.style.padding = '0';
 
-  // Force all elements visible — many documents use scroll-triggered
-  // reveal animations (.rv{opacity:0} + IntersectionObserver adding .vis).
-  // Since we remove all <script> elements, the observer never fires.
-  // Also reduce vertical spacing to minimize blank space at bottom of slides.
-  var revealFix = document.createElement('style');
-  revealFix.textContent = 'html, body { height: 100% !important; }'
+  // Inject targeted overrides with !important to neutralize document styles
+  // that conflict with presentation mode, while keeping layout intact.
+  // Key principle: only override what's necessary, don't touch display/grid/flex.
+  var s = document.createElement('style');
+  s.textContent = ''
+    // Base
+    + 'html, body { height: 100% !important; }'
+    // Force all elements visible (replaces scroll-reveal opacity:0)
     + 'body * { opacity: 1 !important; visibility: visible !important; }'
-    + 'section, .sec { padding-top: 1rem !important; padding-bottom: 0.5rem !important; }'
-    + '.sh { margin-bottom: 1rem !important; }'
-    + 'body { overflow: hidden !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }';
-  document.head.appendChild(revealFix);
+    // Sections: fill slide width, allow internal scroll when content overflows
+    + 'section, .sec { min-height: 0 !important; max-width: 100% !important; width: 100% !important; padding: 0.8rem 2rem !important; margin: 0 !important; box-sizing: border-box !important; }'
+    + '.sh { margin-bottom: 0.6rem !important; text-align: center !important; }'
+    // Hero: remove 100vh sizing, hide particle decorations
+    + '.hero { min-height: 0 !important; height: auto !important; padding: 2rem !important; }'
+    + '.particles, .particle { display: none !important; }';
+  document.head.appendChild(s);
 
   var heroSection = document.querySelector('section.hero, section[class*="hero"]');
   var hasHero = !!heroSection;
@@ -148,18 +156,21 @@ export function PresentationPage() {
   const [loading, setLoading] = useState(true)
   const [iframeReady, setIframeReady] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showNotes, setShowNotes] = useState(false)
-  const [notes, setNotes] = useState('')
   const [animClass, setAnimClass] = useState('')
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideOrder, setSlideOrder] = useState<number[]>([])
   const [speakerNotesMap, setSpeakerNotesMap] = useState<Record<number, string>>({})
   const [heroExists, setHeroExists] = useState(false)
+  const [scriptPanelOpen, setScriptPanelOpen] = useState(false)
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false)
+  const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const presentation = usePresentationStore(s => s.getByDocumentId(docId!))
+  const updateSpeakerNotes = usePresentationStore(s => s.updateSpeakerNotes)
   const doc = useDocumentStore(s => s.documents.get(docId!))
   const docUrl = useDocumentUrl(docId!)
 
@@ -305,42 +316,6 @@ export function PresentationPage() {
     }
   }, [currentIndex, goToSlide])
 
-  // Update notes when slide changes
-  useEffect(() => {
-    if (currentIndex === 0 && heroExists) {
-      setNotes('')
-      return
-    }
-    const headingIdx = heroExists ? currentIndex - 1 : currentIndex
-    const sectionIdx = slideOrder[headingIdx]
-    if (sectionIdx !== undefined) {
-      setNotes(speakerNotesMap[sectionIdx] || '')
-    }
-  }, [currentIndex, slideOrder, speakerNotesMap, heroExists])
-
-  const saveNotes = useCallback(() => {
-    if (currentIndex === 0 && heroExists) return
-    const headingIdx = heroExists ? currentIndex - 1 : currentIndex
-    const sectionIdx = slideOrder[headingIdx]
-    if (sectionIdx === undefined || !docId) return
-    const updated = { ...speakerNotesMap, [sectionIdx]: notes }
-    setSpeakerNotesMap(updated)
-    const store = usePresentationStore.getState()
-    if (presentation) {
-      store.savePresentation({ ...presentation, speakerNotes: updated })
-    } else {
-      store.savePresentation({
-        id: `pres-${Date.now()}`,
-        documentId: docId,
-        documentTitle: doc?.title || '',
-        slideOrder,
-        speakerNotes: updated,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      })
-    }
-  }, [notes, slideOrder, currentIndex, speakerNotesMap, docId, presentation, doc])
-
   // Fullscreen
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -383,16 +358,12 @@ export function PresentationPage() {
           if (document.fullscreenElement) {
             document.exitFullscreen()
           } else {
-            navigate(-1)
+            navigate(`/doc/${docId}`)
           }
           break
         case 'F5':
           e.preventDefault()
           toggleFullscreen()
-          break
-        case 'n':
-        case 'N':
-          setShowNotes(v => !v)
           break
       }
     }
@@ -406,6 +377,49 @@ export function PresentationPage() {
     w.document.write(generatePresenterHTML(activeSlides, currentIndex, speakerNotesMap, slideOrder, docUrl))
     w.document.close()
   }, [activeSlides, currentIndex, speakerNotesMap, slideOrder, docUrl])
+
+  const handleGenerateScript = useCallback(async () => {
+    if (isGeneratingScript) return
+    setIsGeneratingScript(true)
+    setGenProgress({ done: 0, total: activeSlides.length })
+
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    try {
+      const sectionsData = activeSlides.map(s => ({
+        title: s.title,
+        contentHtml: s.contentHtml,
+      }))
+
+      const notes = await generateSpeakerNotes(
+        doc?.title || 'Untitled',
+        sectionsData,
+        (done, total) => setGenProgress({ done, total }),
+        abort.signal,
+      )
+
+      // Merge new notes into existing
+      const merged = { ...speakerNotesMap, ...notes }
+      setSpeakerNotesMap(merged)
+
+      // Persist to store
+      const presId = presentation?.id
+      if (presId) {
+        for (const [idx, text] of Object.entries(notes)) {
+          updateSpeakerNotes(presId, Number(idx), text)
+        }
+      }
+
+      setScriptPanelOpen(true)
+    } catch (e: any) {
+      console.error('[PresentationPage] generateSpeakerNotes failed:', e)
+      alert(e.message || '生成演讲稿失败')
+    } finally {
+      setIsGeneratingScript(false)
+      abortRef.current = null
+    }
+  }, [isGeneratingScript, activeSlides, doc?.title, speakerNotesMap, presentation?.id, updateSpeakerNotes])
 
   if (loading) {
     return (
@@ -447,9 +461,6 @@ export function PresentationPage() {
           <button className="btn btn-ghost btn-sm" onClick={toggleFullscreen} title="Fullscreen (F5)">
             <Maximize size={16} />
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={openPresenterMode} title="Presenter Mode">
-            <MessageSquare size={16} />
-          </button>
           <Link
             to={`/presentation/${docId}/edit`}
             className="btn btn-ghost btn-sm"
@@ -457,8 +468,27 @@ export function PresentationPage() {
           >
             <Edit3 size={16} />
           </Link>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/doc/${docId}`)} title="Back">
             <ArrowLeft size={16} />
+          </button>
+          <button
+            className={`btn btn-ghost btn-sm ${scriptPanelOpen ? 'active' : ''}`}
+            onClick={() => {
+              if (isGeneratingScript) return
+              const hasNotes = Object.keys(speakerNotesMap).length > 0
+              if (hasNotes) {
+                setScriptPanelOpen(p => !p)
+              } else {
+                handleGenerateScript()
+              }
+            }}
+            title={isGeneratingScript ? 'Generating...' : 'Speaker Notes'}
+          >
+            {isGeneratingScript ? (
+              <><Loader2 size={16} className="spin" /> 生成中 {genProgress.done}/{genProgress.total}</>
+            ) : (
+              <><FileText size={16} /> 演讲稿</>
+            )}
           </button>
         </div>
       )}
@@ -499,29 +529,55 @@ export function PresentationPage() {
         </button>
       </div>
 
-      {/* Notes toggle */}
-      {!isFullscreen && (
-        <button
-          className="presentation-notes-toggle"
-          onClick={() => setShowNotes(v => !v)}
-        >
-          <MessageSquare size={14} /> Notes (N)
-        </button>
-      )}
-
-      {/* Notes panel */}
-      {showNotes && (
-        <div className="presentation-notes-panel">
-          <div className="notes-label">
-            <span>Speaker Notes — {currentSlide.title}</span>
-            <button className="btn btn-sm btn-secondary" onClick={saveNotes}>Save</button>
+      {/* Speaker notes panel */}
+      {scriptPanelOpen && (
+        <div className="presentation-notes-panel" style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20,
+          background: 'var(--surface)', borderTop: '1px solid var(--border)',
+          padding: '0.75rem 1rem', maxHeight: '30vh', display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              演讲稿 — {currentSlide.title}
+            </span>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleGenerateScript} disabled={isGeneratingScript} title="重新生成">
+                <RefreshCw size={14} /> 重新生成
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setScriptPanelOpen(false)} title="关闭">
+                <X size={14} />
+              </button>
+            </div>
           </div>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            onBlur={saveNotes}
-            placeholder="Add speaker notes for this slide..."
-          />
+          {(() => {
+            const noteIdx = heroExists ? currentIndex - 1 : currentIndex
+            const sectionIdx = slideOrder[noteIdx]
+            const notes = sectionIdx !== undefined ? speakerNotesMap[sectionIdx] : undefined
+            if (!notes) {
+              return <div style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>暂无演讲稿，请点击"演讲稿"按钮生成</div>
+            }
+            return (
+              <textarea
+                value={notes}
+                onChange={e => {
+                  const newMap = { ...speakerNotesMap, [sectionIdx]: e.target.value }
+                  setSpeakerNotesMap(newMap)
+                }}
+                onBlur={() => {
+                  const presId = presentation?.id
+                  if (presId && sectionIdx !== undefined) {
+                    updateSpeakerNotes(presId, sectionIdx, speakerNotesMap[sectionIdx])
+                  }
+                }}
+                style={{
+                  flex: 1, minHeight: '80px', width: '100%', resize: 'none',
+                  background: 'var(--surface-alt)', border: '1px solid var(--border)',
+                  borderRadius: '8px', padding: '0.75rem', fontSize: '0.9rem',
+                  lineHeight: 1.6, color: 'var(--text-primary)',
+                }}
+              />
+            )
+          })()}
         </div>
       )}
     </div>
