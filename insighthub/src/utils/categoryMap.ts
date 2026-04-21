@@ -37,7 +37,7 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: 'networking', label: '网络', source: 'techinsight', icon: 'Wifi' },
   { key: 'storage', label: '存储技术', source: 'techinsight', icon: 'HardDrive' },
   { key: 'vmware', label: 'VMware', source: 'techinsight', icon: 'Server' },
-  { key: 'dell', label: 'Dell 方案', source: 'techinsight', icon: 'HardDrive' },
+  { key: 'dell', label: 'Dell 方案', source: 'techinsight', icon: 'Database' },
   { key: 'job', label: '求职面试', source: 'techinsight', icon: 'Briefcase' },
   // LeetcodeInsight — 基础数据结构→算法→综合
   { key: 'arrays', label: '数组', source: 'leetcodeinsight', icon: 'Layers' },

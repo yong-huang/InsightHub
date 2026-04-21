@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, Lightbulb, RotateCcw, Trash2, BookOpen,
   Clock, CheckCircle2, AlertCircle, Star, Zap, Search,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -28,22 +29,28 @@ const GRADES = [
 
 export function SpacedRepetitionPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const filterDocId = searchParams.get('docId') || undefined
   const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
 
   const workspaceCards = useMemo(() =>
     cards.filter(c => {
+      if (!c.conceptName || !c.definition) return false
+      if (filterDocId && c.sourceDocId !== filterDocId) return false
       const doc = documents.get(c.sourceDocId)
       return doc?.source === activeWorkspace || c.sourceDocId.startsWith(WORKSPACE_PREFIX[activeWorkspace] || 'ti-')
     }),
-    [cards, documents, activeWorkspace]
+    [cards, documents, activeWorkspace, filterDocId]
   )
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('review')
+  const [viewMode, setViewMode] = useState<ViewMode>(filterDocId ? 'review' : 'review')
   const [flipped, setFlipped] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 30
 
   const filteredCards = useMemo(() => {
     if (!searchQuery.trim()) return workspaceCards
@@ -60,13 +67,21 @@ export function SpacedRepetitionPage() {
     })
   }, [workspaceCards, searchQuery, documents])
 
+  // Reset page when search or view changes
+  useEffect(() => { setPage(1) }, [searchQuery, viewMode])
+
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
   const [slidingOut, setSlidingOut] = useState(false)
 
   useEffect(() => {
     if (!isLoaded) loadCards()
-  }, [isLoaded, loadCards])
+    // Clean up empty concept cards on load
+    if (isLoaded) {
+      const empty = cards.filter(c => !c.conceptName || !c.definition)
+      for (const c of empty) removeCard(c.id)
+    }
+  }, [isLoaded, loadCards, cards, removeCard])
 
   const dueCards = useMemo(() => {
     const now = Date.now()
@@ -153,7 +168,16 @@ export function SpacedRepetitionPage() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="viz-page-title">概念卡片</h1>
+          <h1 className="viz-page-title">
+            {filterDocId ? (
+              <>
+                概念卡片
+                <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '0.5rem', fontWeight: 400 }}>
+                  — {documents.get(filterDocId)?.title || '未知文档'}
+                </span>
+              </>
+            ) : '概念卡片'}
+          </h1>
           <div className="page-header-actions">
             <button
               className={`sr-view-toggle ${viewMode === 'review' ? 'active' : ''}`}
@@ -214,15 +238,20 @@ export function SpacedRepetitionPage() {
       </div>
 
       {workspaceCards.length > 0 && (
-        <div className="search-page-input-wrap" style={{ margin: '0.75rem 0' }}>
-          <Search size={16} />
-          <input
-            type="search"
-            className="search-page-input"
-            placeholder="搜索概念卡片..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+        <div className="sr-search-bar">
+          <div className="search-page-input-wrap">
+            <Search size={16} />
+            <input
+              type="search"
+              className="search-page-input"
+              placeholder="搜索概念卡片..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          {viewMode === 'list' && filteredCards.length > PAGE_SIZE && (
+            <span className="sr-search-count">{filteredCards.length} 张卡片</span>
+          )}
         </div>
       )}
 
@@ -381,27 +410,56 @@ export function SpacedRepetitionPage() {
     const dueList = filteredCards.filter(c => c.nextReview <= now)
     const familiarList = filteredCards.filter(c => c.nextReview > now)
 
+    // Paginate: interleave due + familiar, then slice by page
+    const allList = [...dueList, ...familiarList]
+    const totalPages = Math.ceil(allList.length / PAGE_SIZE)
+    const safePage = Math.min(page, totalPages) || 1
+    const pagedList = allList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+    const pagedDue = pagedList.filter(c => c.nextReview <= now)
+    const pagedFamiliar = pagedList.filter(c => c.nextReview > now)
+
     return (
-      <div className="sr-card-list">
-        {dueList.length > 0 && (
-          <div className="sr-list-section">
-            <h3 className="sr-list-title">
-              <Clock size={16} />
-              待复习 ({dueList.length})
-            </h3>
-            {dueList.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+      <>
+        <div className="sr-card-list">
+          {pagedDue.length > 0 && (
+            <div className="sr-list-section">
+              <h3 className="sr-list-title">
+                <Clock size={16} />
+                待复习 ({dueList.length})
+              </h3>
+              {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+            </div>
+          )}
+          {pagedFamiliar.length > 0 && (
+            <div className="sr-list-section">
+              <h3 className="sr-list-title">
+                <CheckCircle2 size={16} />
+                熟悉 ({familiarList.length})
+              </h3>
+              {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+            </div>
+          )}
+        </div>
+        {totalPages > 1 && (
+          <div className="sr-pagination">
+            <button
+              className="sr-page-btn"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="sr-page-info">{safePage} / {totalPages}</span>
+            <button
+              className="sr-page-btn"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(safePage + 1)}
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
-        {familiarList.length > 0 && (
-          <div className="sr-list-section">
-            <h3 className="sr-list-title">
-              <CheckCircle2 size={16} />
-              熟悉 ({familiarList.length})
-            </h3>
-            {familiarList.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
-          </div>
-        )}
-      </div>
+      </>
     )
   }
 

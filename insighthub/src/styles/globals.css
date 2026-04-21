@@ -226,6 +226,11 @@ a:hover {
   color: var(--text-primary);
   background: var(--border-subtle);
 }
+.btn-ghost-active {
+  background: rgba(50, 108, 229, 0.1);
+  color: var(--accent-blue);
+  border-color: rgba(50, 108, 229, 0.25);
+}
 
 .btn-danger {
   background: rgba(255, 107, 107, 0.15);

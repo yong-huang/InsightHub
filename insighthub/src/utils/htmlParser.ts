@@ -4,6 +4,8 @@ import type { DocumentManifestEntry } from './documentManifest'
 const TITLE_SUFFIXES = [
   ' - MindInsight',
   ' - TechInsight',
+  ' - Tech Visual',
+  ' - LeetCodeInsight',
   '| 思想洞察 MindInsight',
   '| 技术洞察 TechInsight',
 ]

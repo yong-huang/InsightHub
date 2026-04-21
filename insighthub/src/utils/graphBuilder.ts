@@ -124,6 +124,7 @@ export function buildGraphData(
     const docSlice = graphDocs.sort((a, b) => b.wordCount - a.wordCount).slice(0, maxDocNodes)
 
     for (const doc of docSlice) {
+      if (!doc.category) continue
       const size = Math.max(4, Math.min(14, 4 + Math.log2(doc.wordCount + 1)))
       const opacity = doc.isRead ? 'cc' : '55'
       addNode({

@@ -3554,6 +3554,57 @@
   vertical-align: middle;
 }
 
+/* Search bar */
+.sr-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.sr-search-bar .search-page-input-wrap {
+  flex: 1;
+}
+.sr-search-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Pagination */
+.sr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 0.75rem 0;
+}
+.sr-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sr-page-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-blue);
+}
+.sr-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.sr-page-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 /* ========== Concept Cards ========== */
 .concept-grid {
   display: grid;

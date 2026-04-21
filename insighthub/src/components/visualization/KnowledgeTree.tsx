@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useCallback, useEffect, memo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ChevronRight,
   ChevronDown,
@@ -53,11 +53,23 @@ const TreeNode = memo(function TreeNode({ label, icon, color, count, defaultOpen
 
 export function KnowledgeTree() {
   const navigate = useNavigate()
+  const location = useLocation()
   const fromPath = '/knowledge-graph?tab=tree'
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const conceptCards = useConceptCardStore(s => s.cards)
   const quizHistory = useQuizStore(s => s.quizHistory)
+
+  // Restore scroll position when navigating back from a document
+  useEffect(() => {
+    const saved = sessionStorage.getItem('kt-scroll')
+    if (saved && (location.state as { from?: string } | null)?.from === fromPath) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, Number(saved))
+        sessionStorage.removeItem('kt-scroll')
+      })
+    }
+  }, [location])
 
   const { tree, conceptsByDoc, quizCountByDoc } = useMemo(() => {
     const categories = getCategoriesBySource(activeWorkspace)
@@ -141,7 +153,10 @@ export function KnowledgeTree() {
                   color="var(--accent-green)"
                   count={countParts.length > 0 ? countParts.join(' / ') : undefined}
                   defaultOpen={false}
-                  onClick={() => navigate(`/doc/${doc.id}`, { state: { from: fromPath } })}
+                  onClick={() => {
+                    sessionStorage.setItem('kt-scroll', String(window.scrollY))
+                    navigate(`/doc/${doc.id}`, { state: { from: fromPath } })
+                  }}
                 >
                   {concepts.map(card => (
                     <TreeNode

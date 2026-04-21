@@ -127,6 +127,7 @@ export function DocReaderPage() {
   const [isSummaryGenerating, setIsSummaryGenerating] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [showChatPanel, setShowChatPanel] = useState(false)
+  const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
@@ -399,8 +400,10 @@ export function DocReaderPage() {
     if (!result.success) {
       setExtractingError(docId, result.error || '提取失败')
     } else if (Array.isArray(result.data)) {
-      const cards = (result.data as any[]).map(c => createConceptCard(c, docId))
-      conceptAddCards(cards)
+      const cards = (result.data as any[])
+        .filter(c => c.conceptName && c.definition)
+        .map(c => createConceptCard(c, docId))
+      if (cards.length > 0) conceptAddCards(cards)
     }
   }, [doc, docId, conceptMaxCount, conceptAddCards, setExtractingDocId, setExtractingError])
 
@@ -547,7 +550,7 @@ export function DocReaderPage() {
 
           {/* Annotation panel toggle */}
           <button
-            className={`btn btn-sm ${showAnnotationPanel ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-sm ${showAnnotationPanel || docAnnotations.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowAnnotationPanel(v => !v)}
             title="笔记面板"
           >
@@ -556,7 +559,7 @@ export function DocReaderPage() {
 
           {/* Summary panel toggle */}
           <button
-            className={`btn btn-sm ${showSummaryPanel ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-sm ${showSummaryPanel || summaryText ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => {
               setShowSummaryPanel(v => {
                 if (!v && !summaryText && !isSummaryGenerating && !summaryError) {
@@ -572,7 +575,7 @@ export function DocReaderPage() {
 
           {/* Chat panel toggle */}
           <button
-            className={`btn btn-sm ${showChatPanel ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-sm ${showChatPanel || chatHistorySize > 0 ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowChatPanel(v => !v)}
             title="AI 问答"
           >
@@ -586,12 +589,12 @@ export function DocReaderPage() {
             </span>
           ) : docConceptCount > 0 ? (
             <div ref={conceptMenuRef} style={{ position: 'relative', display: 'inline-flex' }}>
-              <button
+              <Link
+                to={`/spaced-repetition?docId=${doc.id}`}
                 className="btn btn-primary btn-sm"
-                onClick={() => setShowConceptMenu(v => !v)}
               >
                 <Lightbulb size={14} /> 概念 {docConceptCount}
-              </button>
+              </Link>
               <button
                 className="btn btn-secondary btn-sm"
                 style={{ padding: '6px 6px' }}
