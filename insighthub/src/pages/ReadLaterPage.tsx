@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bookmark, Search, FileText, X, ArrowLeft } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 import { storageService } from '@/services/storageService'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import type { Source } from '@/types'
@@ -21,6 +22,7 @@ function formatTime(ts: number): string {
 export function ReadLaterPage() {
   const navigate = useNavigate()
   const documents = useDocumentStore(s => s.documents)
+  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const [searchQuery, setSearchQuery] = useState('')
   const [list, setList] = useState(() => storageService.getReadLaterList())
 
@@ -36,6 +38,7 @@ export function ReadLaterPage() {
       .filter(item => {
         const doc = documents.get(item.documentId)
         if (!doc) return false
+        if (doc.source !== activeWorkspace) return false
         if (!searchQuery.trim()) return true
         const q = searchQuery.toLowerCase()
         return doc.title.toLowerCase().includes(q)

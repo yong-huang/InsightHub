@@ -173,10 +173,15 @@ export function ChatPanel({
     const text = inputText.trim()
     if (!text || isStreaming) return
 
+    const quoteText = activeSelectedText
+      ? activeSelectedText.split('\n').map(
+          l => `> ${l.length > 200 ? l.slice(0, 200) + '...' : l}`
+        ).join('\n') + '\n\n'
+      : ''
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: text,
+      content: quoteText + text,
       timestamp: Date.now(),
     }
 

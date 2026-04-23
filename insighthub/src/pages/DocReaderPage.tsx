@@ -163,6 +163,7 @@ export function DocReaderPage() {
   // Concept extraction
   const conceptCards = useConceptCardStore(s => s.cards)
   const conceptAddCards = useConceptCardStore(s => s.addCards)
+  const conceptRemoveCard = useConceptCardStore(s => s.removeCard)
   const extractingDocIds = useConceptCardStore(s => s.extractingDocIds)
   const extractingErrors = useConceptCardStore(s => s.extractingErrors)
   const setExtractingDocId = useConceptCardStore(s => s.setExtractingDocId)
@@ -780,6 +781,24 @@ export function DocReaderPage() {
                       追加概念
                     </button>
                   )}
+                  <button
+                    className="dropdown-item"
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      border: 'none', borderTop: '1px solid var(--border-primary)',
+                      background: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontSize: '0.85rem', color: '#e74c3c',
+                    }}
+                    onClick={() => {
+                      const ids = conceptCards.filter(c => c.sourceDocId === docId).map(c => c.id)
+                      ids.forEach(id => conceptRemoveCard(id))
+                      setShowConceptMenu(false)
+                    }}
+                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
+                  >
+                    删除全部
+                  </button>
                 </div>
               )}
             </div>
@@ -898,31 +917,29 @@ export function DocReaderPage() {
         </div>
       </div>
 
+      {backlinks.length > 0 && (
       <div className="doc-reader-titlebar">
-        <h1>{doc.title}</h1>
-
-        {backlinks.length > 0 && (
-          <div className="backlinks-panel" style={{ marginTop: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
-              反向链接({backlinks.length})：
-            </span>
-            {backlinks.slice(0, 5).map(ann => {
-              const srcDoc = allDocuments.get(ann.documentId)
-              return (
-                <Link
-                  key={ann.id}
-                  to={`/doc/${ann.documentId}`}
-                  className="wiki-link"
-                  style={{ fontSize: '0.8rem', marginRight: '0.5rem' }}
-                  title={ann.comment}
-                >
-                  {srcDoc?.title || '文档'}中的引用
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        <div className="backlinks-panel" style={{ marginTop: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
+            反向链接({backlinks.length})：
+          </span>
+          {backlinks.slice(0, 5).map(ann => {
+            const srcDoc = allDocuments.get(ann.documentId)
+            return (
+              <Link
+                key={ann.id}
+                to={`/doc/${ann.documentId}`}
+                className="wiki-link"
+                style={{ fontSize: '0.8rem', marginRight: '0.5rem' }}
+                title={ann.comment}
+              >
+                {srcDoc?.title || '文档'}中的引用
+              </Link>
+            )
+          })}
+        </div>
       </div>
+      )}
 
       <div className="doc-reader-content">
         <iframe

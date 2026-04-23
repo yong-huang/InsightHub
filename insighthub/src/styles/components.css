@@ -3562,7 +3562,8 @@
   margin: 0.75rem 0;
 }
 .sr-search-bar .search-page-input-wrap {
-  flex: 1;
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 .sr-search-count {
   font-size: 0.85rem;

@@ -66,7 +66,7 @@ const WORKSPACE_PREFIX: Record<Workspace, string> = {
 }
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, activeWorkspace } = usePreferenceStore()
+  const { sidebarCollapsed, toggleSidebar, activeWorkspace, enablePresentation } = usePreferenceStore()
   const categoryCounts = useDocumentStore(s => s.categoryCounts)
   const tags = useTagStore(s => s.tags)
   const documents = useDocumentStore(s => s.documents)
@@ -199,10 +199,10 @@ export function Sidebar() {
               <span className="sidebar-item-label">成就系统</span>
               <span className="sidebar-item-count">{achievementCount}/{ACHIEVEMENTS.length}</span>
             </Link>
-            <Link to="/presentations" className="sidebar-item">
+            {enablePresentation && <Link to="/presentations" className="sidebar-item">
               <span className="sidebar-item-icon"><Presentation size={18} /></span>
               <span className="sidebar-item-label">演示文稿</span>
-            </Link>
+            </Link>}
           </div>
         )}
         {sidebarCollapsed && (
@@ -249,7 +249,7 @@ export function Sidebar() {
             <span className="sidebar-item-icon"><Trophy size={18} /></span>
           </Link>
         )}
-        {sidebarCollapsed && (
+        {enablePresentation && sidebarCollapsed && (
           <Link to="/presentations" className="sidebar-item" title="演示文稿">
             <span className="sidebar-item-icon"><Presentation size={18} /></span>
           </Link>

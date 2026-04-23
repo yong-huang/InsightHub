@@ -50,6 +50,7 @@ export function SpacedRepetitionPage() {
   const [flipped, setFlipped] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [page, setPage] = useState(1)
+  const [sessionQueue, setSessionQueue] = useState<ConceptCard[]>([])
   const PAGE_SIZE = 30
 
   const filteredCards = useMemo(() => {
@@ -68,7 +69,11 @@ export function SpacedRepetitionPage() {
   }, [workspaceCards, searchQuery, documents])
 
   // Reset page when search or view changes
-  useEffect(() => { setPage(1) }, [searchQuery, viewMode])
+  useEffect(() => {
+    setPage(1)
+    // Auto-switch to list mode when searching
+    if (searchQuery.trim()) setViewMode('list')
+  }, [searchQuery, viewMode])
 
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
@@ -90,6 +95,13 @@ export function SpacedRepetitionPage() {
       .sort((a, b) => a.nextReview - b.nextReview)
   }, [filteredCards])
 
+  // Auto-initialize session queue on first load
+  useEffect(() => {
+    if (isLoaded && sessionQueue.length === 0 && dueCards.length > 0) {
+      setSessionQueue(dueCards)
+    }
+  }, [isLoaded, dueCards, sessionQueue.length])
+
   const stats = useMemo(() => {
     let due = 0, newCount = 0, learning = 0, mastered = 0
     for (const c of workspaceCards) {
@@ -101,7 +113,7 @@ export function SpacedRepetitionPage() {
     return { total: workspaceCards.length, due, new: newCount, learning, mastered }
   }, [workspaceCards])
 
-  const currentCard = dueCards[currentIdx] ?? null
+  const currentCard = sessionQueue[currentIdx] ?? null
 
   const handleGrade = useCallback((grade: number) => {
     if (!currentCard) return
@@ -111,13 +123,13 @@ export function SpacedRepetitionPage() {
       setSessionResults(prev => [...prev, { cardId: currentCard.id, grade }])
       setFlipped(false)
       setSlidingOut(false)
-      if (currentIdx + 1 >= dueCards.length) {
+      if (currentIdx + 1 >= sessionQueue.length) {
         setSessionDone(true)
       } else {
         setCurrentIdx(i => i + 1)
       }
     }, 200)
-  }, [currentCard, currentIdx, dueCards.length, reviewCard])
+  }, [currentCard, currentIdx, sessionQueue.length, reviewCard])
 
   const handleFlip = useCallback(() => {
     if (!currentCard) return
@@ -128,23 +140,31 @@ export function SpacedRepetitionPage() {
     if (!currentCard) return
     skipCard(currentCard.id)
     setFlipped(false)
-    if (currentIdx + 1 >= dueCards.length) {
+    if (currentIdx + 1 >= sessionQueue.length) {
       setSessionDone(true)
     } else {
       setCurrentIdx(i => i + 1)
     }
-  }, [currentCard, currentIdx, dueCards.length, skipCard])
+  }, [currentCard, currentIdx, sessionQueue.length, skipCard])
 
   const startNewSession = useCallback(() => {
     setCurrentIdx(0)
     setFlipped(false)
     setSessionResults([])
     setSessionDone(false)
-  }, [])
+    // Snapshot the due cards at session start so reviewCard updates
+    // don't shrink the queue mid-session
+    const now = Date.now()
+    const queue = filteredCards
+      .filter(c => c.nextReview <= now)
+      .sort((a, b) => a.nextReview - b.nextReview)
+    setSessionQueue(queue)
+  }, [filteredCards])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (sessionDone || viewMode !== 'review') return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault()
         handleFlip()
@@ -239,11 +259,11 @@ export function SpacedRepetitionPage() {
 
       {workspaceCards.length > 0 && (
         <div className="sr-search-bar">
-          <div className="search-page-input-wrap">
+          <div className="search-dialog-input-wrap" style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: '8px 14px', background: 'var(--bg-input)' }}>
             <Search size={16} />
             <input
-              type="search"
-              className="search-page-input"
+              type="text"
+              className="search-dialog-input"
               placeholder="搜索概念卡片..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -302,7 +322,7 @@ export function SpacedRepetitionPage() {
       )
     }
 
-    if (dueCards.length === 0 && !sessionDone) {
+    if (sessionQueue.length === 0 && !sessionDone) {
       return (
         <div className="sr-summary">
           <CheckCircle2 size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
@@ -319,7 +339,7 @@ export function SpacedRepetitionPage() {
 
     return (
       <div className="sr-card-area">
-        <div className="sr-card-counter">{currentIdx + 1} / {dueCards.length}</div>
+        <div className="sr-card-counter">{currentIdx + 1} / {sessionQueue.length}</div>
         <div
           className={`sr-card ${flipped ? 'flipped' : ''} ${slidingOut ? 'slide-out' : ''}`}
           onClick={handleFlip}
