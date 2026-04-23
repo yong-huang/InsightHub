@@ -228,10 +228,17 @@ export function extractJSON(text: string): any {
   let raw: string | undefined
 
   if (objStart !== -1 && (arrStart === -1 || objStart < arrStart)) {
-    let depth = 0
+    let depth = 0, inStr = false
     for (let i = objStart; i < cleaned.length; i++) {
-      if (cleaned[i] === '{') depth++
-      else if (cleaned[i] === '}') depth--
+      const ch = cleaned[i]
+      if (inStr) {
+        if (ch === '\\') { i++; continue }
+        if (ch === '"') inStr = false
+        continue
+      }
+      if (ch === '"') inStr = true
+      else if (ch === '{') depth++
+      else if (ch === '}') depth--
       if (depth === 0) {
         raw = cleaned.slice(objStart, i + 1)
         break
@@ -240,10 +247,17 @@ export function extractJSON(text: string): any {
     // No matching brace — likely truncated, use everything from { onward
     if (!raw) raw = cleaned.slice(objStart)
   } else if (arrStart !== -1) {
-    let depth = 0
+    let depth = 0, inStr = false
     for (let i = arrStart; i < cleaned.length; i++) {
-      if (cleaned[i] === '[') depth++
-      else if (cleaned[i] === ']') depth--
+      const ch = cleaned[i]
+      if (inStr) {
+        if (ch === '\\') { i++; continue }
+        if (ch === '"') inStr = false
+        continue
+      }
+      if (ch === '"') inStr = true
+      else if (ch === '[') depth++
+      else if (ch === ']') depth--
       if (depth === 0) {
         raw = cleaned.slice(arrStart, i + 1)
         break
