@@ -726,7 +726,7 @@ export function DocReaderPage() {
 
           {/* Extract concepts button */}
           {isExtractingConcepts ? (
-            <span className="btn btn-secondary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
+            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
               <Loader2 size={14} className="spin" /> 概念
             </span>
           ) : docConceptCount > 0 ? (
