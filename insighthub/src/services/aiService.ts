@@ -273,37 +273,28 @@ export function extractJSON(text: string): any {
   // Try to parse as-is
   try { return JSON.parse(raw) } catch {}
 
-  // If truncated, attempt to close open brackets/braces
-  let repaired = raw
-  const opens = (repaired.match(/[[{]/g) || []).length
-  const closes = (repaired.match(/[\]}]/g) || []).length
-  const missing = opens - closes
-  if (missing > 0) {
-    // Close a truncated string if mid-quote
-    const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length
-    if (quoteCount % 2 !== 0) repaired += '"'
-    repaired += ']'.repeat(Math.min(missing, 10)) + '}'.repeat(Math.min(missing, 10))
-  }
-
-  // Fix common LLM JSON issues by processing inside string literals
-  let fixed = repaired
+  // Repair pipeline: process in a single string-aware pass
+  let fixed = raw
   // Remove trailing commas before } or ]
   fixed = fixed.replace(/,\s*([}\]])/g, '$1')
-  // Replace Chinese punctuation that leaked into JSON
-  fixed = fixed.replace(/：/g, ':').replace(/，/g, ',').replace(/“/g, '"').replace(/”/g, '"')
+  // Replace Chinese colons/commas that leaked into JSON structure (NOT Chinese quotes — they break string values)
+  fixed = fixed.replace(/：/g, ':').replace(/，/g, ',')
 
-  // Escape literal newlines/controls inside JSON string values.
-  // LLMs (especially Qwen) frequently output unescaped newlines in explanations.
+  // String-aware pass: escape literal newlines/controls + count unclosed brackets
   let out = ''
   let inStr = false
+  let bracketDepth = 0
+  let squareDepth = 0
+  let quoteCount = 0
   for (let i = 0; i < fixed.length; i++) {
     const ch = fixed[i]
     if (inStr) {
       if (ch === '\\') {
         out += ch + (fixed[i + 1] || '')
         i++
-      } else if (ch === '"') {
+      } else if (ch === '”') {
         inStr = false
+        quoteCount++
         out += ch
       } else if (ch === '\n' || ch === '\r') {
         out += '\\n'
@@ -313,11 +304,31 @@ export function extractJSON(text: string): any {
         out += ch
       }
     } else {
-      if (ch === '"') inStr = true
-      out += ch
+      if (ch === '”') {
+        inStr = true
+        quoteCount++
+        out += ch
+      } else if (ch === '{') { bracketDepth++; out += ch }
+      else if (ch === '}') { bracketDepth--; out += ch }
+      else if (ch === '[') { squareDepth++; out += ch }
+      else if (ch === ']') { squareDepth--; out += ch }
+      else {
+        out += ch
+      }
     }
   }
   fixed = out
+
+  // Close truncated JSON (missing closing brackets/braces)
+  const totalMissing = bracketDepth + squareDepth
+  if (totalMissing > 0) {
+    if (quoteCount % 2 !== 0) fixed += '”'
+    fixed += ']'.repeat(squareDepth) + '}'.repeat(bracketDepth)
+  }
+
+  // Insert missing commas between sibling objects/arrays (e.g. }{“id” → },{“id”)
+  fixed = fixed.replace(/\}\s*\{/g, '},{')
+  fixed = fixed.replace(/\]\s*\[/g, '],[')
 
   try { return JSON.parse(fixed) } catch {}
 
@@ -342,9 +353,10 @@ export async function generateQuizQuestions(
       content: `你是一个出题助手。根据文档内容生成 ${count} 道题：${choiceCount} 道选择题、${tfCount} 道判断题。难度：${difficultyMap[difficulty]}。
 要求：
 1. 正确答案必须准确无误，绝对不能为了选项分布而牺牲答案正确性。correctAnswer 指向的选项内容必须与文档事实一致，且与 explanation 逻辑自洽。
-2. 建议将正确答案尽量分散在 A、B、C、D 中，但如果某个选项恰好是正确答案，不要为了分布而改变。
-3. 每道题的 explanation 必须说明为什么 correctAnswer 是正确的。
-4. 题目之间不要重复或高度相似，尽量覆盖文档的不同知识点。
+2. 对于涉及步骤、流程、顺序的题目（如"第一步是什么"、"先执行什么"），必须严格按照文档描述的顺序作答，仔细核实后再给出答案。
+3. 建议将正确答案尽量分散在 A、B、C、D 中，但如果某个选项恰好是正确答案，不要为了分布而改变。
+4. 每道题的 explanation 必须说明为什么 correctAnswer 是正确的。
+5. 题目之间不要重复或高度相似，尽量覆盖文档的不同知识点。
 只返回 JSON，不要其他文字。
 格式：
 {"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"题目","options":["A选项","B选项","C选项","D选项"],"correctAnswer":"A","explanation":"解析"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"题目","correctAnswer":"true","explanation":"解析"}]}`,
