@@ -131,9 +131,9 @@ export function QuizPage() {
                 </div>
                 <div className="scoreboard-question-text">{q.text}</div>
                 <div className="scoreboard-question-answer">
-                  Your answer: {q.type === 'truefalse'
-                    ? (answers[q.id] === 'true' ? 'True' : answers[q.id] === 'false' ? 'False' : '(Not answered)')
-                    : (answers[q.id] || '(Not answered)')}
+                  {'Your answer: '}{q.type === 'truefalse'
+                    ? (answers[q.id] === 'true' ? 'True' : answers[q.id] === 'false' ? 'False' : '—')
+                    : (answers[q.id] || '—')
                   }
                   {q.type === 'choice' && (
                     <span style={{ marginLeft: '0.5rem' }}>

@@ -96,7 +96,7 @@ function migrateToProfiles(saved: any, defaults: AppConfig): AppConfig {
   const key = saved.aiApiKey ?? defaults.aiApiKey
   const profile: AIProfile = {
     id: generateProfileId(),
-    name: '默认配置',
+    name: 'Default Config',
     aiApiUrl: url,
     aiModel: model,
     aiApiKey: key,
@@ -132,7 +132,7 @@ function loadAppConfig(configPath: string, defaults: AppConfig): AppConfig {
   // First run: create default profile and write to disk
   const profile: AIProfile = {
     id: generateProfileId(),
-    name: '默认配置',
+    name: 'Default Config',
     aiApiUrl: defaults.aiApiUrl,
     aiModel: defaults.aiModel,
     aiApiKey: defaults.aiApiKey,
@@ -364,7 +364,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   return
                 }
                 if (!profile.id) profile.id = generateProfileId()
-                if (!profile.name) profile.name = '新配置'
+                if (!profile.name) profile.name = 'New Config'
                 // Preserve existing apiKey if client sent a masked value
                 const idx = appConfig.profiles.findIndex(p => p.id === profile.id)
                 if (idx >= 0 && profile.aiApiKey && profile.aiApiKey.includes('●')) {
@@ -484,15 +484,15 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           if (!aiRes.ok) {
             const body = await aiRes.text().catch(() => '')
             res.statusCode = aiRes.status >= 500 ? 502 : aiRes.status
-            res.end(JSON.stringify({ error: `${baseUrl} 返回 ${aiRes.status}: ${body.slice(0, 120)}` }))
+            res.end(JSON.stringify({ error: `${baseUrl} returned ${aiRes.status}: ${body.slice(0, 120)}` }))
             return
           }
           const data = await aiRes.json()
           res.end(JSON.stringify(data))
         } catch (e: any) {
           res.statusCode = 502
-          const reason = e.cause?.code === 'ECONNREFUSED' ? '连接被拒绝，请确认服务已启动' : e.message
-          res.end(JSON.stringify({ error: `无法连接 ${baseUrl}: ${reason}` }))
+          const reason = e.cause?.code === 'ECONNREFUSED' ? 'Connection refused, please make sure the service is running' : e.message
+          res.end(JSON.stringify({ error: `Unable to connect to ${baseUrl}: ${reason}` }))
         }
       })
 
