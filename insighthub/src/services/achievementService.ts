@@ -3,7 +3,8 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useTagStore } from '@/stores/tagStore'
-import { CATEGORIES } from '@/utils/categoryMap'
+import { useFlashcardStore } from '@/stores/flashcardStore'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 export interface Achievement {
   id: string
@@ -24,12 +25,12 @@ export interface Metrics {
   readCount: number
   totalWords: number
   readCategoryKeys: Set<string>
-  hasMindInsight: boolean
-  hasTechInsight: boolean
-  hasLeetcodeInsight: boolean
+  readSources: Set<string>
+  longDocCount: number
   // Quiz
   quizCount: number
   hasPerfectScore: boolean
+  perfectScoreCount: number
   consecutiveHighScores: number // consecutive quizzes >= 90%
   difficulties: Set<string>
   totalQuizQuestions: number
@@ -37,6 +38,7 @@ export interface Metrics {
   totalAnnotations: number
   hasHighlight: boolean
   hasComment: boolean
+  hasReply: boolean
   highlightColors: Set<string>
   totalReplies: number
   // Search & Tags
@@ -49,6 +51,13 @@ export interface Metrics {
   // Extras
   readLaterCount: number
   summaryCount: number
+  // Flashcards & Concept Cards
+  flashcardCount: number
+  reviewedFlashcardCount: number
+  conceptCardCount: number
+  conceptDocSet: Set<string>
+  // Spaced Repetition
+  spacedRepetitionSessions: number
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -62,6 +71,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'word-500k', name: 'Polymath', description: 'Read a total of 500,000 words', icon: 'FileText', color: '--accent-green', category: 'reading' },
   { id: 'category-master', name: 'Renaissance Scholar', description: 'Read at least one document in every category', icon: 'GraduationCap', color: '--accent-green', category: 'reading' },
   { id: 'deep-reader', name: 'Deep Reader', description: 'Read 3 long documents over 10,000 words each', icon: 'Library', color: '--accent-blue', category: 'reading' },
+  { id: 'reader-200', name: 'Voracious Reader', description: 'Read 200 documents', icon: 'Library', color: '--accent-purple', category: 'reading' },
+  { id: 'word-1m', name: 'Million Words', description: 'Read a total of 1,000,000 words', icon: 'GraduationCap', color: '--accent-yellow', category: 'reading' },
 
   // Quiz
   { id: 'first-quiz', name: 'First Quiz', description: 'Complete your first quiz', icon: 'BrainCircuit', color: '--accent-purple', category: 'quiz' },
@@ -72,6 +83,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'quiz-all-difficulty', name: 'All-Round Challenge', description: 'Complete a quiz at each of the three difficulty levels', icon: 'Target', color: '--accent-orange', category: 'quiz' },
   { id: 'quiz-machine', name: 'Quiz Machine', description: 'Answer a total of 100 quiz questions', icon: 'Zap', color: '--accent-orange', category: 'quiz' },
   { id: 'perfectionist', name: 'Perfectionist', description: 'Get a perfect score on 5 quizzes', icon: 'Crown', color: '--accent-yellow', category: 'quiz' },
+  { id: 'quiz-100', name: 'Quiz Veteran', description: 'Complete 100 quizzes', icon: 'BrainCircuit', color: '--accent-purple', category: 'quiz' },
+  { id: 'quiz-200q', name: 'Question Crusher', description: 'Answer a total of 200 quiz questions', icon: 'Target', color: '--accent-orange', category: 'quiz' },
 
   // Annotation
   { id: 'first-highlight', name: 'First Highlight', description: 'Create your first highlight', icon: 'Highlighter', color: '--accent-green', category: 'annotation' },
@@ -81,6 +94,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'rainbow', name: 'Color Master', description: 'Use all 6 highlight colors', icon: 'Palette', color: '--accent-purple', category: 'annotation' },
   { id: 'first-reply', name: 'Engaged Learner', description: 'Add your first reply to an annotation', icon: 'Reply', color: '--accent-blue', category: 'annotation' },
   { id: 'reply-10', name: 'Active Discussion', description: 'Write a total of 10 replies', icon: 'MessagesSquare', color: '--accent-blue', category: 'annotation' },
+  { id: 'annotation-200', name: 'Annotation Master', description: 'Create a total of 200 annotations', icon: 'MessageSquare', color: '--accent-yellow', category: 'annotation' },
+  { id: 'reply-30', name: 'Conversation King', description: 'Write a total of 30 replies', icon: 'MessagesSquare', color: '--accent-purple', category: 'annotation' },
 
   // Streak & Explore
   { id: 'streak-3', name: 'Three-Day Streak', description: 'Read for 3 consecutive days', icon: 'Flame', color: '--accent-orange', category: 'streak' },
@@ -90,6 +105,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'searcher', name: 'Search Expert', description: 'Perform a total of 20 searches', icon: 'Search', color: '--accent-blue', category: 'streak' },
   { id: 'tagger', name: 'Tag Organizer', description: 'Create 10 tags', icon: 'Tag', color: '--accent-green', category: 'streak' },
   { id: 'bookmarker', name: 'Read Later', description: 'Bookmark 5 documents for later reading', icon: 'Bookmark', color: '--accent-orange', category: 'streak' },
+  { id: 'streak-14', name: 'Fortnight Focus', description: 'Read for 14 consecutive days', icon: 'Flame', color: '--accent-red', category: 'streak' },
+  { id: 'searcher-50', name: 'Search Savant', description: 'Perform a total of 50 searches', icon: 'Search', color: '--accent-purple', category: 'streak' },
 
   // Special
   { id: 'night-owl', name: 'Night Owl', description: 'Read between midnight and 6 AM', icon: 'Moon', color: '--accent-purple', category: 'special' },
@@ -98,6 +115,12 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'weekend-reader', name: 'Weekend Learner', description: 'Read on a weekend', icon: 'Calendar', color: '--accent-blue', category: 'special' },
   { id: 'speed-reader', name: 'Speed Reader', description: 'Read 5 documents in a single day', icon: 'Timer', color: '--accent-orange', category: 'special' },
   { id: 'ai-summary', name: 'AI Assistant', description: 'Generate your first AI summary', icon: 'Bot', color: '--accent-green', category: 'special' },
+  { id: 'flashcard-creator', name: 'Card Creator', description: 'Create 10 flashcards', icon: 'Bookmark', color: '--accent-blue', category: 'special' },
+  { id: 'flashcard-50', name: 'Card Collector', description: 'Create 50 flashcards', icon: 'Bookmark', color: '--accent-purple', category: 'special' },
+  { id: 'sr-reviewer', name: 'Spaced Reviewer', description: 'Review 20 flashcards via spaced repetition', icon: 'Clock', color: '--accent-green', category: 'special' },
+  { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concept cards from 5 different documents', icon: 'Sparkles', color: '--accent-blue', category: 'special' },
+  { id: 'summary-10', name: 'AI Scholar', description: 'Generate 10 AI summaries', icon: 'Bot', color: '--accent-purple', category: 'special' },
+  { id: 'speed-reader-10', name: 'Speed Demon', description: 'Read 10 documents in a single day', icon: 'Timer', color: '--accent-red', category: 'special' },
 ]
 
 function computeStreak(readHistory: { readAt: number }[]): number {
@@ -144,9 +167,7 @@ export function collectMetrics(): Metrics {
   const readCount = readDocs.length
   const totalWords = readDocs.reduce((s, d) => s + d.wordCount, 0)
   const readCategoryKeys = new Set(readDocs.map(d => d.category))
-  const hasMindInsight = readDocs.some(d => d.source === 'mindinsight')
-  const hasTechInsight = readDocs.some(d => d.source === 'techinsight')
-  const hasLeetcodeInsight = readDocs.some(d => d.source === 'leetcodeinsight')
+  const readSources = new Set(readDocs.map(d => d.source))
   const longDocCount = readDocs.filter(d => d.wordCount >= 10000).length
 
   // Quiz metrics
@@ -212,14 +233,27 @@ export function collectMetrics(): Metrics {
   const readLaterCount = storageService.getReadLaterList().length
   const summaryCount = Object.keys(storageService.getSummaries()).length
 
+  // Flashcards & Concept Cards
+  const flashcardState = useFlashcardStore.getState()
+  const flashcardCount = flashcardState.cards.length
+  const reviewedFlashcardCount = flashcardState.cards.filter(c => c.repetition > 0).length
+  const conceptCards = useConceptCardStore.getState().cards
+  const conceptCardCount = conceptCards.length
+  const conceptDocSet = new Set(conceptCards.map(c => c.sourceDocId))
+
+  // Spaced Repetition sessions
+  const spacedRepetitionSessions = reviewedFlashcardCount
+
   return {
-    readCount, totalWords, readCategoryKeys, hasMindInsight, hasTechInsight, hasLeetcodeInsight,
+    readCount, totalWords, readCategoryKeys, readSources,
     quizCount, hasPerfectScore, consecutiveHighScores, difficulties, totalQuizQuestions, perfectScoreCount,
     totalAnnotations, hasHighlight, hasComment, highlightColors, totalReplies, hasReply,
     searchCount, tagCount,
     currentStreak, readHourSet, readDaySet,
     readLaterCount, summaryCount,
     longDocCount,
+    flashcardCount, reviewedFlashcardCount, conceptCardCount,
+    spacedRepetitionSessions, conceptDocSet,
   }
 }
 
@@ -234,13 +268,18 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
     case 'word-100k': return metrics.totalWords >= 100000
     case 'word-500k': return metrics.totalWords >= 500000
     case 'category-master': {
-      const allCategoryKeys = new Set(CATEGORIES.map(c => c.key))
+      // Check against all categories that actually exist in documents
+      const allCategoryKeys = new Set(
+        Array.from(useDocumentStore.getState().documents.values()).map(d => d.category).filter(Boolean)
+      )
       for (const key of allCategoryKeys) {
         if (!metrics.readCategoryKeys.has(key)) return false
       }
       return true
     }
     case 'deep-reader': return metrics.longDocCount >= 3
+    case 'reader-200': return metrics.readCount >= 200
+    case 'word-1m': return metrics.totalWords >= 1000000
     // Quiz
     case 'first-quiz': return metrics.quizCount >= 1
     case 'quiz-10': return metrics.quizCount >= 10
@@ -250,7 +289,9 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
     case 'quiz-all-difficulty':
       return metrics.difficulties.has('easy') && metrics.difficulties.has('medium') && metrics.difficulties.has('hard')
     case 'quiz-machine': return metrics.totalQuizQuestions >= 100
-    case 'perfectionist': return (metrics as Record<string, number>).perfectScoreCount >= 5
+    case 'perfectionist': return metrics.perfectScoreCount >= 5
+    case 'quiz-100': return metrics.quizCount >= 100
+    case 'quiz-200q': return metrics.totalQuizQuestions >= 200
     // Annotation
     case 'first-highlight': return metrics.hasHighlight
     case 'first-comment': return metrics.hasComment
@@ -259,14 +300,18 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
     case 'rainbow': return metrics.highlightColors.size >= 6
     case 'first-reply': return metrics.hasReply
     case 'reply-10': return metrics.totalReplies >= 10
+    case 'annotation-200': return metrics.totalAnnotations >= 200
+    case 'reply-30': return metrics.totalReplies >= 30
     // Streak
     case 'streak-3': return metrics.currentStreak >= 3
     case 'streak-7': return metrics.currentStreak >= 7
     case 'streak-30': return metrics.currentStreak >= 30
-    case 'explorer': return [metrics.hasMindInsight, metrics.hasTechInsight, metrics.hasLeetcodeInsight].filter(Boolean).length >= 2
+    case 'explorer': return metrics.readSources.size >= 2
     case 'searcher': return metrics.searchCount >= 20
     case 'tagger': return metrics.tagCount >= 10
     case 'bookmarker': return metrics.readLaterCount >= 5
+    case 'streak-14': return metrics.currentStreak >= 14
+    case 'searcher-50': return metrics.searchCount >= 50
     // Special
     case 'night-owl': {
       for (const h of metrics.readHourSet) {
@@ -307,6 +352,22 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
       return todayCount >= 5
     }
     case 'ai-summary': return metrics.summaryCount >= 1
+    case 'flashcard-creator': return metrics.flashcardCount >= 10
+    case 'flashcard-50': return metrics.flashcardCount >= 50
+    case 'sr-reviewer': return metrics.reviewedFlashcardCount >= 20
+    case 'concept-explorer': return metrics.conceptDocSet.size >= 5
+    case 'summary-10': return metrics.summaryCount >= 10
+    case 'speed-reader-10': {
+      const today = new Date()
+      const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
+      let todayCount = 0
+      for (const entry of storageService.getReadHistory()) {
+        const d = new Date(entry.readAt)
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+        if (key === todayKey) todayCount++
+      }
+      return todayCount >= 10
+    }
     default: return false
   }
 }
@@ -322,11 +383,15 @@ export function getAchievementProgress(achievement: Achievement, metrics: Metric
     case 'word-100k': return { current: Math.min(metrics.totalWords, 100000), target: 100000 }
     case 'word-500k': return { current: Math.min(metrics.totalWords, 500000), target: 500000 }
     case 'deep-reader': return { current: Math.min(metrics.longDocCount, 3), target: 3 }
+    case 'reader-200': return { current: Math.min(metrics.readCount, 200), target: 200 }
+    case 'word-1m': return { current: Math.min(metrics.totalWords, 1000000), target: 1000000 }
     case 'first-quiz': return { current: Math.min(metrics.quizCount, 1), target: 1 }
     case 'quiz-10': return { current: Math.min(metrics.quizCount, 10), target: 10 }
     case 'quiz-50': return { current: Math.min(metrics.quizCount, 50), target: 50 }
     case 'quiz-machine': return { current: Math.min(metrics.totalQuizQuestions, 100), target: 100 }
-    case 'perfectionist': return { current: Math.min((metrics as Record<string, number>).perfectScoreCount, 5), target: 5 }
+    case 'perfectionist': return { current: Math.min(metrics.perfectScoreCount, 5), target: 5 }
+    case 'quiz-100': return { current: Math.min(metrics.quizCount, 100), target: 100 }
+    case 'quiz-200q': return { current: Math.min(metrics.totalQuizQuestions, 200), target: 200 }
     case 'first-highlight': return { current: metrics.hasHighlight ? 1 : 0, target: 1 }
     case 'first-comment': return { current: metrics.hasComment ? 1 : 0, target: 1 }
     case 'first-reply': return { current: metrics.hasReply ? 1 : 0, target: 1 }
@@ -334,13 +399,27 @@ export function getAchievementProgress(achievement: Achievement, metrics: Metric
     case 'annotation-100': return { current: Math.min(metrics.totalAnnotations, 100), target: 100 }
     case 'rainbow': return { current: metrics.highlightColors.size, target: 6 }
     case 'reply-10': return { current: Math.min(metrics.totalReplies, 10), target: 10 }
+    case 'annotation-200': return { current: Math.min(metrics.totalAnnotations, 200), target: 200 }
+    case 'reply-30': return { current: Math.min(metrics.totalReplies, 30), target: 30 }
     case 'streak-3': return { current: Math.min(metrics.currentStreak, 3), target: 3 }
     case 'streak-7': return { current: Math.min(metrics.currentStreak, 7), target: 7 }
     case 'streak-30': return { current: Math.min(metrics.currentStreak, 30), target: 30 }
     case 'searcher': return { current: Math.min(metrics.searchCount, 20), target: 20 }
     case 'tagger': return { current: Math.min(metrics.tagCount, 10), target: 10 }
     case 'bookmarker': return { current: Math.min(metrics.readLaterCount, 5), target: 5 }
+    case 'streak-14': return { current: Math.min(metrics.currentStreak, 14), target: 14 }
+    case 'searcher-50': return { current: Math.min(metrics.searchCount, 50), target: 50 }
     case 'ai-summary': return { current: Math.min(metrics.summaryCount, 1), target: 1 }
+    case 'flashcard-creator': return { current: Math.min(metrics.flashcardCount, 10), target: 10 }
+    case 'flashcard-50': return { current: Math.min(metrics.flashcardCount, 50), target: 50 }
+    case 'sr-reviewer': return { current: Math.min(metrics.reviewedFlashcardCount, 20), target: 20 }
+    case 'concept-explorer': return { current: metrics.conceptDocSet.size, target: 5 }
+    case 'summary-10': return { current: Math.min(metrics.summaryCount, 10), target: 10 }
+    case 'speed-reader-10': return { current: Math.min(storageService.getReadHistory().filter(e => {
+      const d = new Date(e.readAt)
+      const today = new Date()
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` === `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
+    }).length, 10), target: 10 }
     default: return null
   }
 }

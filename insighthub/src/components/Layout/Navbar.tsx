@@ -2,12 +2,11 @@ import { useRef, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3,
-  MessageSquare, Bookmark, Lightbulb, Trophy, Network, Route,
+  MessageSquare, Bookmark, Trophy, Network, Route,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
-import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { ImportDialog } from '@/components/Import/ImportDialog'
 import { ACHIEVEMENTS } from '@/services/achievementService'
@@ -36,7 +35,6 @@ export function Navbar() {
   // Compute badge counts
   const documents = useDocumentStore(s => s.documents)
   const allAnnotations = useAnnotationStore(s => s.annotations)
-  const conceptCards = useConceptCardStore(s => s.cards)
 
   const noteCount = useMemo(() => {
     return allAnnotations.filter(a => {
@@ -52,17 +50,6 @@ export function Navbar() {
       return doc?.source === activeWorkspace
     }).length
   }, [documents, activeWorkspace])
-
-  const dueConceptCount = useMemo(() => {
-    const now = Date.now()
-    const ws = workspaces.find(w => w.id === activeWorkspace)
-    const prefix = ws?.prefix ? `${ws.prefix}-` : ''
-    return conceptCards.filter(c => {
-      const doc = documents.get(c.sourceDocId)
-      return (doc?.source === activeWorkspace || c.sourceDocId.startsWith(prefix))
-        && c.nextReview <= now
-    }).length
-  }, [conceptCards, documents, activeWorkspace, workspaces])
 
   const achievementCount = useMemo(() => {
     return storageService.getAchievementState().unlockedIds.length
@@ -87,7 +74,6 @@ export function Navbar() {
   const navButtons = [
     { icon: MessageSquare, label: 'All Notes', to: '/notes', badge: noteCount },
     { icon: Bookmark, label: 'Read Later', to: '/read-later', badge: readLaterCount },
-    { icon: Lightbulb, label: 'Concept Cards', to: '/spaced-repetition', badge: dueConceptCount },
     { icon: Trophy, label: 'Achievements', to: '/achievements', badge: achievementCount },
     { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
     { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },
@@ -147,10 +133,8 @@ export function Navbar() {
             ))}
           </div>
 
-          <button className="search-trigger" onClick={openDialog}>
-            <Search size={16} />
-            <span>Search documents...</span>
-            <kbd>⌘K</kbd>
+          <button className="btn-icon" title="Search documents (⌘K)" onClick={openDialog}>
+            <Search size={18} />
           </button>
           <input
             ref={fileInputRef}

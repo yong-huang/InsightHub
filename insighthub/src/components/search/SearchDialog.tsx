@@ -2,17 +2,12 @@ import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, FileText, Clock, X, ArrowRight } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
-import { getCategoryInfo, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText, parseSearchQuery } from '@/services/searchService'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
-import type { Source } from '@/types'
-
-const SOURCE_ICON_STYLE: Record<Source, { background: string; color: string }> = {
-  mindinsight: { background: 'rgba(255, 140, 66, 0.15)', color: 'var(--accent-orange)' },
-  techinsight: { background: 'rgba(50, 108, 229, 0.15)', color: 'var(--accent-blue)' },
-  leetcodeinsight: { background: 'rgba(78, 205, 196, 0.15)', color: 'var(--accent-green)' },
-}
+import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getSourceColorBg, getSourceColor, getWorkspaceConfig } from '@/utils/workspaceUtils'
 
 /** Render highlighted text with <mark> tags, splitting on ⫷…⫸ delimiters */
 function HighlightedText({ text, query }: { text: string; query: string }) {
@@ -35,6 +30,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
 
 function FilterTags({ query }: { query: string }) {
   const { filters, text } = parseSearchQuery(query)
+  const workspaces = usePreferenceStore(s => s.workspaces)
   const tags: { label: string; color: string }[] = []
   if (filters.category) {
     const catInfo = getCategoryInfo(filters.category)
@@ -43,7 +39,7 @@ function FilterTags({ query }: { query: string }) {
   if (filters.isRead === true) tags.push({ label: 'Read', color: 'var(--accent-green)' })
   if (filters.isRead === false) tags.push({ label: 'Unread', color: 'var(--accent-orange)' })
   if (filters.hasAnnotation) tags.push({ label: 'Has Notes', color: 'var(--accent-purple)' })
-  if (filters.source) tags.push({ label: WORKSPACE_META[filters.source as Workspace]?.label || filters.source, color: 'var(--accent-blue)' })
+  if (filters.source) tags.push({ label: getWorkspaceConfig(filters.source, workspaces)?.label || filters.source, color: 'var(--accent-blue)' })
   if (tags.length === 0) return null
   return (
     <div className="search-filter-tags">
@@ -60,7 +56,7 @@ function FilterTags({ query }: { query: string }) {
 export function SearchDialog() {
   const {
     showDialog, closeDialog, query, setQuery, results, isSearching,
-    performSearch, searchHistory, removeHistory,
+    performSearch, searchHistory, removeHistory, clearHistory,
     suggestions, selectedIndex, setSelectedIndex, loadSuggestions,
   } = useSearchStore()
   const navigate = useNavigate()
@@ -70,6 +66,7 @@ export function SearchDialog() {
   const isComposing = useRef(false)
   const documents = useDocumentStore(s => s.documents)
   const annotations = useAnnotationStore(s => s.annotations)
+  const workspaces = usePreferenceStore(s => s.workspaces)
 
   // Apply post-search filters (isRead, hasAnnotation) using docMap/annotation data
   const filteredResults = useMemo(() => {
@@ -83,7 +80,7 @@ export function SearchDialog() {
       })
     }
     if (filters.hasAnnotation) {
-      const annotatedDocIds = new Set(annotations.map(a => a.docId))
+      const annotatedDocIds = new Set(annotations.map(a => a.documentId))
       filtered = filtered.filter(r => annotatedDocIds.has(r.id))
     }
     return filtered
@@ -198,7 +195,7 @@ export function SearchDialog() {
                   onClick={() => navigateToResult(r.id)}
                   onMouseEnter={() => setSelectedIndex(i)}
                 >
-                  <div className="search-result-icon" style={SOURCE_ICON_STYLE[r.source] || SOURCE_ICON_STYLE.techinsight}>
+                  <div className="search-result-icon" style={{ background: getSourceColorBg(r.source, workspaces), color: getSourceColor(r.source, workspaces) }}>
                     <FileText size={16} />
                   </div>
                   <div className="search-result-info">
@@ -208,7 +205,7 @@ export function SearchDialog() {
                     <div className="search-result-meta">
                       {catInfo?.label || r.category}
                       <span style={{ margin: '0 4px' }}>·</span>
-                      {WORKSPACE_META[r.source as Workspace]?.label || r.source}
+                      {getWorkspaceConfig(r.source, workspaces)?.label || r.source}
                     </div>
                     {r.snippet && (
                       <div className="search-result-snippet">
@@ -224,8 +221,14 @@ export function SearchDialog() {
 
           {!isSearching && !query && searchHistory.length > 0 && (
             <>
-              <div style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                Search History
+              <div style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Search History</span>
+                <button
+                  className="search-history-clear-all"
+                  onClick={() => clearHistory()}
+                >
+                  Clear All
+                </button>
               </div>
               {searchHistory.map((q, i) => (
                 <div

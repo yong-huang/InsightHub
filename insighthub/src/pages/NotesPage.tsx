@@ -1,27 +1,18 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, FileText, MessageSquare, Highlighter, BookOpen, Download } from 'lucide-react'
+import { Search, FileText, MessageSquare, Highlighter, BookOpen, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { WikiLinkRenderer } from '@/components/DocReader/WikiLinkRenderer'
 import { buildTitleLookup } from '@/utils/bidirectionalLinks'
 import { exportNotesAsMarkdown } from '@/utils/notesExporter'
-import type { Annotation, Source } from '@/types'
-
-const SOURCE_SHORT: Record<Source, string> = {
-  mindinsight: 'Mind',
-  techinsight: 'Tech',
-  leetcodeinsight: 'LC',
-}
-
-const WORKSPACE_PREFIX: Record<string, string> = {
-  mindinsight: 'mi-',
-  techinsight: 'ti-',
-  leetcodeinsight: 'li-',
-}
+import { getShortLabel, getPrefix } from '@/utils/workspaceUtils'
+import type { Annotation } from '@/types'
 
 type NoteFilter = 'all' | 'highlight' | 'comment'
+
+const PAGE_SIZE = 100
 
 function formatTime(ts: number): string {
   const d = new Date(ts)
@@ -41,32 +32,34 @@ export function NotesPage() {
   const annotations = useAnnotationStore(s => s.annotations)
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+  const workspaces = usePreferenceStore(s => s.workspaces)
   const [filter, setFilter] = useState<NoteFilter>('all')
+  const [docFilter, setDocFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const titleLookup = useMemo(() => buildTitleLookup(documents), [documents])
 
-  // Extract a readable title from documentId when the document is missing
   const getDocTitle = (docId: string) => {
     const doc = documents.get(docId)
     if (doc) return doc.title
-    // Fallback: e.g. "ti-job-storage-interview-preparation" → "Job / Storage Interview Preparation"
-    const wsPrefix = docId.startsWith('mi-') ? 3 : docId.startsWith('ti-') ? 3 : 0
-    const rest = docId.slice(wsPrefix)
+    const wsPrefix = getPrefix(activeWorkspace, workspaces)
+    const rest = wsPrefix ? docId.slice(wsPrefix.length) : docId
     return rest.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   }
 
   const isWorkspaceMatch = (docId: string) => {
     const doc = documents.get(docId)
     if (doc) return doc.source === activeWorkspace
-    // Fallback: use documentId prefix
-    const wsPrefix = WORKSPACE_PREFIX[activeWorkspace] || 'ti-'
+    const wsPrefix = getPrefix(activeWorkspace, workspaces) || 'ti-'
     return docId.startsWith(wsPrefix)
   }
 
-  const filteredAnnotations = useMemo(() => {
+  // Base annotations filtered by workspace, type, search, and document
+  const baseAnnotations = useMemo(() => {
     return annotations
       .filter(a => isWorkspaceMatch(a.documentId))
+      .filter(a => docFilter === 'all' || a.documentId === docFilter)
       .filter(a => filter === 'all' || a.type === filter)
       .filter(a => {
         if (!searchQuery.trim()) return true
@@ -80,11 +73,33 @@ export function NotesPage() {
       })
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
-  }, [annotations, activeWorkspace, filter, searchQuery, documents])
+  }, [annotations, activeWorkspace, filter, searchQuery, docFilter, documents])
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(baseAnnotations.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const pagedAnnotations = useMemo(() => {
+    return baseAnnotations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  }, [baseAnnotations, safePage])
+
+  // Reset page when filters change
+  const handleFilterChange = useCallback((f: NoteFilter) => {
+    setFilter(f)
+    setCurrentPage(1)
+  }, [])
+  const handleDocFilterChange = useCallback((d: string) => {
+    setDocFilter(d)
+    setCurrentPage(1)
+  }, [])
+  const handleSearchChange = useCallback((q: string) => {
+    setSearchQuery(q)
+    setCurrentPage(1)
+  }, [])
+
+  // Doc groups for the current page
   const docGroups = useMemo((): DocGroup[] => {
     const map = new Map<string, DocGroup>()
-    for (const ann of filteredAnnotations) {
+    for (const ann of pagedAnnotations) {
       let group = map.get(ann.documentId)
       if (!group) {
         const doc = documents.get(ann.documentId)
@@ -99,7 +114,18 @@ export function NotesPage() {
       group.annotations.push(ann)
     }
     return Array.from(map.values())
-  }, [filteredAnnotations, documents])
+  }, [pagedAnnotations, documents])
+
+  // Document options for dropdown (only docs that have annotations in workspace)
+  const docOptions = useMemo(() => {
+    const idSet = new Set<string>()
+    for (const a of annotations) {
+      if (isWorkspaceMatch(a.documentId)) idSet.add(a.documentId)
+    }
+    return Array.from(idSet)
+      .map(id => ({ id, title: getDocTitle(id) }))
+      .sort((a, b) => a.title.localeCompare(b.title))
+  }, [annotations, activeWorkspace, documents, workspaces])
 
   const totalCount = useMemo(() => {
     return annotations.filter(a => isWorkspaceMatch(a.documentId)).length
@@ -129,117 +155,178 @@ export function NotesPage() {
     })
   }
 
+  // Pagination info text
+  const startIdx = baseAnnotations.length > 0 ? (safePage - 1) * PAGE_SIZE + 1 : 0
+  const endIdx = Math.min(safePage * PAGE_SIZE, baseAnnotations.length)
+
   return (
-    <div className="viz-page page-notes">
-      <div className="viz-page-header">
-        <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="viz-page-title">All Notes</h1>
-        </div>
-        <p className="viz-page-desc">View, search and manage all your notes</p>
+    <div className="cs-settings">
+      {/* Page header */}
+      <div className="cs-settings-header">
+        <div className="cs-section-label">NOTES</div>
+        <h1>All Notes</h1>
+        <p className="cs-settings-subtitle">
+          View, search and manage all your annotations across documents.
+        </p>
       </div>
 
       {totalCount === 0 ? (
-        <div className="empty-state">
-          <BookOpen size={48} />
-          <h3>No Notes</h3>
-          <p>Highlight text or add comments in documents, they will appear here</p>
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">
+              <BookOpen size={32} style={{ opacity: 0.3, marginBottom: '0.5rem', display: 'block' }} />
+              Highlight text or add comments in documents — they will appear here.
+            </div>
+          </div>
         </div>
       ) : (
-        <>
-          <div className="notes-toolbar">
-            <div className="viz-period-selector">
+        <div className="cs-card">
+          <div className="cs-card-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <MessageSquare size={16} />
+              ALL NOTES
+              <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>
+                {baseAnnotations.length} notes
+              </span>
+            </div>
+          </div>
+          <div className="cs-card-body">
+            {/* Row 1: type filter buttons */}
+            <div className="cs-btn-group">
               {tabs.map(tab => (
                 <button
                   key={tab.key}
-                  className={filter === tab.key ? 'active' : ''}
-                  onClick={() => setFilter(tab.key)}
+                  className={`cs-btn ${filter === tab.key ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+                  onClick={() => handleFilterChange(tab.key)}
                 >
                   {tab.label} ({tab.count})
                 </button>
               ))}
             </div>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => exportNotesAsMarkdown({ annotations: filteredAnnotations, getDocTitle })}
-              title="Export as Markdown"
-            >
-              <Download size={14} /> Export
-            </button>
-            <div className="search-page-input-wrap" style={{ flex: '1 1 240px', minWidth: 200 }}>
-              <Search size={16} />
-              <input
-                type="search"
-                className="search-page-input"
-                placeholder="Search notes..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
 
-          {filteredAnnotations.length === 0 ? (
-            <div className="empty-state" style={{ padding: '3rem 2rem' }}>
-              <Search size={40} />
-              <h3>No matching notes found</h3>
+            {/* Row 2: doc filter, search, export */}
+            <div className="cs-notes-toolbar-row">
+              <select
+                className="cs-notes-doc-select"
+                value={docFilter}
+                onChange={e => handleDocFilterChange(e.target.value)}
+              >
+                <option value="all">All Documents</option>
+                {docOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.title}</option>
+                ))}
+              </select>
+              <div className="cs-search-wrap" style={{ flex: 1 }}>
+                <Search size={14} />
+                <input
+                  type="search"
+                  className="cs-search-input"
+                  placeholder="Search notes..."
+                  value={searchQuery}
+                  onChange={e => handleSearchChange(e.target.value)}
+                />
+              </div>
+              <button
+                className="cs-btn cs-btn-ghost"
+                onClick={() => exportNotesAsMarkdown({ annotations: baseAnnotations, getDocTitle })}
+                title="Export as Markdown"
+              >
+                <Download size={14} /> Export
+              </button>
             </div>
-          ) : (
-            <div className="notes-groups">
-              {docGroups.map(group => (
-                <div key={group.documentId} className="notes-group">
-                  <div
-                    className="notes-group-header"
-                    onClick={() => navigate(`/doc/${group.documentId}`)}
-                  >
-                    <FileText size={16} />
-                    <span className="notes-group-title">
-                      {group.title ?? 'Document deleted'}
-                    </span>
-                    {group.source && (
-                      <span className={`badge badge-${group.source}`}>
-                        {SOURCE_SHORT[group.source as Source] ?? 'Doc'}
-                      </span>
-                    )}
-                    <span className="notes-group-count">{group.annotations.length} notes</span>
-                  </div>
-                  <div className="notes-group-items">
-                    {group.annotations.map(ann => (
-                      <div
-                        key={ann.id}
-                        className={`notes-item ${ann.type}`}
-                        style={{
-                          borderLeftColor: ann.color,
-                          backgroundColor: ann.color + '15',
-                        }}
-                        onClick={() => goToAnnotation(ann)}
-                      >
-                        <div className="notes-item-text">{ann.text}</div>
-                        {ann.type === 'comment' && ann.comment && (
-                          <div className="notes-item-comment">
-                            <MessageSquare size={12} />
-                            <WikiLinkRenderer text={ann.comment} titleLookup={titleLookup} />
-                          </div>
-                        )}
-                        <div className="notes-item-meta">
-                          <span className="notes-item-type">
-                            {ann.type === 'highlight' ? (
-                              <><Highlighter size={12} /> Highlight</>
-                            ) : (
-                              <><MessageSquare size={12} /> Comment</>
-                            )}
-                          </span>
-                          <span className="notes-item-time">{formatTime(ann.createdAt)}</span>
+
+            {baseAnnotations.length === 0 ? (
+              <div className="cs-empty-hint">No matching notes found.</div>
+            ) : (
+              <div className="cs-notes-groups">
+                {docGroups.map(group => (
+                  <div key={group.documentId} className="cs-notes-group">
+                    <div
+                      className="cs-notes-group-header"
+                      onClick={() => navigate(`/doc/${group.documentId}`)}
+                    >
+                      <div className="cs-model-info">
+                        <div className="cs-model-name">
+                          {group.title ?? 'Document deleted'}
+                          {group.source && (
+                            <span className="cs-badge" style={{
+                              background: 'rgba(50, 108, 229, 0.08)',
+                              color: 'var(--accent-blue)',
+                              border: '1px solid rgba(50, 108, 229, 0.15)',
+                            }}>
+                              {getShortLabel(group.source, workspaces)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="cs-model-meta">
+                          <span>{group.annotations.length} notes</span>
                         </div>
                       </div>
-                    ))}
+                      <FileText size={16} style={{ color: 'var(--text-dim)' }} />
+                    </div>
+                    <div className="cs-notes-items">
+                      {group.annotations.map(ann => (
+                        <div
+                          key={ann.id}
+                          className={`cs-notes-item ${ann.type}`}
+                          style={{
+                            borderLeftColor: ann.color,
+                            backgroundColor: ann.color + '15',
+                          }}
+                          onClick={() => goToAnnotation(ann)}
+                        >
+                          <div className="cs-notes-item-text">{ann.text}</div>
+                          {ann.type === 'comment' && ann.comment && (
+                            <div className="cs-notes-item-comment">
+                              <MessageSquare size={12} />
+                              <WikiLinkRenderer text={ann.comment} titleLookup={titleLookup} />
+                            </div>
+                          )}
+                          <div className="cs-notes-item-meta">
+                            <span className="cs-notes-item-type">
+                              {ann.type === 'highlight' ? (
+                                <><Highlighter size={12} /> Highlight</>
+                              ) : (
+                                <><MessageSquare size={12} /> Comment</>
+                              )}
+                            </span>
+                            <span className="cs-notes-item-time">{formatTime(ann.createdAt)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {baseAnnotations.length > PAGE_SIZE && (
+              <div className="cs-pagination">
+                <span className="cs-pagination-info">
+                  {startIdx}–{endIdx} of {baseAnnotations.length}
+                </span>
+                <div className="cs-pagination-btns">
+                  <button
+                    className="cs-btn cs-btn-ghost"
+                    disabled={safePage <= 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                  >
+                    <ChevronLeft size={14} /> Prev
+                  </button>
+                  <span className="cs-pagination-page">{safePage} / {totalPages}</span>
+                  <button
+                    className="cs-btn cs-btn-ghost"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

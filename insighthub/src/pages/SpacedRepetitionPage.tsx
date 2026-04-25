@@ -1,20 +1,14 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ArrowLeft, Lightbulb, RotateCcw, Trash2, BookOpen,
+  Lightbulb, RotateCcw, Trash2, BookOpen,
   Clock, CheckCircle2, AlertCircle, Star, Zap, Search,
-  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getPrefix } from '@/utils/workspaceUtils'
 import type { ConceptCard } from '@/types'
-
-const WORKSPACE_PREFIX: Record<string, string> = {
-  mindinsight: 'mi-',
-  techinsight: 'ti-',
-  leetcodeinsight: 'li-',
-}
 
 type ViewMode = 'review' | 'list'
 
@@ -27,6 +21,16 @@ const GRADES = [
   { grade: 5, label: 'Simple', color: '#14b8a6' },
 ] as const
 
+function formatInterval(ms: number): string {
+  const diff = ms - Date.now()
+  if (diff <= 0) return 'Due now'
+  const days = Math.floor(diff / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days < 30) return `${days}d`
+  return `${Math.floor(days / 30)}mo`
+}
+
 export function SpacedRepetitionPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -34,8 +38,8 @@ export function SpacedRepetitionPage() {
   const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+  const workspaces = usePreferenceStore(s => s.workspaces)
 
-  // Show guide prompt when accessed without docId
   const showGuide = !filterDocId
 
   const workspaceCards = useMemo(() =>
@@ -43,7 +47,7 @@ export function SpacedRepetitionPage() {
       if (!c.conceptName || !c.definition) return false
       if (filterDocId && c.sourceDocId !== filterDocId) return false
       const doc = documents.get(c.sourceDocId)
-      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(WORKSPACE_PREFIX[activeWorkspace] || 'ti-')
+      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(getPrefix(activeWorkspace, workspaces) || 'ti-')
     }),
     [cards, documents, activeWorkspace, filterDocId]
   )
@@ -71,10 +75,8 @@ export function SpacedRepetitionPage() {
     })
   }, [workspaceCards, searchQuery, documents])
 
-  // Reset page when search or view changes
   useEffect(() => {
     setPage(1)
-    // Auto-switch to list mode when searching
     if (searchQuery.trim()) setViewMode('list')
   }, [searchQuery, viewMode])
 
@@ -84,7 +86,6 @@ export function SpacedRepetitionPage() {
 
   useEffect(() => {
     if (!isLoaded) loadCards()
-    // Clean up empty concept cards on load
     if (isLoaded) {
       const empty = cards.filter(c => !c.conceptName || !c.definition)
       for (const c of empty) removeCard(c.id)
@@ -98,7 +99,6 @@ export function SpacedRepetitionPage() {
       .sort((a, b) => a.nextReview - b.nextReview)
   }, [filteredCards])
 
-  // Auto-initialize session queue on first load
   useEffect(() => {
     if (isLoaded && sessionQueue.length === 0 && dueCards.length > 0) {
       setSessionQueue(dueCards)
@@ -155,8 +155,6 @@ export function SpacedRepetitionPage() {
     setFlipped(false)
     setSessionResults([])
     setSessionDone(false)
-    // Snapshot the due cards at session start so reviewCard updates
-    // don't shrink the queue mid-session
     const now = Date.now()
     const queue = filteredCards
       .filter(c => c.nextReview <= now)
@@ -187,155 +185,152 @@ export function SpacedRepetitionPage() {
   // Guide prompt when accessed directly without docId
   if (showGuide) {
     return (
-      <div className="empty-state">
-        <Lightbulb size={48} />
-        <h3>Concept Card Review</h3>
-        <p>Please enter from the concept button on the document page to review concept cards.</p>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
-          Open any document and click the "Concepts" button in the toolbar to start reviewing.
-        </p>
-        <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate(-1)}>
-          <ArrowLeft size={18} /> Back
-        </button>
+      <div className="cs-settings">
+        <div className="cs-settings-header">
+          <div className="cs-section-label">SPACED REPETITION</div>
+          <h1>Concept Card Review</h1>
+          <p className="cs-settings-subtitle">Reinforce core concepts extracted by AI from documents through spaced repetition.</p>
+        </div>
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">
+              <Lightbulb size={32} style={{ opacity: 0.3, marginBottom: '0.5rem', display: 'block' }} />
+              Open any document and click the "Concepts" button in the toolbar to start reviewing.
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="spaced-repetition-page">
-      <div className="viz-page-header">
-        <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="viz-page-title">
-            {filterDocId ? (
-              <>
-                Concept Cards
-                <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '0.5rem', fontWeight: 400 }}>
-                  — {documents.get(filterDocId)?.title || 'Unknown Document'}
-                </span>
-              </>
-            ) : 'Concept Cards'}
-          </h1>
-          <div className="page-header-actions">
-            <button
-              className={`sr-view-toggle ${viewMode === 'review' ? 'active' : ''}`}
-              onClick={() => setViewMode('review')}
-            >
-              <RotateCcw size={16} />
-              Review Mode
-            </button>
-            <button
-              className={`sr-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              <Lightbulb size={16} />
-              All Cards
-            </button>
-          </div>
-        </div>
-        <p className="viz-page-desc">Reinforce core concepts extracted by AI from documents through spaced repetition</p>
-      </div>
-
-      <div className="sr-stats-bar">
-        <div className="sr-stat">
-          <div className="sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-            <Clock size={20} />
-          </div>
-          <div className="sr-stat-info">
-            <span className="sr-stat-value">{stats.due}</span>
-            <span className="sr-stat-label">Due for Review</span>
-          </div>
-        </div>
-        <div className="sr-stat">
-          <div className="sr-stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
-            <Zap size={20} />
-          </div>
-          <div className="sr-stat-info">
-            <span className="sr-stat-value">{stats.new}</span>
-            <span className="sr-stat-label">New Cards</span>
-          </div>
-        </div>
-        <div className="sr-stat">
-          <div className="sr-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
-            <AlertCircle size={20} />
-          </div>
-          <div className="sr-stat-info">
-            <span className="sr-stat-value">{stats.learning}</span>
-            <span className="sr-stat-label">Learning</span>
-          </div>
-        </div>
-        <div className="sr-stat">
-          <div className="sr-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
-            <Star size={20} />
-          </div>
-          <div className="sr-stat-info">
-            <span className="sr-stat-value">{stats.mastered}</span>
-            <span className="sr-stat-label">Mastered</span>
-          </div>
-        </div>
-      </div>
-
-      {workspaceCards.length > 0 && (
-        <div className="sr-search-bar">
-          <div className="search-dialog-input-wrap" style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: '8px 14px', background: 'var(--bg-input)' }}>
-            <Search size={16} />
-            <input
-              type="text"
-              className="search-dialog-input"
-              placeholder="Search concept cards..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {viewMode === 'list' && filteredCards.length > PAGE_SIZE && (
-            <span className="sr-search-count">{filteredCards.length} cards</span>
+    <div className="cs-settings">
+      {/* Page header */}
+      <div className="cs-settings-header">
+        <div className="cs-section-label">SPACED REPETITION</div>
+        <h1>
+          Concept Cards
+          {filterDocId && (
+            <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '0.5rem', fontWeight: 400 }}>
+              — {documents.get(filterDocId)?.title || 'Unknown Document'}
+            </span>
           )}
-        </div>
-      )}
+        </h1>
+        <p className="cs-settings-subtitle">
+          Reinforce core concepts extracted by AI from documents through spaced repetition.
+        </p>
+      </div>
 
-      {viewMode === 'review' && sessionTotal > 0 && (
-        <div className="sr-progress">
-          <div className="sr-progress-bar">
-            <div
-              className="sr-progress-fill"
-              style={{ width: `${Math.round((sessionCorrect / sessionTotal) * 100)}%` }}
-            />
+      {/* Stats card */}
+      <div className="cs-card">
+        <div className="cs-card-header">OVERVIEW</div>
+        <div className="cs-card-body">
+          <div className="cs-sr-stats">
+            <div className="cs-sr-stat">
+              <div className="cs-sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                <Clock size={18} />
+              </div>
+              <div className="cs-sr-stat-value">{stats.due}</div>
+              <div className="cs-sr-stat-label">Due</div>
+            </div>
+            <div className="cs-sr-stat">
+              <div className="cs-sr-stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                <Zap size={18} />
+              </div>
+              <div className="cs-sr-stat-value">{stats.new}</div>
+              <div className="cs-sr-stat-label">New</div>
+            </div>
+            <div className="cs-sr-stat">
+              <div className="cs-sr-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+                <AlertCircle size={18} />
+              </div>
+              <div className="cs-sr-stat-value">{stats.learning}</div>
+              <div className="cs-sr-stat-label">Learning</div>
+            </div>
+            <div className="cs-sr-stat">
+              <div className="cs-sr-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
+                <Star size={18} />
+              </div>
+              <div className="cs-sr-stat-value">{stats.mastered}</div>
+              <div className="cs-sr-stat-label">Mastered</div>
+            </div>
           </div>
-          <span className="sr-progress-text">{sessionCorrect}/{sessionTotal} Correct</span>
-        </div>
-      )}
 
-      {viewMode === 'review' && renderReviewMode()}
-      {viewMode === 'list' && renderListMode()}
+          {/* View toggle + search */}
+          {workspaceCards.length > 0 && (
+            <div className="cs-sr-toolbar">
+              <div className="cs-btn-group">
+                <button
+                  className={`cs-btn ${viewMode === 'review' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+                  onClick={() => setViewMode('review')}
+                >
+                  <RotateCcw size={14} /> Review
+                </button>
+                <button
+                  className={`cs-btn ${viewMode === 'list' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <Lightbulb size={14} /> All Cards
+                </button>
+              </div>
+              <div className="cs-search-wrap">
+                <Search size={14} />
+                <input
+                  type="text"
+                  className="cs-search-input"
+                  placeholder="Search concept cards..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Session progress */}
+          {viewMode === 'review' && sessionTotal > 0 && (
+            <div className="cs-sr-progress">
+              <div className="cs-progress-bar">
+                <div
+                  className="cs-progress-fill"
+                  style={{ width: `${Math.round((sessionCorrect / sessionTotal) * 100)}%`, background: 'var(--accent-green)' }}
+                />
+              </div>
+              <span className="cs-sr-progress-text">{sessionCorrect}/{sessionTotal} Correct</span>
+            </div>
+          )}
+
+          {/* Mode content */}
+          {viewMode === 'review' && renderReviewMode()}
+          {viewMode === 'list' && renderListMode()}
+        </div>
+      </div>
     </div>
   )
 
   function renderReviewMode() {
-    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">Loading...</div></div>
+    if (!isLoaded) return <div className="cs-empty-hint">Loading...</div>
 
     if (sessionDone) {
       const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
       return (
-        <div className="sr-summary">
-          <CheckCircle2 size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-          <h2>Review Complete!</h2>
-          <div className="sr-summary-stats">
-            <div className="sr-summary-stat">
-              <span className="sr-summary-value">{sessionTotal}</span>
-              <span className="sr-summary-label">This Session</span>
+        <div className="cs-sr-summary">
+          <CheckCircle2 size={40} style={{ color: 'var(--accent-green)', marginBottom: '0.75rem' }} />
+          <h2 style={{ margin: 0 }}>Review Complete!</h2>
+          <div className="cs-sr-summary-stats">
+            <div className="cs-sr-summary-stat">
+              <span className="cs-sr-summary-value">{sessionTotal}</span>
+              <span className="cs-sr-summary-label">This Session</span>
             </div>
-            <div className="sr-summary-stat">
-              <span className="sr-summary-value">{sessionCorrect}</span>
-              <span className="sr-summary-label">Correct</span>
+            <div className="cs-sr-summary-stat">
+              <span className="cs-sr-summary-value">{sessionCorrect}</span>
+              <span className="cs-sr-summary-label">Correct</span>
             </div>
-            <div className="sr-summary-stat">
-              <span className="sr-summary-value">{accuracy}%</span>
-              <span className="sr-summary-label">Accuracy</span>
+            <div className="cs-sr-summary-stat">
+              <span className="cs-sr-summary-value">{accuracy}%</span>
+              <span className="cs-sr-summary-label">Accuracy</span>
             </div>
           </div>
-          <button className="sr-start-btn" onClick={startNewSession}>
+          <button className="cs-btn cs-btn-primary" onClick={startNewSession}>
             {stats.due > 0 ? 'Continue Review' : 'No more cards to review'}
           </button>
         </div>
@@ -344,22 +339,22 @@ export function SpacedRepetitionPage() {
 
     if (sessionQueue.length === 0 && !sessionDone) {
       return (
-        <div className="sr-summary">
-          <CheckCircle2 size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-          <h2>No Cards Due for Review</h2>
-          <p className="sr-summary-desc">
+        <div className="cs-sr-summary">
+          <CheckCircle2 size={40} style={{ color: 'var(--accent-green)', marginBottom: '0.75rem' }} />
+          <h2 style={{ margin: 0 }}>No Cards Due for Review</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
             {stats.total === 0
               ? 'Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.'
               : 'All cards have been reviewed. Check back later.'}
           </p>
-          <button className="sr-start-btn" onClick={startNewSession}>Refresh</button>
+          <button className="cs-btn cs-btn-primary" onClick={startNewSession}>Refresh</button>
         </div>
       )
     }
 
     return (
-      <div className="sr-card-area">
-        <div className="sr-card-counter">{currentIdx + 1} / {sessionQueue.length}</div>
+      <div className="cs-sr-card-area">
+        <div className="cs-sr-card-counter">{currentIdx + 1} / {sessionQueue.length}</div>
         <div
           className={`sr-card ${flipped ? 'flipped' : ''} ${slidingOut ? 'slide-out' : ''}`}
           onClick={handleFlip}
@@ -414,8 +409,8 @@ export function SpacedRepetitionPage() {
         )}
 
         {!flipped && (
-          <div className="sr-actions">
-            <button className="sr-skip-btn" onClick={handleSkip}>
+          <div className="cs-sr-actions">
+            <button className="cs-btn cs-btn-ghost" onClick={handleSkip}>
               Skip (S)
             </button>
           </div>
@@ -425,23 +420,27 @@ export function SpacedRepetitionPage() {
   }
 
   function renderListMode() {
-    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">Loading...</div></div>
+    if (!isLoaded) return <div className="cs-empty-hint">Loading...</div>
     if (workspaceCards.length === 0) {
       return (
-        <div className="sr-summary">
-          <Lightbulb size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
-          <h2>No Concept Cards</h2>
-          <p className="sr-summary-desc">Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.</p>
+        <div className="cs-sr-summary">
+          <Lightbulb size={40} style={{ color: 'var(--text-dim)', marginBottom: '0.75rem' }} />
+          <h2 style={{ margin: 0 }}>No Concept Cards</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
+            Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.
+          </p>
         </div>
       )
     }
 
     if (filteredCards.length === 0) {
       return (
-        <div className="sr-summary">
-          <Search size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
-          <h2>No Matching Results</h2>
-          <p className="sr-summary-desc">No concept cards matching "{searchQuery}"</p>
+        <div className="cs-sr-summary">
+          <Search size={40} style={{ color: 'var(--text-dim)', marginBottom: '0.75rem' }} />
+          <h2 style={{ margin: 0 }}>No Matching Results</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
+            No concept cards matching "{searchQuery}"
+          </p>
         </div>
       )
     }
@@ -449,8 +448,6 @@ export function SpacedRepetitionPage() {
     const now = Date.now()
     const dueList = filteredCards.filter(c => c.nextReview <= now)
     const familiarList = filteredCards.filter(c => c.nextReview > now)
-
-    // Paginate: interleave due + familiar, then slice by page
     const allList = [...dueList, ...familiarList]
     const totalPages = Math.ceil(allList.length / PAGE_SIZE)
     const safePage = Math.min(page, totalPages) || 1
@@ -458,45 +455,43 @@ export function SpacedRepetitionPage() {
     const pagedDue = pagedList.filter(c => c.nextReview <= now)
     const pagedFamiliar = pagedList.filter(c => c.nextReview > now)
 
+    const startIdx = allList.length > 0 ? (safePage - 1) * PAGE_SIZE + 1 : 0
+    const endIdx = Math.min(safePage * PAGE_SIZE, allList.length)
+
     return (
       <>
-        <div className="sr-card-list">
-          {pagedDue.length > 0 && (
-            <div className="sr-list-section">
-              <h3 className="sr-list-title">
-                <Clock size={16} />
-                Due ({dueList.length})
-              </h3>
+        {pagedDue.length > 0 && (
+          <div className="cs-sr-list-section">
+            <div className="cs-sr-list-title">
+              <Clock size={14} /> Due ({dueList.length})
+            </div>
+            <div className="cs-item-list">
               {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
             </div>
-          )}
-          {pagedFamiliar.length > 0 && (
-            <div className="sr-list-section">
-              <h3 className="sr-list-title">
-                <CheckCircle2 size={16} />
-                Familiar ({familiarList.length})
-              </h3>
+          </div>
+        )}
+        {pagedFamiliar.length > 0 && (
+          <div className="cs-sr-list-section">
+            <div className="cs-sr-list-title">
+              <CheckCircle2 size={14} /> Familiar ({familiarList.length})
+            </div>
+            <div className="cs-item-list">
               {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
             </div>
-          )}
-        </div>
+          </div>
+        )}
         {totalPages > 1 && (
-          <div className="sr-pagination">
-            <button
-              className="sr-page-btn"
-              disabled={safePage <= 1}
-              onClick={() => setPage(safePage - 1)}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="sr-page-info">{safePage} / {totalPages}</span>
-            <button
-              className="sr-page-btn"
-              disabled={safePage >= totalPages}
-              onClick={() => setPage(safePage + 1)}
-            >
-              <ChevronRight size={16} />
-            </button>
+          <div className="cs-pagination">
+            <span className="cs-pagination-info">{startIdx}–{endIdx} of {allList.length}</span>
+            <div className="cs-pagination-btns">
+              <button className="cs-btn cs-btn-ghost" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+                Prev
+              </button>
+              <span className="cs-pagination-page">{safePage} / {totalPages}</span>
+              <button className="cs-btn cs-btn-ghost" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+                Next
+              </button>
+            </div>
           </div>
         )}
       </>
@@ -516,34 +511,33 @@ const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard;
   const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || 'Unknown Document') : 'Unknown Document'
 
   const now = Date.now()
-  const isDue = card.nextReview <= now
   const status = card.lastReview === 0 ? 'new' : card.interval >= 21 ? 'mastered' : card.interval >= 1 ? 'learning' : 'due'
-  const statusLabel = status === 'new' ? 'New' : status === 'mastered' ? 'Mastered' : status === 'learning' ? `${card.interval}d` : 'Due'
+  const statusLabel = status === 'new' ? 'New' : status === 'mastered' ? 'Mastered' : status === 'learning' ? formatInterval(card.nextReview) : 'Due'
   const statusColor = status === 'new' ? '#22c55e' : status === 'mastered' ? '#a855f7' : status === 'learning' ? '#3b82f6' : '#ef4444'
 
   return (
-    <div className="sr-list-item">
-      <div className="sr-list-item-color" style={{ background: statusColor }} />
-      <div className="sr-list-item-content">
-        <div className="sr-list-item-front">{card.conceptName}</div>
-        {card.definition && (
-          <div className="sr-list-item-definition">{card.definition}</div>
-        )}
-        <div className="sr-list-item-meta">
-          <span className={`sr-list-item-status ${status}`}>{statusLabel}</span>
-          <Link to={`/doc/${card.sourceDocId}`} className="sr-list-item-doc" onClick={e => e.stopPropagation()}>
+    <div className="cs-model-item" style={{ paddingLeft: 0 }}>
+      <div className="cs-sr-list-color" style={{ background: statusColor }} />
+      <div className="cs-model-info">
+        <div className="cs-model-name">{card.conceptName}</div>
+        <div className="cs-model-meta">
+          <span className="cs-sr-list-status" style={{ color: statusColor }}>{statusLabel}</span>
+          <Link to={`/doc/${card.sourceDocId}`} className="cs-sr-list-doc" onClick={e => e.stopPropagation()}>
             <BookOpen size={12} />
             {docTitle}
           </Link>
         </div>
+        {card.definition && (
+          <div className="cs-sr-list-def">{card.definition}</div>
+        )}
       </div>
-      <div className="sr-list-item-actions">
+      <div className="cs-model-actions">
         {confirmDelete ? (
-          <button className="sr-list-confirm-delete" onClick={() => onRemove(card.id)}>
-            Confirm Delete
+          <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', color: 'var(--accent-red)' }} onClick={() => onRemove(card.id)}>
+            Delete
           </button>
         ) : (
-          <button className="sr-list-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete card">
+          <button className="cs-btn cs-btn-ghost cs-sr-delete" onClick={() => setConfirmDelete(true)} title="Delete card">
             <Trash2 size={14} />
           </button>
         )}
