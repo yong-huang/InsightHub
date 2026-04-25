@@ -10,6 +10,7 @@ export interface DocumentDiscoveryOptions {
   aiApiUrl?: string
   aiModel?: string
   aiApiKey?: string
+  workspacesPath?: string
 }
 
 interface AIProfile {
@@ -149,15 +150,145 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
   return {
     name: 'document-discovery',
     configureServer(server) {
+      // Workspace config: read from .insighthub-workspaces.json
+      const workspacesConfigPath = path.resolve(process.cwd(), options.workspacesPath || '.insighthub-workspaces.json')
+
+      interface WorkspaceEntry {
+        id: string
+        label: string
+        icon: string
+        path: string
+        prefix: string
+      }
+
+      // Map from workspace ID to directory path (resolved relative to project root)
+      function getWorkspaceDirs(): Record<string, string> {
+        // Start with hardcoded defaults from vite.config.ts
+        const dirs: Record<string, string> = {
+          mindinsight: options.mindInsightDir,
+          techinsight: options.techInsightDir,
+        }
+        if (options.leetcodeInsightDir) {
+          dirs.leetcodeinsight = options.leetcodeInsightDir
+        }
+        // Override/extend with workspaces config file
+        try {
+          if (fs.existsSync(workspacesConfigPath)) {
+            const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
+            for (const ws of wsConfig) {
+              if (ws.path) {
+                // Resolve relative paths from the project root
+                dirs[ws.id] = path.isAbsolute(ws.path)
+                  ? ws.path
+                  : path.resolve(process.cwd(), ws.path)
+              }
+            }
+          }
+        } catch {}
+        return dirs
+      }
+
       // API endpoint: return document manifest
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
-          const manifest = scanDocuments(options.mindInsightDir, options.techInsightDir, options.leetcodeInsightDir)
+          const dirs = getWorkspaceDirs()
+          // Map old option names to scanDocuments expected params
+          const manifest = scanDocuments(
+            dirs['mindinsight'] || options.mindInsightDir,
+            dirs['techinsight'] || options.techInsightDir,
+            dirs['leetcodeinsight'] || options.leetcodeInsightDir,
+          )
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(manifest))
         } catch (e) {
           res.statusCode = 500
           res.end(JSON.stringify({ error: String(e) }))
+        }
+      })
+
+      // Workspace config endpoint: read/write .insighthub-workspaces.json
+      server.middlewares.use('/api/workspaces', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method === 'GET') {
+          try {
+            if (fs.existsSync(workspacesConfigPath)) {
+              res.end(fs.readFileSync(workspacesConfigPath, 'utf-8'))
+            } else {
+              res.end('[]')
+            }
+          } catch {
+            res.end('[]')
+          }
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const config: WorkspaceEntry[] = JSON.parse(Buffer.concat(chunks).toString())
+              if (!Array.isArray(config)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected array' }))
+                return
+              }
+              fs.writeFileSync(workspacesConfigPath, JSON.stringify(config, null, 2), 'utf-8')
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Directory browsing endpoint for workspace path selection
+      server.middlewares.use('/api/browse-directories', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        const url = new URL(req.url || '/', 'http://localhost')
+        const dirPath = url.searchParams.get('path')
+        if (!dirPath) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: 'Missing path parameter' }))
+          return
+        }
+        const resolved = path.resolve(dirPath)
+        // Security: must be an absolute path
+        if (!path.isAbsolute(resolved)) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: 'Path must be absolute' }))
+          return
+        }
+        try {
+          if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+            res.end(JSON.stringify({ currentPath: resolved, entries: [] }))
+            return
+          }
+          const entries = fs.readdirSync(resolved, { withFileTypes: true })
+            .map(entry => ({
+              name: entry.name,
+              isDirectory: entry.isDirectory(),
+              path: path.join(resolved, entry.name),
+            }))
+            .sort((a, b) => {
+              // Directories first, then alphabetically
+              if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+              return a.name.localeCompare(b.name)
+            })
+          res.end(JSON.stringify({ currentPath: resolved, entries }))
+        } catch (e: any) {
+          res.statusCode = 403
+          res.end(JSON.stringify({ error: e.message }))
         }
       })
 
@@ -1089,15 +1220,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           return
         }
 
-        const source = segments[0] // mindinsight, techinsight, or leetcodeinsight
+        const source = segments[0] // mindinsight, techinsight, or any workspace id
         const relativePath = segments.slice(1).join(path.sep)
 
-        const SOURCE_DIR_MAP: Record<string, string> = {
-          mindinsight: options.mindInsightDir,
-          techinsight: options.techInsightDir,
-          leetcodeinsight: options.leetcodeInsightDir || '',
-        }
-        const baseDir = SOURCE_DIR_MAP[source] || options.techInsightDir
+        const dirs = getWorkspaceDirs()
+        const baseDir = dirs[source] || options.techInsightDir
         const absPath = path.resolve(baseDir, relativePath)
 
         // Security: ensure the resolved path is within the allowed directory

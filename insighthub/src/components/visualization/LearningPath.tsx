@@ -75,7 +75,7 @@ function MilestoneCard({ milestone, navigate }: { milestone: PathMilestone; navi
           <span className="lp-card-name">{milestone.label}</span>
           {milestone.isNextRecommended && (
             <span className="lp-recommend-badge">
-              <Sparkles size={12} /> 推荐
+              <Sparkles size={12} /> Recommended
             </span>
           )}
           <span className="lp-card-source">{meta.label}</span>
@@ -87,7 +87,7 @@ function MilestoneCard({ milestone, navigate }: { milestone: PathMilestone; navi
           />
         </div>
         <div className="lp-card-count">
-          {milestone.readCount} / {milestone.totalCount} 篇 · {Math.round(milestone.progress * 100)}%
+          {milestone.readCount} / {milestone.totalCount} docs · {Math.round(milestone.progress * 100)}%
         </div>
       </div>
     </div>
@@ -107,7 +107,7 @@ export function LearningPath({ data, source }: Props) {
       {/* Overall progress */}
       <div className="lp-overall-progress">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>总进度</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Overall Progress</span>
           <span className="lp-overall-pct">{overallPct}%</span>
         </div>
         <div className="lp-overall-bar">

@@ -38,34 +38,34 @@ export function SearchPage() {
   return (
     <div className="page-search">
       <div className="search-page-header">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
           <ArrowLeft size={18} />
         </button>
         {!query ? (
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}><Clock size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 最近阅读</h1>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}><Clock size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Recent Reads</h1>
         ) : (
           <span style={{ fontSize: '1rem', fontWeight: 600 }}>
-            搜索: {query}
+            Search: {query}
           </span>
         )}
         {results.length > 0 && (
           <span className="search-page-count">
-            找到 {results.length} 个结果
+            Found {results.length} results
           </span>
         )}
       </div>
 
       {isSearching && (
         <div className="empty-state">
-          <p>搜索中...</p>
+          <p>Searching...</p>
         </div>
       )}
 
       {!isSearching && query && results.length === 0 && (
         <div className="empty-state">
           <Search size={48} />
-          <h3>未找到结果</h3>
-          <p>尝试使用不同的关键词搜索</p>
+          <h3>No Results Found</h3>
+          <p>Try different keywords</p>
         </div>
       )}
 

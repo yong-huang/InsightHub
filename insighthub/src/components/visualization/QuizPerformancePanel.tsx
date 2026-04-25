@@ -31,23 +31,23 @@ export function QuizPerformancePanel({ data }: Props) {
           />
         </svg>
         <div className="report-quiz-gauge-value" style={{ color: scoreColor }}>{scorePct}</div>
-        <div className="report-quiz-gauge-label">平均分</div>
+        <div className="report-quiz-gauge-label">Average Score</div>
       </div>
 
       {/* Stats */}
       <div className="report-quiz-stats">
         <div className="report-quiz-stat-row">
-          <span className="report-quiz-stat-label">最高分</span>
+          <span className="report-quiz-stat-label">Highest Score</span>
           <span className="report-quiz-stat-value">{Math.round(data.maxScore)}</span>
         </div>
         <div className="report-quiz-stat-row">
-          <span className="report-quiz-stat-label">平均分</span>
+          <span className="report-quiz-stat-label">Average Score</span>
           <span className="report-quiz-stat-value">{Math.round(data.avgScore)}</span>
         </div>
 
         {/* Difficulty distribution bar */}
         <div style={{ marginTop: '0.5rem' }}>
-          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.4rem' }}>难度分布</div>
+          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.4rem' }}>Difficulty Distribution</div>
           <ResponsiveContainer width="100%" height={80}>
             <BarChart data={data.difficultyDist}>
               <XAxis dataKey="difficulty" tick={{ fill: colors.textSecondary, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -73,7 +73,7 @@ export function QuizPerformancePanel({ data }: Props) {
       {/* Score trend (if data) */}
       {data.scoreTrend.length >= 2 && (
         <div style={{ width: '100%', marginTop: '1rem' }}>
-          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.4rem' }}>分数趋势</div>
+          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.4rem' }}>Score Trend</div>
           <ResponsiveContainer width="100%" height={100}>
             <LineChart data={data.scoreTrend.slice(-20)}>
               <XAxis dataKey="date" tick={{ fill: colors.textSecondary, fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -86,7 +86,7 @@ export function QuizPerformancePanel({ data }: Props) {
                   color: colors.textPrimary,
                   fontSize: '13px',
                 }}
-                formatter={(v: number) => [`${Math.round(v)} 分`, '平均分']}
+                formatter={(v: number) => [`${Math.round(v)} pts`, 'Average Score']}
               />
             </LineChart>
           </ResponsiveContainer>

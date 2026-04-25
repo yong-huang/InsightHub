@@ -67,7 +67,7 @@ export async function importAllData(
   data: ExportData,
 ): Promise<{ ok: boolean; localKeys: number; serverEndpoints: number }> {
   if (!data || data.version !== 1) {
-    throw new Error(`不支持的备份版本: ${data?.version ?? '未知'}`)
+    throw new Error(`Unsupported backup version: ${data?.version ?? 'unknown'}`)
   }
 
   // Write localStorage

@@ -13,7 +13,7 @@ export function LoadingScreen() {
           </svg>
         </div>
         <h2 className="gradient-text">InsightHub</h2>
-        <p className="loading-text">正在加载文档...</p>
+        <p className="loading-text">Loading documents...</p>
         {progress.total > 0 && (
           <div className="loading-progress">
             <div className="progress-bar">

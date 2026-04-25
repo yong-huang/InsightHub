@@ -121,7 +121,7 @@ export function KnowledgeTree() {
     <div className="kt-tree">
       <div className="kt-summary">
         <TreePine size={16} />
-        <span>{tree.length} 个分类 · {stats.totalDocs} 篇文档 · {stats.totalConcepts} 个概念</span>
+        <span>{tree.length} Categories · {stats.totalDocs} Documents · {stats.totalConcepts} Concepts</span>
       </div>
       {tree.map(({ cat, docs, totalConcepts, totalQuizzes }) => (
         <TreeNode
@@ -129,7 +129,7 @@ export function KnowledgeTree() {
           label={cat.label}
           icon={<FolderOpen size={15} />}
           color="var(--accent-blue)"
-          count={`${docs.length} 文档 / ${totalConcepts} 概念 / ${totalQuizzes} 测试`}
+          count={`${docs.length} Docs / ${totalConcepts} Concepts / ${totalQuizzes} Quizzes`}
           defaultOpen={true}
         >
           {docs
@@ -139,8 +139,8 @@ export function KnowledgeTree() {
               const concepts = conceptsByDoc.get(doc.id) ?? []
               const quizCount = quizCountByDoc.get(doc.id) ?? 0
               const countParts: string[] = []
-              if (concepts.length > 0) countParts.push(`${concepts.length} 概念`)
-              if (quizCount > 0) countParts.push(`${quizCount} 测试`)
+              if (concepts.length > 0) countParts.push(`${concepts.length} Concepts`)
+              if (quizCount > 0) countParts.push(`${quizCount} Quizzes`)
               return (
                 <TreeNode
                   key={doc.id}

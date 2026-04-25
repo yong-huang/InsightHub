@@ -14,7 +14,7 @@ export function QuizScoreTrend({ attempts, documents, source }: Props) {
   const data = buildQuizScoreTrend(attempts, documents, source)
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无测验记录</div>
+    return <div className="stats-empty">No quiz records</div>
   }
 
   return (
@@ -47,7 +47,7 @@ export function QuizScoreTrend({ attempts, documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={(value: number) => [`${value.toFixed(1)} 分`, '平均分']}
+            formatter={(value: number) => [`${value.toFixed(1)} pts`, 'Average Score']}
             labelFormatter={(label: string) => label}
           />
           <Line

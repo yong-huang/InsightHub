@@ -15,25 +15,25 @@ export function AnnotationStats({ annotations, documents, source }: Props) {
       <div className="stats-annotation-overview">
         <div className="stats-annotation-item">
           <div className="stats-annotation-value">{stats.total}</div>
-          <div className="stats-annotation-label">批注总数</div>
+          <div className="stats-annotation-label">Total Annotations</div>
         </div>
         <div className="stats-annotation-item">
           <div className="stats-annotation-value">{stats.highlightCount}</div>
-          <div className="stats-annotation-label">高亮</div>
+          <div className="stats-annotation-label">Highlights</div>
         </div>
         <div className="stats-annotation-item">
           <div className="stats-annotation-value">{stats.commentCount}</div>
-          <div className="stats-annotation-label">评论</div>
+          <div className="stats-annotation-label">Comments</div>
         </div>
         <div className="stats-annotation-item">
           <div className="stats-annotation-value">{stats.docsWithAnnotations}</div>
-          <div className="stats-annotation-label">涉及文档</div>
+          <div className="stats-annotation-label">Documents</div>
         </div>
       </div>
 
       {stats.colorDistribution.length > 0 && (
         <div className="stats-color-dist">
-          <div className="stats-color-dist-title">颜色分布</div>
+          <div className="stats-color-dist-title">Color Distribution</div>
           <div className="stats-color-dist-bars">
             {stats.colorDistribution.map(({ color, count }) => {
               const pct = stats.total > 0 ? (count / stats.total) * 100 : 0

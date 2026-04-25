@@ -27,12 +27,12 @@ export function AnnotationPanel({ annotations, titleLookup, onScrollTo, onRemove
     return (
       <div className="annotation-panel">
         <div className="annotation-panel-header">
-          <h3>笔记</h3>
+          <h3>Notes</h3>
         </div>
         <div className="annotation-panel-empty">
           <Highlighter size={32} />
-          <p>暂无高亮和批注</p>
-          <p className="annotation-panel-empty-hint">选中文本后可添加高亮或批注</p>
+          <p>No highlights or comments yet</p>
+          <p className="annotation-panel-empty-hint">Select text to add highlights or comments</p>
         </div>
       </div>
     )
@@ -41,19 +41,19 @@ export function AnnotationPanel({ annotations, titleLookup, onScrollTo, onRemove
   return (
     <div className="annotation-panel">
       <div className="annotation-panel-header">
-        <h3>笔记</h3>
+        <h3>Notes</h3>
         <span className="annotation-panel-count">{annotations.length}</span>
       </div>
       {staleCount > 0 && (
         <div className="annotation-panel-stale-bar">
           <AlertTriangle size={14} />
-          <span>{staleCount} 条批注位置失效</span>
+          <span>{staleCount} annotations with stale positions</span>
           {onRemoveStale && (
             <button
               className="annotation-panel-stale-clear"
               onClick={() => onRemoveStale([...staleAnnotationIds!])}
             >
-              清除失效批注
+              Clear stale annotations
             </button>
           )}
         </div>
@@ -133,16 +133,16 @@ function AnnotationItem({
         />
         <span className="annotation-panel-item-type">
           {ann.type === 'comment' ? (
-            <><MessageSquare size={12} /> 批注</>
+            <><MessageSquare size={12} /> Comment</>
           ) : (
-            <><Highlighter size={12} /> 高亮</>
+            <><Highlighter size={12} /> Highlight</>
           )}
         </span>
         <span className="annotation-panel-item-time">
           {formatTime(ann.createdAt)}
         </span>
         {isStale && (
-          <span className="annotation-panel-item-stale-badge">位置失效</span>
+          <span className="annotation-panel-item-stale-badge">Position stale</span>
         )}
       </div>
       <p className="annotation-panel-item-text">
@@ -167,14 +167,14 @@ function AnnotationItem({
             <button
               className="btn btn-ghost btn-sm"
               onClick={handleSaveEdit}
-              title="保存"
+              title="Save"
             >
               <Check size={12} />
             </button>
             <button
               className="btn btn-ghost btn-sm"
               onClick={handleCancelEdit}
-              title="取消"
+              title="Cancel"
             >
               <X size={12} />
             </button>
@@ -199,7 +199,7 @@ function AnnotationItem({
           <textarea
             value={replyText}
             onChange={e => setReplyText(e.target.value)}
-            placeholder="添加回复..."
+            placeholder="Add a reply..."
             rows={2}
             autoFocus
           />
@@ -209,7 +209,7 @@ function AnnotationItem({
               onClick={handleAddReply}
               disabled={!replyText.trim()}
             >
-              <Check size={12} /> 发送
+              <Check size={12} /> Send
             </button>
             <button
               className="btn btn-ghost btn-sm"
@@ -226,7 +226,7 @@ function AnnotationItem({
           <button
             className="annotation-panel-item-action"
             onClick={() => setEditing(true)}
-            title="编辑"
+            title="Edit"
           >
             <Pencil size={12} />
           </button>
@@ -235,7 +235,7 @@ function AnnotationItem({
           <button
             className="annotation-panel-item-action"
             onClick={() => setShowReplyInput(true)}
-            title="回复"
+            title="Reply"
           >
             <Reply size={12} />
           </button>
@@ -243,7 +243,7 @@ function AnnotationItem({
         <button
           className="annotation-panel-item-delete"
           onClick={() => onRemove(ann.id)}
-          title="删除"
+          title="Delete"
         >
           <Trash2 size={12} />
         </button>

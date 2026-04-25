@@ -59,7 +59,7 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
             className="annotation-color-btn"
             style={{ backgroundColor: color }}
             onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onHighlight(color) }}
-            title="高亮"
+            title="Highlight"
           />
         ))}
       </div>
@@ -67,7 +67,7 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
       <button
         className="annotation-bar-comment-btn"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onComment() }}
-        title="添加批注"
+        title="Add Comment"
       >
         <MessageSquare size={14} />
       </button>
@@ -75,21 +75,21 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
       <button
         className="annotation-bar-comment-btn"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onExplain() }}
-        title="AI 解释"
+        title="AI Explain"
       >
         <Lightbulb size={14} />
       </button>
       <button
         className="annotation-bar-comment-btn"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onTranslate() }}
-        title="AI 翻译"
+        title="AI Translate"
       >
         <Languages size={14} />
       </button>
       <button
         className="annotation-bar-comment-btn"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onAskAI() }}
-        title="AI 提问"
+        title="AI Ask"
       >
         <MessageCircle size={14} />
       </button>
@@ -99,7 +99,7 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
           <button
             className="annotation-bar-comment-btn annotation-bar-remove-btn"
             onMouseDown={handleRemove}
-            title="取消高亮"
+            title="Remove Highlight"
           >
             <Eraser size={14} />
           </button>

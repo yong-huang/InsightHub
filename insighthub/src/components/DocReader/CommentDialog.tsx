@@ -21,17 +21,17 @@ export function CommentDialog({ selectedText, onSave, onCancel }: CommentDialogP
     <div className="comment-dialog-overlay" onMouseDown={e => e.stopPropagation()}>
       <div className="comment-dialog">
         <div className="comment-dialog-header">
-          <h3>添加批注</h3>
+          <h3>Add Comment</h3>
           <button className="btn btn-ghost btn-sm" onClick={onCancel}>
             <X size={16} />
           </button>
         </div>
         <div className="comment-dialog-selected">
-          <span className="comment-dialog-label">选中文本</span>
+          <span className="comment-dialog-label">Selected Text</span>
           <p className="comment-dialog-text">{selectedText.length > 150 ? selectedText.slice(0, 150) + '...' : selectedText}</p>
         </div>
         <div className="comment-dialog-colors">
-          <span className="comment-dialog-label">颜色</span>
+          <span className="comment-dialog-label">Color</span>
           <div className="comment-dialog-color-row">
             {HIGHLIGHT_COLORS.map(c => (
               <button
@@ -45,7 +45,7 @@ export function CommentDialog({ selectedText, onSave, onCancel }: CommentDialogP
         </div>
         <textarea
           className="comment-dialog-input"
-          placeholder="写下你的批注..."
+          placeholder="Write your comment..."
           value={comment}
           onChange={e => setComment(e.target.value)}
           autoFocus
@@ -55,13 +55,13 @@ export function CommentDialog({ selectedText, onSave, onCancel }: CommentDialogP
           }}
         />
         <div className="comment-dialog-actions">
-          <button className="btn btn-secondary btn-sm" onClick={onCancel}>取消</button>
+          <button className="btn btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
           <button
             className="btn btn-primary btn-sm"
             onClick={handleSave}
             disabled={!comment.trim()}
           >
-            保存批注
+            Save Comment
           </button>
         </div>
       </div>

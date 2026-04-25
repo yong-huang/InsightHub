@@ -20,14 +20,14 @@ export async function extractConcepts(
   const messages = [
     {
       role: 'system' as const,
-      content: `你是一个知识提取助手。从文档中提取最多 ${maxCount} 个核心概念，每个概念包括名称、定义、示例、相关概念。
-只返回 JSON，不要其他文字。
-格式：
-{"concepts":[{"conceptName":"概念名","definition":"定义","examples":["示例1"],"relatedConcepts":["相关概念1"],"sourceSection":"所在章节"}]}`,
+      content: `You are a knowledge extraction assistant. Extract up to ${maxCount} core concepts from the document. Each concept should include a name, definition, examples, and related concepts.
+Return only JSON, no other text.
+Format:
+{"concepts":[{"conceptName":"Concept Name","definition":"Definition","examples":["Example 1"],"relatedConcepts":["Related Concept 1"],"sourceSection":"Source Section"}]}`,
     },
     {
       role: 'user' as const,
-      content: `标题：${docTitle}\n\n文档内容：\n${truncatedContent}`,
+      content: `Title: ${docTitle}\n\nDocument content:\n${truncatedContent}`,
     },
   ]
 

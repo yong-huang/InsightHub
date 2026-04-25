@@ -23,8 +23,8 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
   return (
     <div className="summary-panel">
       <div className="summary-panel-header">
-        <h3>AI 评估</h3>
-        <button className="summary-panel-close" onClick={onClose} title="关闭">
+        <h3>AI Evaluation</h3>
+        <button className="summary-panel-close" onClick={onClose} title="Close">
           <X size={16} />
         </button>
       </div>
@@ -32,7 +32,7 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
       {isGenerating && (
         <div className="summary-panel-progress">
           <Loader2 size={14} className="spin" />
-          <span>正在评估文档...</span>
+          <span>Evaluating document...</span>
         </div>
       )}
 
@@ -40,10 +40,10 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
         {!resultText && !isGenerating && !error && (
           <div className="summary-panel-empty">
             <ShieldCheck size={32} />
-            <p>AI 评估</p>
-            <p className="summary-panel-empty-hint">基于文档内容进行准确度评估，指出潜在问题</p>
+            <p>AI Evaluation</p>
+            <p className="summary-panel-empty-hint">Evaluate accuracy based on document content and identify potential issues</p>
             <button className="btn btn-primary btn-sm" onClick={onGenerate}>
-              开始评估
+              Start Evaluation
             </button>
           </div>
         )}
@@ -52,7 +52,7 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
           <div className="summary-panel-error">
             <p>{error}</p>
             <button className="btn btn-secondary btn-sm" onClick={onGenerate}>
-              <RefreshCw size={14} /> 重试
+              <RefreshCw size={14} /> Retry
             </button>
           </div>
         )}
@@ -73,7 +73,7 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
       {!isGenerating && resultText && !error && (
         <div className="summary-panel-footer">
           <button className="btn btn-secondary btn-sm" onClick={onGenerate}>
-            <RefreshCw size={14} /> 重新评估
+            <RefreshCw size={14} /> Re-evaluate
           </button>
         </div>
       )}

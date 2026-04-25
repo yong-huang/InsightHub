@@ -20,7 +20,7 @@ export function CategoryCompletion({ documents, source }: Props) {
   const data = buildCategoryCompletion(documents, source)
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无分类数据</div>
+    return <div className="stats-empty">No category data</div>
   }
 
   const total = data.reduce((s, d) => s + d.total, 0)
@@ -55,14 +55,14 @@ export function CategoryCompletion({ documents, source }: Props) {
               }}
               formatter={(value: number, name: string) => {
                 const item = data.find(d => d.name === name)
-                return [`${value} 篇 (已读 ${item?.read || 0})`, name]
+                return [`${value} docs (read ${item?.read || 0})`, name]
               }}
             />
           </PieChart>
         </ResponsiveContainer>
         <div className="stats-pie-center">
           <div className="stats-pie-center-value">{total}</div>
-          <div className="stats-pie-center-label">文档总数</div>
+          <div className="stats-pie-center-label">Total Documents</div>
         </div>
       </div>
       <div className="stats-pie-legend">

@@ -120,7 +120,7 @@ export function ChatPanel({
 
     let finalUserText = userText
     if (withSelected) {
-      finalUserText = `关于以下选中文本：\n「${withSelected}」\n\n用户问题：${userText}`
+      finalUserText = `Regarding the following selected text:\n"${withSelected}"\n\nUser question: ${userText}`
     }
 
     const docCtx = getDocContent()
@@ -160,7 +160,7 @@ export function ChatPanel({
       const errorMsg: ChatMessage = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
-        content: `*错误：${result.error || '生成失败'}*`,
+        content: `*Error: ${result.error || 'Generation failed'}*`,
         timestamp: Date.now(),
       }
       setMessages(prev => [...prev, errorMsg])
@@ -277,14 +277,14 @@ export function ChatPanel({
   return (
     <div className="chat-panel">
       <div className="chat-panel-header">
-        <h3>AI 问答</h3>
+        <h3>AI Chat</h3>
         <div className="chat-panel-header-actions">
           {messages.length > 0 && (
-            <button className="chat-panel-action-btn" onClick={handleClear} title="清空聊天">
+            <button className="chat-panel-action-btn" onClick={handleClear} title="Clear chat">
               <Trash2 size={14} />
             </button>
           )}
-          <button className="chat-panel-action-btn" onClick={onClose} title="关闭">
+          <button className="chat-panel-action-btn" onClick={onClose} title="Close">
             <X size={16} />
           </button>
         </div>
@@ -293,7 +293,7 @@ export function ChatPanel({
       <div className="chat-panel-messages" ref={messagesRef}>
         {messages.length === 0 && !isStreaming && (
           <div className="chat-panel-empty">
-            <p>向 AI 提问关于本文档的内容</p>
+            <p>Ask AI about this document</p>
             <p className="chat-panel-empty-hint">{documentTitle}</p>
           </div>
         )}
@@ -314,10 +314,10 @@ export function ChatPanel({
                     rows={2}
                   />
                   <div className="chat-panel-msg-edit-actions">
-                    <button className="chat-panel-msg-action-btn" onClick={handleCancelEdit} title="取消">
+                    <button className="chat-panel-msg-action-btn" onClick={handleCancelEdit} title="Cancel">
                       <X size={13} />
                     </button>
-                    <button className="chat-panel-msg-action-btn chat-panel-msg-action-save" onClick={handleSaveEdit} title="保存并重新生成">
+                    <button className="chat-panel-msg-action-btn chat-panel-msg-action-save" onClick={handleSaveEdit} title="Save and regenerate">
                       <Check size={13} />
                     </button>
                   </div>
@@ -338,10 +338,10 @@ export function ChatPanel({
             {/* Hover actions for user messages (not editing, not streaming) */}
             {msg.role === 'user' && editingMsgId !== msg.id && !isStreaming && (
               <div className="chat-panel-msg-actions">
-                <button className="chat-panel-msg-action-btn" onClick={() => handleStartEdit(msg)} title="编辑">
+                <button className="chat-panel-msg-action-btn" onClick={() => handleStartEdit(msg)} title="Edit">
                   <Pencil size={12} />
                 </button>
-                <button className="chat-panel-msg-action-btn" onClick={() => handleDelete(msg.id)} title="删除">
+                <button className="chat-panel-msg-action-btn" onClick={() => handleDelete(msg.id)} title="Delete">
                   <Trash2 size={12} />
                 </button>
               </div>
@@ -384,12 +384,12 @@ export function ChatPanel({
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={activeSelectedText ? '针对选中文本提问...' : '输入问题...'}
+            placeholder={activeSelectedText ? 'Ask about selected text...' : 'Type a question...'}
             disabled={isStreaming}
             rows={1}
           />
           {isStreaming ? (
-            <button className="chat-panel-send-btn chat-panel-stop-btn" onClick={handleStop} title="停止生成">
+            <button className="chat-panel-send-btn chat-panel-stop-btn" onClick={handleStop} title="Stop generating">
               <Square size={14} />
             </button>
           ) : (

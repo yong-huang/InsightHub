@@ -278,7 +278,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   }, [navigate])
 
   if (graphData.nodes.length === 0) {
-    return <div className="stats-empty">暂无图数据，请先阅读一些文档</div>
+    return <div className="stats-empty">No graph data yet. Read some documents first.</div>
   }
 
   return (
@@ -410,16 +410,16 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         )}
         <div className="kg-legend-item">
           <span className="kg-legend-dot" style={{ background: '#fbbf24' }} />
-          <span>分类</span>
+          <span>Category</span>
         </div>
         <div className="kg-legend-item">
           <span className="kg-legend-dot" style={{ background: '#a78bfa', width: '8px', height: '8px', borderRadius: '50%' }} />
-          <span>标签</span>
+          <span>Tag</span>
         </div>
         {externalOptions?.showDocuments !== false && (
           <div className="kg-legend-item">
             <span className="kg-legend-dot" style={{ background: 'rgba(50,108,229,0.6)', width: '6px', height: '6px', borderRadius: '50%' }} />
-            <span>文档</span>
+            <span>Document</span>
           </div>
         )}
       </div>
@@ -436,7 +436,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         >
           <strong>{tooltip.node.label}</strong>
           <br />
-          <span style={{ opacity: 0.7 }}>{tooltip.node.type === 'source' ? '来源' : tooltip.node.type === 'category' ? '分类' : tooltip.node.type === 'tag' ? '标签' : '文档'}</span>
+          <span style={{ opacity: 0.7 }}>{tooltip.node.type === 'source' ? 'Source' : tooltip.node.type === 'category' ? 'Category' : tooltip.node.type === 'tag' ? 'Tag' : 'Document'}</span>
         </div>
       )}
     </div>

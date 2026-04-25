@@ -9,7 +9,7 @@ export function TagCloud({ data }: Props) {
   const navigate = useNavigate()
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无标签数据</div>
+    return <div className="stats-empty">No tag data</div>
   }
 
   const maxCount = Math.max(1, ...data.map(d => d.count))

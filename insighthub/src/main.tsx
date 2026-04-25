@@ -8,7 +8,6 @@ import './styles/layout.css'
 import './styles/doc-reader.css'
 import './styles/stats.css'
 import './styles/visualizations.css'
-import './styles/presentation.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

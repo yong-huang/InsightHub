@@ -160,7 +160,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
       }
     } catch (e: any) {
-      set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: e.message || '生成失败' } }))
+      set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: e.message || 'Generation failed' } }))
     } finally {
       set(s => {
         const ids = new Set(s.generatingDocIds)

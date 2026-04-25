@@ -1,21 +1,29 @@
 import { create } from 'zustand'
 import { storageService } from '@/services/storageService'
-import type { UserPreferences, Difficulty, Source } from '@/types'
+import type { UserPreferences, Difficulty, Source, WorkspaceConfig } from '@/types'
 
 interface PreferenceState extends UserPreferences {
+  workspaces: WorkspaceConfig[]
   setTheme: (theme: 'light' | 'dark') => void
   toggleTheme: () => void
   setQuizDifficulty: (d: Difficulty) => void
   setQuizQuestionCount: (n: number) => void
   setConceptMaxCount: (n: number) => void
-  setEnablePresentation: (v: boolean) => void
   setSidebarCollapsed: (c: boolean) => void
   toggleSidebar: () => void
   setAiApiUrl: (url: string) => void
   setAiModel: (model: string) => void
   setAiApiKey: (key: string) => void
   setWorkspace: (ws: Source) => void
+  addWorkspace: (ws: WorkspaceConfig) => void
+  updateWorkspace: (ws: WorkspaceConfig) => void
+  removeWorkspace: (id: string) => void
   loadQuizSettingsFromServer: () => Promise<void>
+}
+
+function savePrefs(partial: Record<string, any>) {
+  const prefs = storageService.getPreferences()
+  storageService.setPreferences({ ...prefs, ...partial })
 }
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
@@ -28,12 +36,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   aiApiKey: storageService.getPreferences().aiApiKey,
   activeWorkspace: storageService.getPreferences().activeWorkspace,
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
-  enablePresentation: storageService.getPreferences().enablePresentation,
+  workspaces: storageService.getPreferences().workspaces,
 
   setTheme: (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, theme })
+    savePrefs({ theme })
     set({ theme })
   },
 
@@ -43,32 +50,22 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   },
 
   setQuizDifficulty: (quizDifficulty) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, quizDifficulty })
+    savePrefs({ quizDifficulty })
     set({ quizDifficulty })
   },
 
   setQuizQuestionCount: (quizQuestionCount) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, quizQuestionCount })
+    savePrefs({ quizQuestionCount })
     set({ quizQuestionCount })
   },
 
   setConceptMaxCount: (conceptMaxCount) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, conceptMaxCount })
+    savePrefs({ conceptMaxCount })
     set({ conceptMaxCount })
   },
 
-  setEnablePresentation: (enablePresentation) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, enablePresentation })
-    set({ enablePresentation })
-  },
-
   setSidebarCollapsed: (sidebarCollapsed) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, sidebarCollapsed })
+    savePrefs({ sidebarCollapsed })
     set({ sidebarCollapsed })
   },
 
@@ -77,27 +74,41 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   },
 
   setAiApiUrl: (aiApiUrl) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, aiApiUrl })
+    savePrefs({ aiApiUrl })
     set({ aiApiUrl })
   },
 
   setAiModel: (aiModel) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, aiModel })
+    savePrefs({ aiModel })
     set({ aiModel })
   },
 
   setAiApiKey: (aiApiKey) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, aiApiKey })
+    savePrefs({ aiApiKey })
     set({ aiApiKey })
   },
 
   setWorkspace: (activeWorkspace) => {
-    const prefs = storageService.getPreferences()
-    storageService.setPreferences({ ...prefs, activeWorkspace })
+    savePrefs({ activeWorkspace })
     set({ activeWorkspace })
+  },
+
+  addWorkspace: (ws) => {
+    const workspaces = [...get().workspaces, ws]
+    savePrefs({ workspaces })
+    set({ workspaces })
+  },
+
+  updateWorkspace: (ws) => {
+    const workspaces = get().workspaces.map(w => w.id === ws.id ? ws : w)
+    savePrefs({ workspaces })
+    set({ workspaces })
+  },
+
+  removeWorkspace: (id) => {
+    const workspaces = get().workspaces.filter(w => w.id !== id)
+    savePrefs({ workspaces })
+    set({ workspaces })
   },
 
   loadQuizSettingsFromServer: async () => {
@@ -105,13 +116,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
       const res = await fetch('/api/ai/config')
       const cfg = await res.json()
       if (cfg.quizDifficulty) {
-        const prefs = storageService.getPreferences()
-        storageService.setPreferences({ ...prefs, quizDifficulty: cfg.quizDifficulty })
+        savePrefs({ quizDifficulty: cfg.quizDifficulty })
         set({ quizDifficulty: cfg.quizDifficulty })
       }
       if (cfg.quizQuestionCount) {
-        const prefs = storageService.getPreferences()
-        storageService.setPreferences({ ...prefs, quizQuestionCount: cfg.quizQuestionCount })
+        savePrefs({ quizQuestionCount: cfg.quizQuestionCount })
         set({ quizQuestionCount: cfg.quizQuestionCount })
       }
     } catch {}

@@ -1,5 +1,11 @@
 const PREFIX = 'insighthub:'
 
+export const DEFAULT_WORKSPACES: import('./types').WorkspaceConfig[] = [
+  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../MindInsight', prefix: 'mi' },
+  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../TechInsight', prefix: 'ti' },
+  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../LeetcodeInsight', prefix: 'li' },
+]
+
 export const storageKeys = {
   PREFERENCES: `${PREFIX}preferences`,
   DOCUMENT_META: `${PREFIX}document-meta`,
@@ -16,7 +22,6 @@ export const storageKeys = {
   FLASHCARDS: `${PREFIX}flashcards`,
   CHAT_HISTORY: `${PREFIX}chat-history`,
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
-  PRESENTATIONS: `${PREFIX}presentations`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -69,9 +74,9 @@ export const storageService = {
       aiApiUrl: 'http://127.0.0.1:7001/v1',
       aiModel: 'default',
       aiApiKey: '',
-      activeWorkspace: 'mindinsight' as const,
+      activeWorkspace: 'mindinsight',
       conceptMaxCount: 10,
-      enablePresentation: false,
+      workspaces: DEFAULT_WORKSPACES,
       ...stored,
     }
   },
@@ -238,10 +243,5 @@ export const storageService = {
   getConceptCards: () => getItem<any[]>(storageKeys.CONCEPT_CARDS, []),
 
   setConceptCards: (cards: any[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
-
-  // Presentations
-  getPresentations: () => getItem<any[]>(storageKeys.PRESENTATIONS, []),
-
-  setPresentations: (presentations: any[]) => setItem(storageKeys.PRESENTATIONS, presentations),
 
 }

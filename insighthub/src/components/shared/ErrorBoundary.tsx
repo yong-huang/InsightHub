@@ -28,14 +28,14 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="empty-state">
           <AlertTriangle size={48} />
-          <h3>出错了</h3>
-          <p>{this.state.error?.message || '页面加载失败'}</p>
+          <h3>Something went wrong</h3>
+          <p>{this.state.error?.message || 'Page failed to load'}</p>
           <button
             className="btn btn-secondary btn-sm"
             style={{ marginTop: '1rem' }}
             onClick={() => this.setState({ hasError: false })}
           >
-            重试
+            Retry
           </button>
         </div>
       )

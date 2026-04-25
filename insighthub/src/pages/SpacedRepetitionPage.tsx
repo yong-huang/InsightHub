@@ -19,12 +19,12 @@ const WORKSPACE_PREFIX: Record<string, string> = {
 type ViewMode = 'review' | 'list'
 
 const GRADES = [
-  { grade: 0, label: '忘了', color: '#ef4444' },
-  { grade: 1, label: '困难', color: '#f97316' },
-  { grade: 2, label: '吃力', color: '#eab308' },
-  { grade: 3, label: '犹豫', color: '#22c55e' },
-  { grade: 4, label: '容易', color: '#10b981' },
-  { grade: 5, label: '简单', color: '#14b8a6' },
+  { grade: 0, label: 'Forgot', color: '#ef4444' },
+  { grade: 1, label: 'Hard', color: '#f97316' },
+  { grade: 2, label: 'Difficult', color: '#eab308' },
+  { grade: 3, label: 'Hesitant', color: '#22c55e' },
+  { grade: 4, label: 'Easy', color: '#10b981' },
+  { grade: 5, label: 'Simple', color: '#14b8a6' },
 ] as const
 
 export function SpacedRepetitionPage() {
@@ -34,6 +34,9 @@ export function SpacedRepetitionPage() {
   const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+
+  // Show guide prompt when accessed without docId
+  const showGuide = !filterDocId
 
   const workspaceCards = useMemo(() =>
     cards.filter(c => {
@@ -181,22 +184,39 @@ export function SpacedRepetitionPage() {
   const sessionCorrect = sessionResults.filter(r => r.grade >= 3).length
   const sessionTotal = sessionResults.length
 
+  // Guide prompt when accessed directly without docId
+  if (showGuide) {
+    return (
+      <div className="empty-state">
+        <Lightbulb size={48} />
+        <h3>Concept Card Review</h3>
+        <p>Please enter from the concept button on the document page to review concept cards.</p>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+          Open any document and click the "Concepts" button in the toolbar to start reviewing.
+        </p>
+        <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate(-1)}>
+          <ArrowLeft size={18} /> Back
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="spaced-repetition-page">
       <div className="viz-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
           <h1 className="viz-page-title">
             {filterDocId ? (
               <>
-                概念卡片
+                Concept Cards
                 <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '0.5rem', fontWeight: 400 }}>
-                  — {documents.get(filterDocId)?.title || '未知文档'}
+                  — {documents.get(filterDocId)?.title || 'Unknown Document'}
                 </span>
               </>
-            ) : '概念卡片'}
+            ) : 'Concept Cards'}
           </h1>
           <div className="page-header-actions">
             <button
@@ -204,18 +224,18 @@ export function SpacedRepetitionPage() {
               onClick={() => setViewMode('review')}
             >
               <RotateCcw size={16} />
-              复习模式
+              Review Mode
             </button>
             <button
               className={`sr-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
               onClick={() => setViewMode('list')}
             >
               <Lightbulb size={16} />
-              全部卡片
+              All Cards
             </button>
           </div>
         </div>
-        <p className="viz-page-desc">通过间隔复习巩固 AI 从文档中提取的核心概念</p>
+        <p className="viz-page-desc">Reinforce core concepts extracted by AI from documents through spaced repetition</p>
       </div>
 
       <div className="sr-stats-bar">
@@ -225,7 +245,7 @@ export function SpacedRepetitionPage() {
           </div>
           <div className="sr-stat-info">
             <span className="sr-stat-value">{stats.due}</span>
-            <span className="sr-stat-label">待复习</span>
+            <span className="sr-stat-label">Due for Review</span>
           </div>
         </div>
         <div className="sr-stat">
@@ -234,7 +254,7 @@ export function SpacedRepetitionPage() {
           </div>
           <div className="sr-stat-info">
             <span className="sr-stat-value">{stats.new}</span>
-            <span className="sr-stat-label">新卡片</span>
+            <span className="sr-stat-label">New Cards</span>
           </div>
         </div>
         <div className="sr-stat">
@@ -243,7 +263,7 @@ export function SpacedRepetitionPage() {
           </div>
           <div className="sr-stat-info">
             <span className="sr-stat-value">{stats.learning}</span>
-            <span className="sr-stat-label">学习中</span>
+            <span className="sr-stat-label">Learning</span>
           </div>
         </div>
         <div className="sr-stat">
@@ -252,7 +272,7 @@ export function SpacedRepetitionPage() {
           </div>
           <div className="sr-stat-info">
             <span className="sr-stat-value">{stats.mastered}</span>
-            <span className="sr-stat-label">已掌握</span>
+            <span className="sr-stat-label">Mastered</span>
           </div>
         </div>
       </div>
@@ -264,13 +284,13 @@ export function SpacedRepetitionPage() {
             <input
               type="text"
               className="search-dialog-input"
-              placeholder="搜索概念卡片..."
+              placeholder="Search concept cards..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           {viewMode === 'list' && filteredCards.length > PAGE_SIZE && (
-            <span className="sr-search-count">{filteredCards.length} 张卡片</span>
+            <span className="sr-search-count">{filteredCards.length} cards</span>
           )}
         </div>
       )}
@@ -283,7 +303,7 @@ export function SpacedRepetitionPage() {
               style={{ width: `${Math.round((sessionCorrect / sessionTotal) * 100)}%` }}
             />
           </div>
-          <span className="sr-progress-text">{sessionCorrect}/{sessionTotal} 正确</span>
+          <span className="sr-progress-text">{sessionCorrect}/{sessionTotal} Correct</span>
         </div>
       )}
 
@@ -293,30 +313,30 @@ export function SpacedRepetitionPage() {
   )
 
   function renderReviewMode() {
-    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">加载中...</div></div>
+    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">Loading...</div></div>
 
     if (sessionDone) {
       const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
       return (
         <div className="sr-summary">
           <CheckCircle2 size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-          <h2>复习完成!</h2>
+          <h2>Review Complete!</h2>
           <div className="sr-summary-stats">
             <div className="sr-summary-stat">
               <span className="sr-summary-value">{sessionTotal}</span>
-              <span className="sr-summary-label">本次复习</span>
+              <span className="sr-summary-label">This Session</span>
             </div>
             <div className="sr-summary-stat">
               <span className="sr-summary-value">{sessionCorrect}</span>
-              <span className="sr-summary-label">正确</span>
+              <span className="sr-summary-label">Correct</span>
             </div>
             <div className="sr-summary-stat">
               <span className="sr-summary-value">{accuracy}%</span>
-              <span className="sr-summary-label">正确率</span>
+              <span className="sr-summary-label">Accuracy</span>
             </div>
           </div>
           <button className="sr-start-btn" onClick={startNewSession}>
-            {stats.due > 0 ? '继续复习' : '没有更多待复习卡片'}
+            {stats.due > 0 ? 'Continue Review' : 'No more cards to review'}
           </button>
         </div>
       )
@@ -326,13 +346,13 @@ export function SpacedRepetitionPage() {
       return (
         <div className="sr-summary">
           <CheckCircle2 size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-          <h2>暂无待复习卡片</h2>
+          <h2>No Cards Due for Review</h2>
           <p className="sr-summary-desc">
             {stats.total === 0
-              ? '在文档阅读页点击"概念"按钮提取概念卡片后，即可开始间隔复习。'
-              : '所有卡片都已复习完毕，稍后再来看看吧。'}
+              ? 'Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.'
+              : 'All cards have been reviewed. Check back later.'}
           </p>
-          <button className="sr-start-btn" onClick={startNewSession}>刷新</button>
+          <button className="sr-start-btn" onClick={startNewSession}>Refresh</button>
         </div>
       )
     }
@@ -351,7 +371,7 @@ export function SpacedRepetitionPage() {
                 {getDocTitle(currentCard?.sourceDocId)}
               </div>
               <div className="sr-card-text">{currentCard?.conceptName}</div>
-              <div className="sr-card-hint">点击翻转</div>
+              <div className="sr-card-hint">Click to flip</div>
             </div>
             <div className="sr-card-back">
               <div className="sr-card-back-header">
@@ -370,7 +390,7 @@ export function SpacedRepetitionPage() {
               )}
               {currentCard?.relatedConcepts && currentCard.relatedConcepts.length > 0 && (
                 <div className="sr-card-label">
-                  相关: {currentCard.relatedConcepts.join('、')}
+                  Related: {currentCard.relatedConcepts.join(', ')}
                 </div>
               )}
             </div>
@@ -396,7 +416,7 @@ export function SpacedRepetitionPage() {
         {!flipped && (
           <div className="sr-actions">
             <button className="sr-skip-btn" onClick={handleSkip}>
-              跳过 (S)
+              Skip (S)
             </button>
           </div>
         )}
@@ -405,13 +425,13 @@ export function SpacedRepetitionPage() {
   }
 
   function renderListMode() {
-    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">加载中...</div></div>
+    if (!isLoaded) return <div className="loading-screen"><div className="loading-text">Loading...</div></div>
     if (workspaceCards.length === 0) {
       return (
         <div className="sr-summary">
           <Lightbulb size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
-          <h2>暂无概念卡片</h2>
-          <p className="sr-summary-desc">在文档阅读页点击"概念"按钮提取概念卡片后，即可开始间隔复习。</p>
+          <h2>No Concept Cards</h2>
+          <p className="sr-summary-desc">Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.</p>
         </div>
       )
     }
@@ -420,8 +440,8 @@ export function SpacedRepetitionPage() {
       return (
         <div className="sr-summary">
           <Search size={48} style={{ color: 'var(--text-dim)', marginBottom: '1rem' }} />
-          <h2>无匹配结果</h2>
-          <p className="sr-summary-desc">没有找到与"{searchQuery}"匹配的概念卡片</p>
+          <h2>No Matching Results</h2>
+          <p className="sr-summary-desc">No concept cards matching "{searchQuery}"</p>
         </div>
       )
     }
@@ -445,7 +465,7 @@ export function SpacedRepetitionPage() {
             <div className="sr-list-section">
               <h3 className="sr-list-title">
                 <Clock size={16} />
-                待复习 ({dueList.length})
+                Due ({dueList.length})
               </h3>
               {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
             </div>
@@ -454,7 +474,7 @@ export function SpacedRepetitionPage() {
             <div className="sr-list-section">
               <h3 className="sr-list-title">
                 <CheckCircle2 size={16} />
-                熟悉 ({familiarList.length})
+                Familiar ({familiarList.length})
               </h3>
               {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
             </div>
@@ -486,19 +506,19 @@ export function SpacedRepetitionPage() {
   function getDocTitle(docId?: string): string {
     if (!docId) return ''
     const doc = documents.get(docId)
-    return doc?.title || '未知文档'
+    return doc?.title || 'Unknown Document'
   }
 }
 
 const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const documents = useDocumentStore(s => s.documents)
-  const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || '未知文档') : '未知文档'
+  const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || 'Unknown Document') : 'Unknown Document'
 
   const now = Date.now()
   const isDue = card.nextReview <= now
   const status = card.lastReview === 0 ? 'new' : card.interval >= 21 ? 'mastered' : card.interval >= 1 ? 'learning' : 'due'
-  const statusLabel = status === 'new' ? '新卡片' : status === 'mastered' ? '已掌握' : status === 'learning' ? `${card.interval}天后` : '待复习'
+  const statusLabel = status === 'new' ? 'New' : status === 'mastered' ? 'Mastered' : status === 'learning' ? `${card.interval}d` : 'Due'
   const statusColor = status === 'new' ? '#22c55e' : status === 'mastered' ? '#a855f7' : status === 'learning' ? '#3b82f6' : '#ef4444'
 
   return (
@@ -520,10 +540,10 @@ const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard;
       <div className="sr-list-item-actions">
         {confirmDelete ? (
           <button className="sr-list-confirm-delete" onClick={() => onRemove(card.id)}>
-            确认删除
+            Confirm Delete
           </button>
         ) : (
-          <button className="sr-list-delete-btn" onClick={() => setConfirmDelete(true)} title="删除卡片">
+          <button className="sr-list-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete card">
             <Trash2 size={14} />
           </button>
         )}

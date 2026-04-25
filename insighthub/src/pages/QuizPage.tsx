@@ -34,7 +34,7 @@ export function QuizPage() {
       // Already loaded
     } else {
       // No saved quiz found
-      setError('未找到测验，请先在文档页面生成测验')
+      setError('Quiz not found. Please generate a quiz from the document page first.')
     }
   }, [docId, quizId, savedQuizzes])
 
@@ -50,7 +50,7 @@ export function QuizPage() {
       setCurrentAttempt(attempt)
       useQuizStore.getState().saveAttempt(attempt)
     } catch (e: any) {
-      setError(e.message || '评分失败')
+      setError(e.message || 'Grading failed')
     } finally {
       setGrading(false)
     }
@@ -69,14 +69,14 @@ export function QuizPage() {
           <div className="quiz-error-icon">
             <AlertTriangle size={40} />
           </div>
-          <h3>出错了</h3>
+          <h3>Error</h3>
           <p>{error}</p>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
             <button className="btn btn-primary" onClick={handleRetry}>
-              <RotateCcw size={14} /> 重试
+              <RotateCcw size={14} /> Retry
             </button>
             <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
-              返回
+              Back
             </Link>
           </div>
         </div>
@@ -88,8 +88,8 @@ export function QuizPage() {
     return (
       <div className="quiz-container">
         <div className="empty-state">
-          <h3>无效的测验</h3>
-          <Link to="/" className="btn btn-primary">返回首页</Link>
+          <h3>Invalid Quiz</h3>
+          <Link to="/" className="btn btn-primary">Go Home</Link>
         </div>
       </div>
     )
@@ -108,12 +108,12 @@ export function QuizPage() {
       <div className="quiz-container">
         <div className="scoreboard">
           <Trophy size={40} style={{ color: passed ? 'var(--accent-yellow)' : 'var(--text-dim)' }} />
-          <h2>测验完成！</h2>
+          <h2>Quiz Complete!</h2>
           <div className={`scoreboard-score ${passed ? 'score-pass' : 'score-fail'}`}>
             {currentAttempt.totalScore} / {currentAttempt.maxScore}
           </div>
           <div className="scoreboard-detail">
-            得分率 {percentage}% · {passed ? '通过' : '未通过'}
+            Score {percentage}% · {passed ? 'Passed' : 'Failed'}
           </div>
 
           {questions.map((q, i) => {
@@ -123,7 +123,7 @@ export function QuizPage() {
               <div key={q.id} className="scoreboard-question">
                 <div className="scoreboard-question-header">
                   <span className={`badge ${isCorrect ? 'badge-read' : 'badge-unread'}`}>
-                    第 {i + 1} 题
+                    Q{i + 1}
                   </span>
                   <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
                     {score?.score ?? 0}/{score?.maxScore ?? 100}
@@ -131,18 +131,18 @@ export function QuizPage() {
                 </div>
                 <div className="scoreboard-question-text">{q.text}</div>
                 <div className="scoreboard-question-answer">
-                  你的回答：{q.type === 'truefalse'
-                    ? (answers[q.id] === 'true' ? '正确' : answers[q.id] === 'false' ? '错误' : '（未作答）')
-                    : (answers[q.id] || '（未作答）')
+                  Your answer: {q.type === 'truefalse'
+                    ? (answers[q.id] === 'true' ? 'True' : answers[q.id] === 'false' ? 'False' : '(Not answered)')
+                    : (answers[q.id] || '(Not answered)')}
                   }
                   {q.type === 'choice' && (
                     <span style={{ marginLeft: '0.5rem' }}>
-                      正确答案：{q.correctAnswer}. {q.options?.[q.correctAnswer.charCodeAt(0) - 65] ?? ''}
+                      Correct answer: {q.correctAnswer}. {q.options?.[q.correctAnswer.charCodeAt(0) - 65] ?? ''}
                     </span>
                   )}
                   {q.type === 'truefalse' && (
                     <span style={{ marginLeft: '0.5rem' }}>
-                      正确答案：{q.correctAnswer === 'true' ? '正确' : '错误'}
+                      Correct answer: {q.correctAnswer === 'true' ? 'True' : 'False'}
                     </span>
                   )}
                 </div>
@@ -155,10 +155,10 @@ export function QuizPage() {
 
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
             <button className="btn btn-primary" onClick={handleRetry}>
-              <RotateCcw size={14} /> 重新测验
+              <RotateCcw size={14} /> Retake Quiz
             </button>
             <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
-              返回文档
+              Back to Document
             </Link>
           </div>
         </div>
@@ -177,10 +177,10 @@ export function QuizPage() {
           className="btn btn-ghost btn-sm"
           style={{ marginRight: '0.5rem' }}
         >
-          <ArrowLeft size={18} /> 退出
+          <ArrowLeft size={18} /> Exit
         </Link>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-          {answeredCount} / {questions.length} 已作答
+          {answeredCount} / {questions.length} answered
         </span>
         <div className="progress-bar" style={{ flex: 1 }}>
           <div
@@ -207,13 +207,13 @@ export function QuizPage() {
       <div className="question-card slide-in-right" key={currentQuestion.id}>
         <div className="question-card-header">
           <span className="question-type-badge">
-            {currentQuestion.type === 'choice' ? '选择题'
-              : currentQuestion.type === 'truefalse' ? '判断题'
-                : '简答题'}
+            {currentQuestion.type === 'choice' ? 'Multiple Choice'
+              : currentQuestion.type === 'truefalse' ? 'True/False'
+                : 'Short Answer'}
           </span>
           <span className={`question-difficulty-badge difficulty-${currentQuestion.difficulty}`}>
-            {currentQuestion.difficulty === 'easy' ? '简单'
-              : currentQuestion.difficulty === 'medium' ? '中等' : '困难'}
+            {currentQuestion.difficulty === 'easy' ? 'Easy'
+              : currentQuestion.difficulty === 'medium' ? 'Medium' : 'Hard'}
           </span>
           <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
             {currentIndex + 1} / {questions.length}
@@ -253,7 +253,7 @@ export function QuizPage() {
         {currentQuestion.type === 'short_answer' && (
           <textarea
             className="question-textarea"
-            placeholder="请输入你的回答..."
+            placeholder="Type your answer..."
             value={answers[currentQuestion.id] || ''}
             onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
           />
@@ -267,14 +267,14 @@ export function QuizPage() {
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex(i => i - 1)}
         >
-          <ChevronLeft size={16} /> 上一题
+          <ChevronLeft size={16} /> Previous
         </button>
         {currentIndex < questions.length - 1 ? (
           <button
             className="btn btn-primary"
             onClick={() => setCurrentIndex(i => i + 1)}
           >
-            下一题 <ChevronRight size={16} />
+            Next <ChevronRight size={16} />
           </button>
         ) : (
           <button
@@ -287,11 +287,11 @@ export function QuizPage() {
                 <span className="spin" style={{ display: 'inline-flex' }}>
                   <Sparkles size={14} />
                 </span>
-                AI 评分中...
+                AI Grading...
               </>
             ) : (
               <>
-                <Send size={14} /> 提交测验
+                <Send size={14} /> Submit Quiz
               </>
             )}
           </button>

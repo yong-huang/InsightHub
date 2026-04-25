@@ -59,7 +59,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
         {!done ? (
           <>
             <div className="import-dialog-header">
-              <h3>导入文档</h3>
+              <h3>Import Document</h3>
               {!importing && (
                 <button className="import-dialog-close" onClick={onClose}>
                   <X size={16} />
@@ -78,7 +78,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
             </div>
 
             <div className="import-category-select">
-              <label>分类</label>
+              <label>Category</label>
               <select
                 className="filter-select"
                 value={selectedCategory}
@@ -94,17 +94,17 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
             {importing && (
               <div className="import-progress">
                 <span className="import-progress-text">
-                  正在导入 {current}/{files.length}...
+                  Importing {current}/{files.length}...
                 </span>
               </div>
             )}
 
             {!importing && (
               <div className="import-dialog-actions">
-                <button className="btn btn-secondary" onClick={onClose}>取消</button>
+                <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleImport}>
                   <Upload size={14} />
-                  导入 {files.length} 个文件
+                  Import {files.length} files
                 </button>
               </div>
             )}
@@ -112,7 +112,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
         ) : (
           <>
             <div className="import-dialog-header">
-              <h3>导入完成</h3>
+              <h3>Import Complete</h3>
             </div>
             <div className="import-file-list">
               {results.map((r, i) => (
@@ -120,13 +120,13 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
                   {r.ok ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                   <span className="import-file-name">{r.file}</span>
                   <span className="import-file-status">
-                    {r.ok ? '成功' : r.error || '失败'}
+                    {r.ok ? 'Success' : r.error || 'Failed'}
                   </span>
                 </div>
               ))}
             </div>
             <div className="import-dialog-actions">
-              <button className="btn btn-primary" onClick={onClose}>完成</button>
+              <button className="btn btn-primary" onClick={onClose}>Done</button>
             </div>
           </>
         )}

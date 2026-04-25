@@ -44,11 +44,11 @@ function getEventClientPos(e: React.MouseEvent | React.TouchEvent): { clientX: n
 }
 
 function getScoreLabel(score: number): string {
-  if (score < 0) return '未测验'
-  if (score >= 80) return '精通'
-  if (score >= 60) return '良好'
-  if (score >= 40) return '学习中'
-  return '需加强'
+  if (score < 0) return 'Not Tested'
+  if (score >= 80) return 'Mastered'
+  if (score >= 60) return 'Good'
+  if (score >= 40) return 'Learning'
+  return 'Needs Work'
 }
 
 export function PersonalMap({ documents, tags, quizHistory, annotations, showDocuments = true, showTags = true }: Props) {
@@ -372,8 +372,8 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
     return (
       <div className="pm-empty">
         <div className="pm-empty-icon">🗺️</div>
-        <p>暂无学习数据</p>
-        <p className="pm-empty-hint">阅读文档、添加批注或完成测验后，这里将展示你的个人知识地图</p>
+        <p>No learning data yet</p>
+        <p className="pm-empty-hint">Read documents, add annotations, or complete quizzes to see your personal knowledge map here</p>
       </div>
     )
   }
@@ -382,15 +382,15 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
     if (node.id === 'user:me') {
       return (
         <>
-          <strong>我</strong>
+          <strong>Me</strong>
           <br />
-          <span style={{ opacity: 0.7 }}>学习中心</span>
+          <span style={{ opacity: 0.7 }}>Learning Center</span>
         </>
       )
     }
 
     const metrics = metricsMap.get(node.id)
-    const typeLabel = node.id.startsWith('cat:') ? '分类' : node.id.startsWith('doc:') ? '文档' : '标签'
+    const typeLabel = node.id.startsWith('cat:') ? 'Category' : node.id.startsWith('doc:') ? 'Document' : 'Tag'
 
     return (
       <>
@@ -400,11 +400,11 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
         {metrics && (
           <>
             <br />
-            <span>阅读 {metrics.readCount} 次 · 批注 {metrics.annotationCount} · 测验 {metrics.quizAttempts} 次</span>
+            <span>Read {metrics.readCount} times · {metrics.annotationCount} annotations · {metrics.quizAttempts} quizzes</span>
             {metrics.bestQuizScore >= 0 && (
               <>
                 <br />
-                <span>最佳成绩: {metrics.bestQuizScore}分 ({getScoreLabel(metrics.bestQuizScore)})</span>
+                <span>Best score: {metrics.bestQuizScore} pts ({getScoreLabel(metrics.bestQuizScore)})</span>
               </>
             )}
           </>
@@ -529,7 +529,7 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
                     y={1}
                     style={{ fill: '#fff', fontWeight: 700, fontSize: '14px' }}
                   >
-                    我
+                    Me
                   </text>
                 )}
                 {!isCenter && showLabel && (
@@ -549,37 +549,37 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
 
       {/* Legend */}
       <div className="pm-legend">
-        <div className="pm-legend-title">掌握度</div>
+        <div className="pm-legend-title">Mastery Level</div>
         <div className="pm-legend-item">
           <span className="pm-legend-dot" style={{ background: '#4ecdc4' }} />
-          <span>精通 (80-100)</span>
+          <span>Mastered (80-100)</span>
         </div>
         <div className="pm-legend-item">
           <span className="pm-legend-dot" style={{ background: '#fbbf24' }} />
-          <span>良好 (60-79)</span>
+          <span>Good (60-79)</span>
         </div>
         <div className="pm-legend-item">
           <span className="pm-legend-dot" style={{ background: '#ff8c42' }} />
-          <span>学习中 (40-59)</span>
+          <span>Learning (40-59)</span>
         </div>
         <div className="pm-legend-item">
           <span className="pm-legend-dot" style={{ background: '#ff6b6b' }} />
-          <span>需加强 (0-39)</span>
+          <span>Needs Work (0-39)</span>
         </div>
         <div className="pm-legend-item">
           <span className="pm-legend-dot" style={{ background: '#a78bfa' }} />
-          <span>未测验</span>
+          <span>Not Tested</span>
         </div>
       </div>
 
       {/* Size legend */}
       <div className="pm-legend pm-size-legend">
-        <div className="pm-legend-title">节点大小</div>
+        <div className="pm-legend-title">Node Size</div>
         <div className="pm-legend-item">
-          <span>互动越多，节点越大</span>
+          <span>More engagement = larger node</span>
         </div>
         <div className="pm-legend-item">
-          <span style={{ opacity: 0.7, fontSize: '11px' }}>阅读×1 + 批注×2 + 测验×3</span>
+          <span style={{ opacity: 0.7, fontSize: '11px' }}>Read x1 + Annotation x2 + Quiz x3</span>
         </div>
       </div>
 

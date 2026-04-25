@@ -25,20 +25,20 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  read: '阅读',
-  annotation: '标注',
-  quiz: '测验',
-  review: '复习',
-  achievement: '成就',
+  read: 'Reading',
+  annotation: 'Annotation',
+  quiz: 'Quiz',
+  review: 'Review',
+  achievement: 'Achievement',
 }
 
 const FILTER_OPTIONS: { key: TimelineTypeFilter; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'read', label: '阅读' },
-  { key: 'annotation', label: '标注' },
-  { key: 'quiz', label: '测验' },
-  { key: 'review', label: '复习' },
-  { key: 'achievement', label: '成就' },
+  { key: 'all', label: 'All' },
+  { key: 'read', label: 'Reading' },
+  { key: 'annotation', label: 'Annotation' },
+  { key: 'quiz', label: 'Quiz' },
+  { key: 'review', label: 'Review' },
+  { key: 'achievement', label: 'Achievement' },
 ]
 
 function formatTime(ts: number): string {
@@ -75,10 +75,10 @@ export function LearningPathPage() {
     <div className="viz-page page-timeline">
       <div className="viz-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="viz-page-title">学习路径</h1>
+          <h1 className="viz-page-title">Learning Path</h1>
         </div>
         <div className="viz-tab-bar">
           <button
@@ -86,25 +86,25 @@ export function LearningPathPage() {
             onClick={() => setActiveTab('path')}
           >
             <Map size={15} />
-            学习路径
+            Learning Path
           </button>
           <button
             className={`viz-tab ${activeTab === 'timeline' ? 'active' : ''}`}
             onClick={() => setActiveTab('timeline')}
           >
             <Clock size={15} />
-            时间线
+            Timeline
           </button>
         </div>
         <p className="viz-page-desc">
           {activeTab === 'path'
-            ? '追踪各分类的学习进度，发现下一步学习方向'
-            : '查看你的所有学习活动记录'}
+            ? 'Track learning progress across categories and discover next steps'
+            : 'View all your learning activity records'}
         </p>
       </div>
 
       {activeTab === 'path' ? (
-        <ChartCard title={`${WORKSPACE_META[activeWorkspace]?.label || 'LeetcodeInsight'} 学习路径`}>
+        <ChartCard title={`${WORKSPACE_META[activeWorkspace]?.label || 'LeetcodeInsight'} Learning Path`}>
           <LearningPath data={pathData} source={activeWorkspace} />
         </ChartCard>
       ) : (
@@ -124,8 +124,8 @@ export function LearningPathPage() {
           {entries.length === 0 ? (
             <div className="empty-state">
               <Clock size={48} />
-              <h3>暂无活动记录</h3>
-              <p>开始阅读和标注文档后，你的活动会出现在这里</p>
+              <h3>No Activity Records</h3>
+              <p>Start reading and annotating documents to see your activity here</p>
             </div>
           ) : (
             <div className="timeline-container">

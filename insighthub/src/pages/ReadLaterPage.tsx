@@ -62,29 +62,29 @@ export function ReadLaterPage() {
     <div className="page-read-later">
       <div className="stats-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
           <h1 className="stats-page-title">
             <Bookmark size={22} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-            稍后阅读
+            Read Later
           </h1>
         </div>
-        <p className="stats-page-desc">标记的文档会自动恢复上次的阅读位置</p>
+        <p className="stats-page-desc">Bookmarked documents will automatically restore last reading position</p>
       </div>
 
       {list.length === 0 ? (
         <div className="empty-state">
           <Bookmark size={48} />
-          <h3>暂无稍后阅读的文档</h3>
-          <p>在文档阅读页面点击书签按钮，可将文档添加到此处</p>
+          <h3>No Read Later Items</h3>
+          <p>Click the bookmark button on a document to add it here</p>
         </div>
       ) : (
         <>
           <div className="filter-bar">
             <div className="filter-group">
               <span className="badge" style={{ fontSize: '0.8rem' }}>
-                {items.length} 篇文档
+                {items.length} docs
               </span>
             </div>
             <div className="search-page-input-wrap" style={{ flex: '1 1 240px', minWidth: 200 }}>
@@ -92,7 +92,7 @@ export function ReadLaterPage() {
               <input
                 type="search"
                 className="search-page-input"
-                placeholder="搜索文档..."
+                placeholder="Search documents..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -102,7 +102,7 @@ export function ReadLaterPage() {
           {items.length === 0 ? (
             <div className="empty-state" style={{ padding: '3rem 2rem' }}>
               <Search size={40} />
-              <h3>未找到匹配的文档</h3>
+              <h3>No matching documents</h3>
             </div>
           ) : (
             <div className="read-later-list">
@@ -127,13 +127,13 @@ export function ReadLaterPage() {
                     <button
                       className="btn btn-ghost btn-sm read-later-remove-btn"
                       onClick={e => handleRemove(item.documentId, e)}
-                      title="移除"
+                      title="Remove"
                     >
                       <X size={14} />
                     </button>
                   </div>
                   <div className="read-later-item-meta">
-                    <span>{item.doc.wordCount.toLocaleString()} 字</span>
+                    <span>{item.doc.wordCount.toLocaleString()} words</span>
                   </div>
                 </div>
               ))}

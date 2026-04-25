@@ -168,9 +168,9 @@ export function buildReportData(
     avgScore,
     maxScore,
     difficultyDist: [
-      { difficulty: '简单', count: difficultyMap.get('easy') || 0 },
-      { difficulty: '中等', count: difficultyMap.get('medium') || 0 },
-      { difficulty: '困难', count: difficultyMap.get('hard') || 0 },
+      { difficulty: 'Easy', count: difficultyMap.get('easy') || 0 },
+      { difficulty: 'Medium', count: difficultyMap.get('medium') || 0 },
+      { difficulty: 'Hard', count: difficultyMap.get('hard') || 0 },
     ],
     scoreTrend: Array.from(scoreByDate.entries())
       .map(([date, scores]) => ({ date, score: scores.reduce((s, v) => s + v, 0) / scores.length }))
@@ -210,7 +210,7 @@ export function buildReportData(
     hourlyDist[h].count++
   }
 
-  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const weekdayAvg = dayNames.map((label, i) => ({ day: String(i), label, weekday: 0, weekend: 0 }))
   const dayReadCounts: Record<string, number[]> = {}
   for (const e of filteredReadHistory) {

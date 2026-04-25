@@ -49,25 +49,25 @@ export function HomePage() {
       <div className="home-stats reveal" ref={ref1}>
         <StatCard
           icon={<BookOpen size={22} />}
-          label="总文档数"
+          label="Total Documents"
           value={stats.total}
           color="var(--accent-blue)"
         />
         <StatCard
           icon={<CheckCircle2 size={22} />}
-          label="已阅读"
+          label="Read"
           value={stats.read}
           color="var(--accent-green)"
         />
         <StatCard
           icon={<Circle size={22} />}
-          label="未阅读"
+          label="Unread"
           value={stats.unread}
           color="var(--accent-orange)"
         />
         <StatCard
           icon={<Layers size={22} />}
-          label="分类数"
+          label="Categories"
           value={stats.categories}
           color="var(--accent-purple)"
         />
@@ -77,8 +77,8 @@ export function HomePage() {
       {recentReads.length > 0 && (
         <div className="section reveal reveal-delay-1" ref={ref2}>
           <div className="section-header">
-            <h2><Clock size={20} /> 最近阅读</h2>
-            <Link to="/search" className="btn btn-ghost btn-sm">查看全部 <ArrowRight size={14} /></Link>
+            <h2><Clock size={20} /> Recent Reads</h2>
+            <Link to="/search" className="btn btn-ghost btn-sm">View All <ArrowRight size={14} /></Link>
           </div>
           <div className="recent-reads-grid">
             {recentReads.map(doc => (
@@ -100,7 +100,7 @@ export function HomePage() {
                 <div className="section-header">
                   <h2>{cat.label}</h2>
                   <Link to={`${meta.basePath}/${cat.key}`} className="btn btn-ghost btn-sm">
-                    {categoryCounts[cat.key] || 0} 篇 <ArrowRight size={14} />
+                    {categoryCounts[cat.key] || 0} docs <ArrowRight size={14} />
                   </Link>
                 </div>
                 {docs.map(doc => (
@@ -116,7 +116,7 @@ export function HomePage() {
       {workspaceTags.length > 0 && (
         <div className="section reveal reveal-delay-4" ref={ref4}>
           <div className="section-header">
-            <h2>热门标签</h2>
+            <h2>Popular Tags</h2>
           </div>
           <div className="tag-list">
             {workspaceTags

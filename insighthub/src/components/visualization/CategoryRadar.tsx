@@ -11,7 +11,7 @@ export function CategoryRadar({ data }: Props) {
   const colors = useThemeColors()
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无分类数据</div>
+    return <div className="stats-empty">No category data</div>
   }
 
   const maxRead = Math.max(1, ...data.map(d => d.read))
@@ -33,7 +33,7 @@ export function CategoryRadar({ data }: Props) {
           tick={{ fill: colors.textSecondary, fontSize: 11 }}
         />
         <Radar
-          name="已读文档"
+          name="Documents Read"
           dataKey="value"
           stroke={colors.accentBlue}
           fill={colors.accentBlueLight}

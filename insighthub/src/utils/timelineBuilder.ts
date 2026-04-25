@@ -31,7 +31,7 @@ function buildReadEntries(documents: Map<string, Document>): TimelineEntry[] {
       type: 'read' as const,
       timestamp: h.readAt,
       documentId: h.documentId,
-      summary: doc ? `阅读了「${doc.title}」` : '阅读了一篇文档',
+      summary: doc ? `Read "${doc.title}"` : 'Read a document',
       color: TYPE_COLORS.read,
     }
   })
@@ -40,7 +40,7 @@ function buildReadEntries(documents: Map<string, Document>): TimelineEntry[] {
 function buildAnnotationEntries(annotations: Annotation[], documents: Map<string, Document>): TimelineEntry[] {
   return annotations.map(ann => {
     const doc = documents.get(ann.documentId)
-    const action = ann.type === 'comment' ? '添加了批注' : '添加了高亮'
+    const action = ann.type === 'comment' ? 'added a comment' : 'added a highlight'
     const detail = ann.comment
       ? ann.comment.length > 80 ? ann.comment.slice(0, 80) + '...' : ann.comment
       : ann.text.length > 80 ? ann.text.slice(0, 80) + '...' : ann.text
@@ -49,7 +49,7 @@ function buildAnnotationEntries(annotations: Annotation[], documents: Map<string
       type: 'annotation' as const,
       timestamp: ann.createdAt,
       documentId: ann.documentId,
-      summary: doc ? `在「${doc.title}」${action}` : action,
+      summary: doc ? `${action} in "${doc.title}"` : action,
       detail,
       color: TYPE_COLORS.annotation,
     }
@@ -65,8 +65,8 @@ function buildQuizEntries(quizHistory: QuizAttempt[], documents: Map<string, Doc
       type: 'quiz' as const,
       timestamp: attempt.completedAt,
       documentId: attempt.documentId,
-      summary: doc ? `完成了「${doc.title}」测验` : '完成了一次测验',
-      detail: `得分 ${pct}%（${attempt.totalScore}/${attempt.maxScore}）`,
+      summary: doc ? `Completed quiz for "${doc.title}"` : 'Completed a quiz',
+      detail: `Score ${pct}% (${attempt.totalScore}/${attempt.maxScore})`,
       color: TYPE_COLORS.quiz,
     }
   })
@@ -80,7 +80,7 @@ function buildReviewEntries(flashcards: Flashcard[]): TimelineEntry[] {
       type: 'review' as const,
       timestamp: c.lastReview,
       documentId: c.documentId,
-      summary: `复习了「${c.documentTitle}」的记忆卡片`,
+      summary: `Reviewed flashcard for "${c.documentTitle}"`,
       detail: c.front.length > 60 ? c.front.slice(0, 60) + '...' : c.front,
       color: TYPE_COLORS.review,
     }))
@@ -94,7 +94,7 @@ function buildAchievementEntries(): TimelineEntry[] {
       id: `ach-${id}`,
       type: 'achievement' as const,
       timestamp: state.unlockedAt[id] || Date.now(),
-      summary: def ? `解锁成就「${def.name}」` : '解锁了一个成就',
+      summary: def ? `Unlocked achievement "${def.name}"` : 'Unlocked an achievement',
       detail: def?.description,
       color: TYPE_COLORS.achievement,
     }
@@ -178,8 +178,8 @@ export function groupByDate(entries: TimelineEntry[]): DateGroup[] {
 
   return Array.from(groups.entries()).map(([date, entries]) => {
     let label = date
-    if (date === todayKey) label = '今天'
-    else if (date === yesterdayKey) label = '昨天'
+    if (date === todayKey) label = 'Today'
+    else if (date === yesterdayKey) label = 'Yesterday'
     return { date, label, entries }
   })
 }

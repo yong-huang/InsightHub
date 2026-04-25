@@ -26,7 +26,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             value={filters.source || ''}
             onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
           >
-            <option value="">全部来源</option>
+            <option value="">All Sources</option>
             {(Object.keys(WORKSPACE_META) as Array<keyof typeof WORKSPACE_META>).map(key => (
               <option key={key} value={key}>{getSourceLabel(key)}</option>
             ))}
@@ -39,7 +39,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             value={filters.category || ''}
             onChange={e => onFilterChange({ category: e.target.value || undefined })}
           >
-            <option value="">全部分类</option>
+            <option value="">All Categories</option>
             {CATEGORIES.filter(cat => !filters.source || cat.source === filters.source).map(cat => (
               <option key={cat.key} value={cat.key}>
                 {cat.label}
@@ -58,9 +58,9 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             })
           }}
         >
-          <option value="">全部状态</option>
-          <option value="true">已读</option>
-          <option value="false">未读</option>
+          <option value="">All Status</option>
+          <option value="true">Read</option>
+          <option value="false">Unread</option>
         </select>
 
         <select
@@ -68,13 +68,13 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           value={filters.sortBy || ''}
           onChange={e => onFilterChange({ sortBy: e.target.value || undefined })}
         >
-          <option value="">默认排序</option>
-          <option value="title-asc">标题 A→Z</option>
-          <option value="title-desc">标题 Z→A</option>
-          <option value="lastRead-desc">最近阅读</option>
-          <option value="readCount-desc">最多阅读</option>
-          <option value="wordCount-desc">篇幅最长</option>
-          <option value="wordCount-asc">篇幅最短</option>
+          <option value="">Default Sort</option>
+          <option value="title-asc">Title A→Z</option>
+          <option value="title-desc">Title Z→A</option>
+          <option value="lastRead-desc">Recently Read</option>
+          <option value="readCount-desc">Most Read</option>
+          <option value="wordCount-desc">Longest</option>
+          <option value="wordCount-asc">Shortest</option>
         </select>
 
         {/* Tag filter */}
@@ -83,7 +83,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           value={filters.tag || ''}
           onChange={e => onFilterChange({ tag: (e.target.value || undefined) as any })}
         >
-          <option value="">全部标签</option>
+          <option value="">All Tags</option>
           {tags.filter(t => t.documentIds.length > 0).map(tag => (
             <option key={tag.id} value={tag.id}>
               {tag.name} ({tag.documentIds.length})
@@ -107,7 +107,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
         {hasFilters && (
           <button className="btn btn-ghost btn-sm" onClick={onReset}>
             <X size={14} />
-            清除筛选
+            Clear Filters
           </button>
         )}
       </div>

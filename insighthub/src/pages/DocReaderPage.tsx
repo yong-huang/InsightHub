@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   ChevronDown, Highlighter, BrainCircuit, Bookmark,
-  MessageCircle, Lightbulb, Languages, Presentation,
+  MessageCircle, Lightbulb, Languages,
   ShieldCheck,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -102,7 +102,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount, conceptMaxCount, enablePresentation } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -376,7 +376,7 @@ export function DocReaderPage() {
 
     setIsSummaryGenerating(false)
     if (!result.success) {
-      setSummaryError(result.error || '生成失败')
+      setSummaryError(result.error || 'Generation failed')
     } else if (result.data && docId) {
       setSummaryText(result.data)
       storageService.saveSummary(docId, result.data)
@@ -398,7 +398,7 @@ export function DocReaderPage() {
 
     setIsEvalGenerating(false)
     if (!result.success) {
-      setEvalError(result.error || '评估失败')
+      setEvalError(result.error || 'Evaluation failed')
     } else if (result.data && docId) {
       setEvalResult(result.data)
       storageService.saveSummary(`eval-${docId}`, result.data)
@@ -433,7 +433,7 @@ export function DocReaderPage() {
     const result = await extractConcepts(doc.title, docWithContent?.contentText || doc.contentText, count)
     setExtractingDocId(docId, false)
     if (!result.success) {
-      setExtractingError(docId, result.error || '提取失败')
+      setExtractingError(docId, result.error || 'Extraction failed')
     } else if (Array.isArray(result.data)) {
       const cards = (result.data as any[])
         .filter(c => c.conceptName && c.definition)
@@ -458,7 +458,7 @@ export function DocReaderPage() {
     explainConcept(selectedText, surroundingText, (chunk) => {
       setExplainState(prev => prev ? { ...prev, streamingText: chunk } : prev)
     }).then(result => {
-      setExplainState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || '解释失败') } : prev)
+      setExplainState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || 'Explanation failed') } : prev)
     })
   }, [selectionInfo, clearSelection])
 
@@ -471,7 +471,7 @@ export function DocReaderPage() {
     translateText(selectedText, (chunk) => {
       setTranslateState(prev => prev ? { ...prev, streamingText: chunk } : prev)
     }).then(result => {
-      setTranslateState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || '翻译失败') } : prev)
+      setTranslateState(prev => prev ? { ...prev, isStreaming: false, error: result.success ? null : (result.error || 'Translation failed') } : prev)
     })
   }, [selectionInfo, clearSelection])
 
@@ -493,9 +493,9 @@ export function DocReaderPage() {
     return (
       <div className="empty-state">
         <BookOpen size={48} />
-        <h3>文档未找到</h3>
+        <h3>Document Not Found</h3>
         <button className="btn btn-primary" onClick={() => navigate('/')}>
-          返回首页
+          Back to Home
         </button>
       </div>
     )
@@ -506,7 +506,7 @@ export function DocReaderPage() {
     return (
       <div className="empty-state">
         <Loader2 size={32} className="spin" />
-        <h3>正在加载文档...</h3>
+        <h3>Loading Document...</h3>
       </div>
     )
   }
@@ -564,7 +564,7 @@ export function DocReaderPage() {
     <div className="doc-reader-page">
       <div className="doc-reader-toolbar">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
-          <ArrowLeft size={18} /> 返回
+          <ArrowLeft size={18} /> Back
         </button>
 
         <div className="doc-reader-toolbar-info">
@@ -574,7 +574,7 @@ export function DocReaderPage() {
           {catInfo && <span className="badge">{catInfo.label}</span>}
           <span className="badge">
             <FileText size={12} />
-            {doc.wordCount.toLocaleString()} 字
+            {doc.wordCount.toLocaleString()} words
           </span>
           <div className="tag-list">
             {tags.map(tag => (
@@ -598,7 +598,7 @@ export function DocReaderPage() {
                 style={{ padding: '2px 8px', fontSize: '0.75rem' }}
                 onClick={() => setShowTagInput(true)}
               >
-                <Plus size={12} /> 标签
+                <Plus size={12} /> Tags
               </button>
             ) : (
               <div className="tag-input-wrap" style={{ position: 'relative' }}>
@@ -610,7 +610,7 @@ export function DocReaderPage() {
                     if (e.key === 'Enter') handleAddTag()
                     if (e.key === 'Escape') { setShowTagInput(false); setTagName('') }
                   }}
-                  placeholder="输入或选择标签..."
+                  placeholder="Enter or select tags..."
                   style={{ padding: '4px 8px', fontSize: '0.8rem', width: '140px' }}
                   autoFocus
                 />
@@ -663,27 +663,27 @@ export function DocReaderPage() {
           <button
             className={`btn btn-sm ${doc.isRead ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => doc.isRead ? toggleRead(doc.id) : markAsRead(doc.id)}
-            title={doc.isRead ? '点击标记为未读' : '点击标记为已读'}
+            title={doc.isRead ? 'Click to mark as unread' : 'Click to mark as read'}
           >
-            <CheckCircle2 size={14} /> {doc.isRead ? '已读' : '未读'}
+            <CheckCircle2 size={14} /> {doc.isRead ? 'Read' : 'Unread'}
           </button>
 
           {/* Annotation panel toggle */}
           <button
             className={`btn btn-sm ${showAnnotationPanel || docAnnotations.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowAnnotationPanel(v => !v)}
-            title="笔记面板"
+            title="Notes panel"
           >
-            <Highlighter size={14} /> 笔记{docAnnotations.length > 0 && ` ${docAnnotations.length}`}
+            <Highlighter size={14} /> Notes{docAnnotations.length > 0 && ` ${docAnnotations.length}`}
           </button>
 
           {/* Chat panel toggle */}
           <button
             className={`btn btn-sm ${showChatPanel || chatHistorySize > 0 ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowChatPanel(v => !v)}
-            title="AI 问答"
+            title="AI Chat"
           >
-            <MessageCircle size={14} /> 问答
+            <MessageCircle size={14} /> Chat
           </button>
 
           {/* Summary panel toggle */}
@@ -697,15 +697,15 @@ export function DocReaderPage() {
                 return !v
               })
             }}
-            title="AI 摘要"
+            title="AI Summary"
           >
-            <BrainCircuit size={14} /> 摘要
+            <BrainCircuit size={14} /> Summary
           </button>
 
           {/* Evaluation button */}
           {isEvalGenerating ? (
             <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> 评估
+              <Loader2 size={14} className="spin" /> Evaluate
             </span>
           ) : (
             <button
@@ -718,16 +718,16 @@ export function DocReaderPage() {
                   return !v
                 })
               }}
-              title="AI 评估"
+              title="AI Evaluation"
             >
-              <ShieldCheck size={14} /> 评估
+              <ShieldCheck size={14} /> Evaluate
             </button>
           )}
 
           {/* Extract concepts button */}
           {isExtractingConcepts ? (
             <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> 概念
+              <Loader2 size={14} className="spin" /> Concepts
             </span>
           ) : docConceptCount > 0 ? (
             <div ref={conceptMenuRef} style={{ position: 'relative', display: 'inline-flex' }}>
@@ -735,13 +735,13 @@ export function DocReaderPage() {
                 to={`/spaced-repetition?docId=${doc.id}`}
                 className="btn btn-primary btn-sm"
               >
-                <Lightbulb size={14} /> 概念 {docConceptCount}
+                <Lightbulb size={14} /> Concepts {docConceptCount}
               </Link>
               <button
                 className="btn btn-secondary btn-sm"
                 style={{ padding: '6px 6px' }}
                 onClick={() => setShowConceptMenu(v => !v)}
-                title="更多选项"
+                title="More options"
               >
                 <ChevronDown size={12} />
               </button>
@@ -763,7 +763,7 @@ export function DocReaderPage() {
                     onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                     onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                   >
-                    重新生成
+                    Regenerate
                   </button>
                   {docConceptCount < conceptMaxCount && (
                     <button
@@ -778,7 +778,7 @@ export function DocReaderPage() {
                       onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                       onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                     >
-                      追加概念
+                      Append Concepts
                     </button>
                   )}
                   <button
@@ -797,7 +797,7 @@ export function DocReaderPage() {
                     onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                     onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                   >
-                    删除全部
+                    Delete All
                   </button>
                 </div>
               )}
@@ -807,14 +807,14 @@ export function DocReaderPage() {
               className="btn btn-secondary btn-sm"
               onClick={() => handleExtractConcepts('new')}
             >
-              <Lightbulb size={14} /> 概念
+              <Lightbulb size={14} /> Concepts
             </button>
           )}
 
           {/* Quiz button area */}
           {isGenerating ? (
             <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> 测试
+              <Loader2 size={14} className="spin" /> Quiz
             </span>
           ) : generatingError ? (
             <button
@@ -822,7 +822,7 @@ export function DocReaderPage() {
               onClick={() => handleGenerate(existingQuiz ? 'regenerate' : 'new')}
               title={generatingError}
             >
-              <RefreshCw size={14} /> 重试
+              <RefreshCw size={14} /> Retry
             </button>
           ) : existingQuiz ? (
             <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
@@ -830,13 +830,13 @@ export function DocReaderPage() {
                 to={`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`}
                 className="btn btn-primary btn-sm"
               >
-                <Sparkles size={14} /> 测试 {existingQuiz.questions.length}
+                <Sparkles size={14} /> Quiz {existingQuiz.questions.length}
               </Link>
               <button
                 className="btn btn-secondary btn-sm"
                 style={{ padding: '6px 6px' }}
                 onClick={() => setShowRegenerateMenu(v => !v)}
-                title="更多选项"
+                title="More options"
               >
                 <ChevronDown size={12} />
               </button>
@@ -858,7 +858,7 @@ export function DocReaderPage() {
                     onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                     onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                   >
-                    重新生成
+                    Regenerate
                   </button>
                   <button
                     className="dropdown-item"
@@ -872,7 +872,7 @@ export function DocReaderPage() {
                     onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
                     onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
                   >
-                    追加题目
+                    Append Questions
                   </button>
                 </div>
               )}
@@ -882,7 +882,7 @@ export function DocReaderPage() {
               className="btn btn-secondary btn-sm"
               onClick={() => handleGenerate('new')}
             >
-              <Sparkles size={14} /> 测试
+              <Sparkles size={14} /> Quiz
             </button>
           )}
 
@@ -890,29 +890,18 @@ export function DocReaderPage() {
           <button
             className={`btn btn-sm ${isBookmarked ? 'btn-primary' : 'btn-secondary'}`}
             onClick={toggleReadLater}
-            title={isBookmarked ? '取消收藏' : '收藏'}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
           >
-            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} /> 收藏
+            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} /> Bookmark
           </button>
-
-          {/* Present button */}
-          {enablePresentation && (
-          <Link
-            to={`/presentation/${doc.id}`}
-            className="btn btn-secondary btn-sm"
-            title="演示"
-          >
-            <Presentation size={14} /> 演示
-          </Link>
-          )}
 
           {/* Fullscreen */}
           <button
             className="btn btn-ghost btn-sm"
             onClick={toggleFullscreen}
-            title="全屏阅读"
+            title="Fullscreen"
           >
-            <Maximize size={16} /> 全屏
+            <Maximize size={16} /> Fullscreen
           </button>
         </div>
       </div>
@@ -921,7 +910,7 @@ export function DocReaderPage() {
       <div className="doc-reader-titlebar">
         <div className="backlinks-panel" style={{ marginTop: '0.5rem' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: '0.5rem' }}>
-            反向链接({backlinks.length})：
+            Backlinks({backlinks.length}):
           </span>
           {backlinks.slice(0, 5).map(ann => {
             const srcDoc = allDocuments.get(ann.documentId)
@@ -933,7 +922,7 @@ export function DocReaderPage() {
                 style={{ fontSize: '0.8rem', marginRight: '0.5rem' }}
                 title={ann.comment}
               >
-                {srcDoc?.title || '文档'}中的引用
+                Reference in {srcDoc?.title || 'document'}
               </Link>
             )
           })}
@@ -1037,7 +1026,7 @@ export function DocReaderPage() {
       {explainState && (
         <AIBubble
           rect={explainState.rect}
-          title="概念解释"
+          title="Concept Explanation"
           icon={<Lightbulb size={14} />}
           streamingText={explainState.streamingText}
           isStreaming={explainState.isStreaming}
@@ -1050,7 +1039,7 @@ export function DocReaderPage() {
       {translateState && (
         <AIBubble
           rect={translateState.rect}
-          title="翻译"
+          title="Translation"
           icon={<Languages size={14} />}
           streamingText={translateState.streamingText}
           isStreaming={translateState.isStreaming}

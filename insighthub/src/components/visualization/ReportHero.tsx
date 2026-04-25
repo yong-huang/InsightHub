@@ -6,18 +6,18 @@ interface Props {
 }
 
 const formatNumber = (n: number) => {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}0k`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
 
 const HERO_ITEMS = [
-  { key: 'readDocs' as const, label: '已读文档', icon: BookOpen, gradient: 'linear-gradient(135deg, #326ce5, #4ecdc4)' },
-  { key: 'totalWords' as const, label: '消费字数', icon: FileText, gradient: 'linear-gradient(135deg, #4ecdc4, #22d3ee)', format: true },
-  { key: 'activeDays' as const, label: '活跃天数', icon: Calendar, gradient: 'linear-gradient(135deg, #a78bfa, #6366f1)' },
-  { key: 'achievements' as const, label: '成就数', icon: Trophy, gradient: 'linear-gradient(135deg, #fbbf24, #f59e0b)' },
-  { key: 'quizCount' as const, label: '测验数', icon: Brain, gradient: 'linear-gradient(135deg, #ff8c42, #f97316)' },
-  { key: 'annotationCount' as const, label: '批注数', icon: MessageSquare, gradient: 'linear-gradient(135deg, #ff6b6b, #ef4444)' },
+  { key: 'readDocs' as const, label: 'Documents Read', icon: BookOpen, gradient: 'linear-gradient(135deg, #326ce5, #4ecdc4)' },
+  { key: 'totalWords' as const, label: 'Words Read', icon: FileText, gradient: 'linear-gradient(135deg, #4ecdc4, #22d3ee)', format: true },
+  { key: 'activeDays' as const, label: 'Active Days', icon: Calendar, gradient: 'linear-gradient(135deg, #a78bfa, #6366f1)' },
+  { key: 'achievements' as const, label: 'Achievements', icon: Trophy, gradient: 'linear-gradient(135deg, #fbbf24, #f59e0b)' },
+  { key: 'quizCount' as const, label: 'Quizzes', icon: Brain, gradient: 'linear-gradient(135deg, #ff8c42, #f97316)' },
+  { key: 'annotationCount' as const, label: 'Annotations', icon: MessageSquare, gradient: 'linear-gradient(135deg, #ff6b6b, #ef4444)' },
 ]
 
 export function ReportHero({ data }: Props) {

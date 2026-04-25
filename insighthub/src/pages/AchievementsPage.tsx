@@ -13,12 +13,12 @@ import {
 type CategoryFilter = 'all' | 'reading' | 'quiz' | 'annotation' | 'streak' | 'special'
 
 const CATEGORY_TABS: { key: CategoryFilter; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'reading', label: '阅读' },
-  { key: 'quiz', label: '测验' },
-  { key: 'annotation', label: '批注' },
-  { key: 'streak', label: '坚持' },
-  { key: 'special', label: '特殊' },
+  { key: 'all', label: 'All' },
+  { key: 'reading', label: 'Reading' },
+  { key: 'quiz', label: 'Quiz' },
+  { key: 'annotation', label: 'Annotation' },
+  { key: 'streak', label: 'Streak' },
+  { key: 'special', label: 'Special' },
 ]
 
 const ICON_MAP: Record<string, string> = {
@@ -58,7 +58,7 @@ function formatUnlockTime(ts: number): string {
 
 function formatProgress(current: number, target: number, achievement: Achievement): string {
   if (achievement.id.startsWith('word-')) {
-    const fmt = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(1)}万` : `${n}`
+    const fmt = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(1)}0K` : `${n.toLocaleString()}`
     return `${fmt(current)} / ${fmt(target)}`
   }
   return `${current} / ${target}`
@@ -97,16 +97,16 @@ export function AchievementsPage() {
     <div className="achievements-page">
       <div className="stats-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
           <h1 className="stats-page-title">
             <Trophy size={22} style={{ marginRight: 8, verticalAlign: 'middle', color: 'var(--accent-yellow)' }} />
-            成就
+            Achievements
           </h1>
         </div>
         <p className="stats-page-desc">
-          已解锁 {unlockCount} / {ACHIEVEMENTS.length} 个成就
+          Unlocked {unlockCount} / {ACHIEVEMENTS.length} achievements
         </p>
       </div>
 
@@ -189,8 +189,8 @@ export function AchievementsPage() {
       {unlockCount === 0 && (
         <div className="empty-state" style={{ marginTop: '2rem' }}>
           <Trophy size={48} />
-          <h3>还没有解锁任何成就</h3>
-          <p>开始阅读文档、完成测验、添加批注来解锁成就吧!</p>
+          <h3>No achievements unlocked yet</h3>
+          <p>Start reading documents, completing quizzes, and adding annotations to unlock achievements!</p>
         </div>
       )}
     </div>

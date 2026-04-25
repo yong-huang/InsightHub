@@ -38,11 +38,11 @@ function FilterTags({ query }: { query: string }) {
   const tags: { label: string; color: string }[] = []
   if (filters.category) {
     const catInfo = getCategoryInfo(filters.category)
-    tags.push({ label: `分类: ${catInfo?.label || filters.category}`, color: 'var(--accent-blue)' })
+    tags.push({ label: `Category: ${catInfo?.label || filters.category}`, color: 'var(--accent-blue)' })
   }
-  if (filters.isRead === true) tags.push({ label: '已读', color: 'var(--accent-green)' })
-  if (filters.isRead === false) tags.push({ label: '未读', color: 'var(--accent-orange)' })
-  if (filters.hasAnnotation) tags.push({ label: '有笔记', color: 'var(--accent-purple)' })
+  if (filters.isRead === true) tags.push({ label: 'Read', color: 'var(--accent-green)' })
+  if (filters.isRead === false) tags.push({ label: 'Unread', color: 'var(--accent-orange)' })
+  if (filters.hasAnnotation) tags.push({ label: 'Has Notes', color: 'var(--accent-purple)' })
   if (filters.source) tags.push({ label: WORKSPACE_META[filters.source as Workspace]?.label || filters.source, color: 'var(--accent-blue)' })
   if (tags.length === 0) return null
   return (
@@ -161,7 +161,7 @@ export function SearchDialog() {
             ref={inputRef}
             type="text"
             className="search-dialog-input"
-            placeholder="搜索文档标题或内容... 支持 category: is: has: 过滤"
+            placeholder="Search document titles or content... Supports category: is: has: filters"
             value={query}
             onChange={e => handleInput(e.target.value)}
             onCompositionStart={() => { isComposing.current = true }}
@@ -184,7 +184,7 @@ export function SearchDialog() {
         <div className="search-dialog-results">
           {isSearching && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-              搜索中...
+              Searching...
             </div>
           )}
 
@@ -225,7 +225,7 @@ export function SearchDialog() {
           {!isSearching && !query && searchHistory.length > 0 && (
             <>
               <div style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                搜索历史
+                Search History
               </div>
               {searchHistory.map((q, i) => (
                 <div
@@ -238,7 +238,7 @@ export function SearchDialog() {
                   <button
                     className="search-history-delete"
                     onClick={e => { e.stopPropagation(); removeHistory(q) }}
-                    title="删除"
+                    title="Delete"
                   >
                     <X size={12} />
                   </button>
@@ -250,7 +250,7 @@ export function SearchDialog() {
           {!isSearching && query && filteredResults.length === 0 && suggestions.length > 0 && (
             <>
               <div style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                相关文档
+                Related Documents
               </div>
               {suggestions.map((title, i) => (
                 <div
@@ -268,14 +268,14 @@ export function SearchDialog() {
 
           {!isSearching && query && filteredResults.length === 0 && suggestions.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-              未找到相关文档
+              No related documents found
             </div>
           )}
         </div>
 
         <div className="search-dialog-footer">
           <span>
-            <kbd>↑↓</kbd> 导航 <kbd>Enter</kbd> 打开 <kbd>Esc</kbd> 关闭
+            <kbd>↑↓</kbd> Navigate <kbd>Enter</kbd> Open <kbd>Esc</kbd> Close
           </span>
           <span>FlexSearch</span>
         </div>

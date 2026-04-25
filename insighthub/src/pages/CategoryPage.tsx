@@ -72,18 +72,18 @@ export function CategoryPage() {
   const catInfo = category ? getCategoryInfo(category) : undefined
 
   const title = activeTag
-    ? `标签: ${activeTag.name}`
+    ? `Tag: ${activeTag.name}`
     : catInfo
       ? catInfo.label
       : source
         ? getSourceLabel(source)
-        : '全部文档'
+        : 'All Documents'
 
   const description = activeTag
     ? ''
     : catInfo
       ? ''
-      : '浏览所有学习文档'
+      : 'Browse all learning documents'
 
   return (
     <div className="page-category">
@@ -102,7 +102,7 @@ export function CategoryPage() {
         )}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filteredDocuments.length} 篇文档</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filteredDocuments.length} documents</p>
       </div>
 
       <FilterBar
@@ -114,7 +114,7 @@ export function CategoryPage() {
         tags={filteredTags}
       />
 
-      <DocGrid documents={filteredDocuments} emptyMessage="该分类下暂无文档" />
+      <DocGrid documents={filteredDocuments} emptyMessage="No documents in this category" />
     </div>
   )
 }

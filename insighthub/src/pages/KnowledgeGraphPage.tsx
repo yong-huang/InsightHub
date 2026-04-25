@@ -98,10 +98,10 @@ export function KnowledgeGraphPage() {
     <div className="viz-page">
       <div className="viz-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="viz-page-title">知识图谱</h1>
+          <h1 className="viz-page-title">Knowledge Graph</h1>
         </div>
         <div className="viz-tab-bar">
           <button
@@ -109,51 +109,51 @@ export function KnowledgeGraphPage() {
             onClick={() => { setActiveTab('graph'); navigate('/knowledge-graph', { replace: true }) }}
           >
             <Network size={15} />
-            知识图谱
+            Knowledge Graph
           </button>
           <button
             className={`viz-tab ${activeTab === 'map' ? 'active' : ''}`}
             onClick={() => { setActiveTab('map'); navigate('/knowledge-graph?tab=map', { replace: true }) }}
           >
             <User size={15} />
-            知识地图
+            Knowledge Map
           </button>
           <button
             className={`viz-tab ${activeTab === 'tree' ? 'active' : ''}`}
             onClick={() => { setActiveTab('tree'); navigate('/knowledge-graph?tab=tree', { replace: true }) }}
           >
             <TreePine size={15} />
-            知识树
+            Knowledge Tree
           </button>
         </div>
         <p className="viz-page-desc">
           {activeTab === 'graph'
-            ? '可视化文档、分类和标签之间的关系网络'
+            ? 'Visualize the relationship network between documents, categories, and tags'
             : activeTab === 'map'
-            ? '基于你的学习行为，可视化知识掌握程度'
-            : '以树形结构浏览分类、文档与概念的层级关系'}
+            ? 'Visualize your knowledge mastery based on learning behavior'
+            : 'Browse the hierarchy of categories, documents, and concepts in a tree structure'}
         </p>
       </div>
 
       {activeTab === 'tree' ? (
-        <ChartCard title="知识树">
+        <ChartCard title="Knowledge Tree">
           <KnowledgeTree />
         </ChartCard>
       ) : activeTab === 'graph' ? (
         <ChartCard
-          title="知识关系图谱"
+          title="Knowledge Relationship Graph"
           extra={
             <div className="stats-chart-extra" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <button
                 style={{ fontSize: '12px', padding: '5px 14px', border: '1px solid var(--border-default)', background: showDocuments ? 'var(--accent-blue)' : 'var(--bg-card)', color: showDocuments ? '#fff' : 'var(--text-secondary)', borderRadius: '4px', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
                 onClick={() => setShowDocuments(v => !v)}
               >
-                文档节点
+                Document Nodes
               </button>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={toggleFullscreen}
-                title={isFullscreen ? '退出全屏' : '全屏'}
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               >
                 {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
               </button>
@@ -164,25 +164,25 @@ export function KnowledgeGraphPage() {
         </ChartCard>
       ) : (
         <ChartCard
-          title="知识地图"
+          title="Knowledge Map"
           extra={
             <div className="stats-chart-extra" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <button
                 style={{ fontSize: '12px', padding: '5px 14px', border: '1px solid var(--border-default)', background: showDocuments ? 'var(--accent-blue)' : 'var(--bg-card)', color: showDocuments ? '#fff' : 'var(--text-secondary)', borderRadius: '4px', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
                 onClick={() => setShowDocuments(v => !v)}
               >
-                文档节点
+                Document Nodes
               </button>
               <button
                 style={{ fontSize: '12px', padding: '5px 14px', border: '1px solid var(--border-default)', background: showTags ? 'var(--accent-blue)' : 'var(--bg-card)', color: showTags ? '#fff' : 'var(--text-secondary)', borderRadius: '4px', cursor: 'pointer', fontFamily: 'var(--font-sans)', marginLeft: '6px' }}
                 onClick={() => setShowTags(v => !v)}
               >
-                标签节点
+                Tag Nodes
               </button>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={toggleFullscreen}
-                title={isFullscreen ? '退出全屏' : '全屏'}
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                 style={{ marginLeft: '6px' }}
               >
                 {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}

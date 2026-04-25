@@ -17,6 +17,7 @@ export default defineConfig({
       leetcodeInsightDir: LEETCODEINSIGHT_DIR,
       aiApiUrl: 'http://127.0.0.1:7001/v1',
       aiModel: 'Qwen/Qwen3.5-27B-4bit',
+      workspacesPath: '.insighthub-workspaces.json',
     }),
   ],
   resolve: {

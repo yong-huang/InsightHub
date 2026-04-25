@@ -104,7 +104,7 @@ export function buildPersonalMapData(
   addNode({
     id: 'user:me',
     type: 'category',
-    label: '我',
+    label: 'Me',
     color: '#6366f1',
     size: 35,
   })

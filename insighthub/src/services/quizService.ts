@@ -37,7 +37,7 @@ export async function createQuiz(
   )
 
   if (!result.success || !result.data) {
-    return { quiz: {} as Quiz, error: result.error || '生成题目失败' }
+    return { quiz: {} as Quiz, error: result.error || 'Failed to generate questions' }
   }
 
   const quiz = parseQuizResponse(result.data, doc.id, doc.title)
@@ -65,7 +65,7 @@ export function gradeObjectiveQuestions(
       scores[q.id] = {
         score: isCorrect ? perQuestion : 0,
         maxScore: perQuestion,
-        feedback: isCorrect ? '正确！' : `错误。${q.explanation}`,
+        feedback: isCorrect ? 'Correct!' : `Incorrect. ${q.explanation}`,
       }
     } else if (q.type === 'choice') {
       // Compare user answer with correct answer (support both 'A' and full text)
@@ -75,7 +75,7 @@ export function gradeObjectiveQuestions(
       scores[q.id] = {
         score: isCorrect ? perQuestion : 0,
         maxScore: perQuestion,
-        feedback: isCorrect ? '正确！' : `正确答案是 ${q.correctAnswer}。${q.explanation}`,
+        feedback: isCorrect ? 'Correct!' : `The correct answer is ${q.correctAnswer}. ${q.explanation}`,
       }
     }
   }
@@ -118,7 +118,7 @@ export async function gradeQuiz(
       // Fallback: mark all short answers as 0
       for (const q of shortAnswerQuestions) {
         const perQuestion = Math.round(100 / quiz.questions.length)
-        aiScores[q.id] = { score: 0, maxScore: perQuestion, feedback: 'AI 评分不可用' }
+        aiScores[q.id] = { score: 0, maxScore: perQuestion, feedback: 'AI grading unavailable' }
       }
     }
   }

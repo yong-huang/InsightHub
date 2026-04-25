@@ -38,17 +38,17 @@ export function StatsPage() {
     <div className="stats-page">
       <div className="stats-page-header">
         <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="返回">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="stats-page-title">数据统计</h1>
+          <h1 className="stats-page-title">Statistics</h1>
         </div>
-        <p className="stats-page-desc">了解你的学习进度和阅读习惯</p>
+        <p className="stats-page-desc">Track your learning progress and reading habits</p>
         <div className="viz-period-selector" style={{ marginTop: '0.75rem' }}>
           {([
-            { key: 'month' as const, label: '本月' },
-            { key: 'year' as const, label: '今年' },
-            { key: 'all' as const, label: '全部' },
+            { key: 'month' as const, label: 'This Month' },
+            { key: 'year' as const, label: 'This Year' },
+            { key: 'all' as const, label: 'All Time' },
           ]).map(p => (
             <button
               key={p.key}
@@ -65,37 +65,37 @@ export function StatsPage() {
       <ReportHero data={report.overview} />
 
       {/* Heatmap */}
-      <ChartCard title="阅读热力图">
+      <ChartCard title="Reading Heatmap">
         <ReadingHeatmap entries={readHistory} documents={documents} source={activeWorkspace} />
       </ChartCard>
 
       {/* Two-column: Category Radar + Quiz Performance */}
       <div className="stats-grid-2">
-        <ChartCard title="分类探索雷达">
+        <ChartCard title="Category Exploration Radar">
           <CategoryRadar data={report.categoryDistribution} />
         </ChartCard>
-        <ChartCard title="测验表现">
+        <ChartCard title="Quiz Performance">
           <QuizPerformancePanel data={report.quizPerformance} />
         </ChartCard>
       </div>
 
       {/* Two-column: Top Annotated + Top Quizzed */}
       <div className="stats-grid-2">
-        <ChartCard title="最常批注文档">
-          <TopEngagedDocuments data={report.topAnnotated} unit="条批注" />
+        <ChartCard title="Most Annotated Documents">
+          <TopEngagedDocuments data={report.topAnnotated} unit="annotations" />
         </ChartCard>
-        <ChartCard title="最常测验文档">
-          <TopEngagedDocuments data={report.topQuizzed} unit="次测验" />
+        <ChartCard title="Most Quizzed Documents">
+          <TopEngagedDocuments data={report.topQuizzed} unit="quizzes" />
         </ChartCard>
       </div>
 
       {/* Reading habits */}
-      <ChartCard title="阅读习惯">
+      <ChartCard title="Reading Habits">
         <ReadingHabits data={report.readingHabits} />
       </ChartCard>
 
       {/* Tag cloud */}
-      <ChartCard title="标签云">
+      <ChartCard title="Tag Cloud">
         <TagCloud data={report.tagCloud} />
       </ChartCard>
     </div>

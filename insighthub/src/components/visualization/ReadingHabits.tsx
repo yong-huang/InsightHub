@@ -19,7 +19,7 @@ export function ReadingHabits({ data }: Props) {
   return (
     <div className="report-habits-grid">
       <div>
-        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.5rem' }}>每小时阅读分布</div>
+        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.5rem' }}>Hourly Reading Distribution</div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data.hourlyDist}>
             <XAxis
@@ -39,7 +39,7 @@ export function ReadingHabits({ data }: Props) {
                 color: colors.textPrimary,
                 fontSize: '13px',
               }}
-              formatter={(v: number) => [`${v} 次`, '阅读']}
+              formatter={(v: number) => [`${v} times`, 'Reading']}
               labelFormatter={(h: number) => `${h}:00`}
             />
           </BarChart>
@@ -50,16 +50,16 @@ export function ReadingHabits({ data }: Props) {
         {/* Streak stats */}
         <div className="report-habit-stat">
           <div className="report-habit-stat-value" style={{ color: colors.accentGreen }}>{data.currentStreak}</div>
-          <div className="report-habit-stat-label">当前连续阅读天数</div>
+          <div className="report-habit-stat-label">Current Reading Streak</div>
         </div>
         <div className="report-habit-stat">
           <div className="report-habit-stat-value" style={{ color: colors.accentOrange }}>{data.longestStreak}</div>
-          <div className="report-habit-stat-label">最长连续阅读天数</div>
+          <div className="report-habit-stat-label">Longest Reading Streak</div>
         </div>
 
         {/* Weekday distribution */}
         <div>
-          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.5rem' }}>星期分布</div>
+          <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '0.5rem' }}>Day of Week Distribution</div>
           {weekdayData.map(d => (
             <div key={d.day} className="report-weekday-bar">
               <span className="report-weekday-label">{d.label}</span>

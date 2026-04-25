@@ -60,7 +60,7 @@ export function AchievementToast() {
             {ICON_MAP[toast.achievement.icon] || <span>🏅</span>}
           </div>
           <div className="achievement-toast-content">
-            <div className="achievement-toast-label">成就解锁!</div>
+            <div className="achievement-toast-label">Achievement Unlocked!</div>
             <div className="achievement-toast-name">{toast.achievement.name}</div>
           </div>
         </div>

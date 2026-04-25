@@ -13,7 +13,7 @@ export function WordCountDist({ documents, source }: Props) {
   const data = buildWordCountDist(documents, source)
 
   if (data.every(d => d.count === 0)) {
-    return <div className="stats-empty">暂无字数数据</div>
+    return <div className="stats-empty">No word count data</div>
   }
 
   return (
@@ -43,7 +43,7 @@ export function WordCountDist({ documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={(value: number) => [`${value} 篇`, '文档数']}
+            formatter={(value: number) => [`${value} docs`, 'Document Count']}
           />
           <Bar
             dataKey="count"

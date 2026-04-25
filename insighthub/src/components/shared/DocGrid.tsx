@@ -7,7 +7,7 @@ interface DocGridProps {
   emptyMessage?: string
 }
 
-export function DocGrid({ documents, emptyMessage = '暂无文档' }: DocGridProps) {
+export function DocGrid({ documents, emptyMessage = 'No Documents' }: DocGridProps) {
   if (documents.length === 0) {
     return (
       <div className="empty-state">

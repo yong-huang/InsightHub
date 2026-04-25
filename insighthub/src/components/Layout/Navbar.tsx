@@ -1,10 +1,17 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3 } from 'lucide-react'
+import {
+  Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3,
+  MessageSquare, Bookmark, Lightbulb, Trophy, Network, Route,
+} from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
-import { WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import { useAnnotationStore } from '@/stores/annotationStore'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
+import { useDocumentStore } from '@/stores/documentStore'
 import { ImportDialog } from '@/components/Import/ImportDialog'
+import { ACHIEVEMENTS } from '@/services/achievementService'
+import { storageService } from '@/services/storageService'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Brain: <Brain size={18} />,
@@ -13,7 +20,10 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 }
 
 export function Navbar() {
-  const { theme, toggleTheme, activeWorkspace, setWorkspace } = usePreferenceStore()
+  const {
+    theme, toggleTheme, activeWorkspace, setWorkspace,
+    workspaces,
+  } = usePreferenceStore()
   const openDialog = useSearchStore(s => s.openDialog)
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -21,14 +31,49 @@ export function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const meta = WORKSPACE_META[activeWorkspace]
+  const activeWs = workspaces.find(w => w.id === activeWorkspace)
 
-  const handleSwitch = (ws: Workspace) => {
-    if (ws === activeWorkspace) {
+  // Compute badge counts
+  const documents = useDocumentStore(s => s.documents)
+  const allAnnotations = useAnnotationStore(s => s.annotations)
+  const conceptCards = useConceptCardStore(s => s.cards)
+
+  const noteCount = useMemo(() => {
+    return allAnnotations.filter(a => {
+      const doc = documents.get(a.documentId)
+      return doc?.source === activeWorkspace
+    }).length
+  }, [allAnnotations, documents, activeWorkspace])
+
+  const readLaterCount = useMemo(() => {
+    const readLaterList = storageService.getReadLaterList()
+    return readLaterList.filter(item => {
+      const doc = documents.get(item.documentId)
+      return doc?.source === activeWorkspace
+    }).length
+  }, [documents, activeWorkspace])
+
+  const dueConceptCount = useMemo(() => {
+    const now = Date.now()
+    const ws = workspaces.find(w => w.id === activeWorkspace)
+    const prefix = ws?.prefix ? `${ws.prefix}-` : ''
+    return conceptCards.filter(c => {
+      const doc = documents.get(c.sourceDocId)
+      return (doc?.source === activeWorkspace || c.sourceDocId.startsWith(prefix))
+        && c.nextReview <= now
+    }).length
+  }, [conceptCards, documents, activeWorkspace, workspaces])
+
+  const achievementCount = useMemo(() => {
+    return storageService.getAchievementState().unlockedIds.length
+  }, [])
+
+  const handleSwitch = (wsId: string) => {
+    if (wsId === activeWorkspace) {
       setMenuOpen(false)
       return
     }
-    setWorkspace(ws)
+    setWorkspace(wsId)
     setMenuOpen(false)
     navigate('/')
   }
@@ -39,6 +84,15 @@ export function Navbar() {
     }
   }
 
+  const navButtons = [
+    { icon: MessageSquare, label: 'All Notes', to: '/notes', badge: noteCount },
+    { icon: Bookmark, label: 'Read Later', to: '/read-later', badge: readLaterCount },
+    { icon: Lightbulb, label: 'Concept Cards', to: '/spaced-repetition', badge: dueConceptCount },
+    { icon: Trophy, label: 'Achievements', to: '/achievements', badge: achievementCount },
+    { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
+    { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },
+  ]
+
   return (
     <nav className="navbar" onMouseDown={handleMouseDown}>
       <div className="navbar-inner">
@@ -48,39 +102,54 @@ export function Navbar() {
               className="workspace-switcher-btn"
               onClick={() => setMenuOpen(v => !v)}
             >
-              {ICON_MAP[meta.icon]}
-              <span className="workspace-switcher-label">{meta.label}</span>
+              {activeWs && ICON_MAP[activeWs.icon] ? ICON_MAP[activeWs.icon] : <Brain size={18} />}
+              <span className="workspace-switcher-label">{activeWs?.label || activeWorkspace}</span>
               <ChevronDown size={14} />
             </button>
 
             {menuOpen && (
               <div className="workspace-switcher-menu">
-                {(Object.keys(WORKSPACE_META) as Workspace[]).map(ws => {
-                  const m = WORKSPACE_META[ws]
-                  return (
-                    <button
-                      key={ws}
-                      className={`workspace-switcher-item ${ws === activeWorkspace ? 'active' : ''}`}
-                      onClick={() => handleSwitch(ws)}
-                    >
-                      <span className="workspace-switcher-item-icon">{ICON_MAP[m.icon]}</span>
-                      <span className="workspace-switcher-item-label">
-                        {m.label}
-                        <span className="workspace-switcher-item-sub">{m.subtitle}</span>
-                      </span>
-                      {ws === activeWorkspace && <Check size={14} className="workspace-switcher-check" />}
-                    </button>
-                  )
-                })}
+                {workspaces.map(ws => (
+                  <button
+                    key={ws.id}
+                    className={`workspace-switcher-item ${ws.id === activeWorkspace ? 'active' : ''}`}
+                    onClick={() => handleSwitch(ws.id)}
+                  >
+                    <span className="workspace-switcher-item-icon">
+                      {ICON_MAP[ws.icon] || <Brain size={18} />}
+                    </span>
+                    <span className="workspace-switcher-item-label">
+                      {ws.label}
+                      {ws.subtitle && <span className="workspace-switcher-item-sub">{ws.subtitle}</span>}
+                    </span>
+                    {ws.id === activeWorkspace && <Check size={14} className="workspace-switcher-check" />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
         </div>
 
         <div className="navbar-right">
+          {/* Function buttons with tooltips */}
+          <div className="navbar-icon-btns">
+            {navButtons.map(btn => (
+              <Link
+                key={btn.to}
+                to={btn.to}
+                className="navbar-icon-btn"
+                title={btn.label}
+              >
+                <btn.icon size={18} />
+                {btn.badge > 0 && <span className="navbar-icon-badge">{btn.badge}</span>}
+                <span className="navbar-icon-tooltip">{btn.label}</span>
+              </Link>
+            ))}
+          </div>
+
           <button className="search-trigger" onClick={openDialog}>
             <Search size={16} />
-            <span>搜索文档...</span>
+            <span>Search documents...</span>
             <kbd>⌘K</kbd>
           </button>
           <input
@@ -97,16 +166,16 @@ export function Navbar() {
               e.target.value = ''
             }}
           />
-          <button className="btn-icon" title="导入文档" onClick={() => fileInputRef.current?.click()}>
+          <button className="btn-icon" title="Import Documents" onClick={() => fileInputRef.current?.click()}>
             <Upload size={18} />
           </button>
-          <Link to="/stats" className="btn-icon" title="数据统计">
+          <Link to="/stats" className="btn-icon" title="Statistics">
             <BarChart3 size={18} />
           </Link>
-          <Link to="/settings" className="btn-icon" title="设置">
+          <Link to="/settings" className="btn-icon" title="Settings">
             <Settings size={18} />
           </Link>
-          <button className="btn-icon theme-toggle" onClick={toggleTheme} title="切换主题">
+          <button className="btn-icon theme-toggle" onClick={toggleTheme} title="Toggle Theme">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>

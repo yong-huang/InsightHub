@@ -48,7 +48,7 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
     if (!response.ok) {
       const errBody = await response.text().catch(() => '')
       console.error('[callAI] error body:', errBody.slice(0, 200))
-      return { success: false, error: `AI 服务返回错误: ${response.status} ${errBody.slice(0, 100)}` }
+      return { success: false, error: `AI service error: ${response.status} ${errBody.slice(0, 100)}` }
     }
 
     const data = await response.json()
@@ -74,10 +74,10 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
         if (jsonMatch) {
           content = jsonMatch[0]
         } else {
-          return { success: false, error: `AI 思考模式占用了全部 token（${data.usage?.completion_tokens || '?'} tokens），未能生成内容。请尝试增加 max_tokens 或禁用思考模式。` }
+          return { success: false, error: `AI thinking mode consumed all tokens (${data.usage?.completion_tokens || '?'} tokens). No content was generated. Try increasing max_tokens or disabling thinking mode.` }
         }
       } else {
-        return { success: false, error: 'AI 服务未返回内容' }
+        return { success: false, error: 'AI service returned no content' }
       }
     }
 
@@ -85,12 +85,12 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
   } catch (e: any) {
     clearTimeout(timeoutId)
     if (e.name === 'AbortError') {
-      return { success: false, error: '请求超时，请稍后重试' }
+      return { success: false, error: 'Request timed out, please try again later' }
     }
     if (e instanceof TypeError && e.message.includes('fetch')) {
-      return { success: false, error: 'AI 服务不可用，请确认本地模型服务已启动' }
+      return { success: false, error: 'AI service unavailable. Please make sure the local model service is running.' }
     }
-    return { success: false, error: `请求失败: ${e.message}` }
+    return { success: false, error: `Request failed: ${e.message}` }
   }
 }
 
@@ -130,7 +130,7 @@ export async function callAIStream(
 
     if (!response.ok) {
       const errBody = await response.text().catch(() => '')
-      return { success: false, error: `AI 服务返回错误: ${response.status} ${errBody.slice(0, 100)}` }
+      return { success: false, error: `AI service error: ${response.status} ${errBody.slice(0, 100)}` }
     }
 
     const reader = response.body!.getReader()
@@ -184,7 +184,7 @@ export async function callAIStream(
     }
 
     if (!content) {
-      return { success: false, error: 'AI 服务未返回内容' }
+      return { success: false, error: 'AI service returned no content' }
     }
 
     return { success: true, data: content }
@@ -197,12 +197,12 @@ export async function callAIStream(
         // The caller reads streamingText from its own state, so we just signal success.
         return { success: true, data: '' }
       }
-      return { success: false, error: '生成超时，模型响应过慢，请稍后重试' }
+      return { success: false, error: 'Generation timed out. The model response was too slow. Please try again later.' }
     }
     if (e instanceof TypeError && e.message.includes('fetch')) {
-      return { success: false, error: 'AI 服务不可用，请确认本地模型服务已启动' }
+      return { success: false, error: 'AI service unavailable. Please make sure the local model service is running.' }
     }
-    return { success: false, error: `请求失败: ${e.message}` }
+    return { success: false, error: `Request failed: ${e.message}` }
   }
 }
 
@@ -267,7 +267,7 @@ export function extractJSON(text: string): any {
   }
 
   if (!raw) {
-    throw new Error('无法从 AI 响应中提取 JSON')
+    throw new Error('Failed to extract JSON from AI response')
   }
 
   // Try to parse as-is
@@ -332,7 +332,7 @@ export function extractJSON(text: string): any {
 
   try { return JSON.parse(fixed) } catch {}
 
-  throw new Error('无法从 AI 响应中提取 JSON')
+  throw new Error('Failed to extract JSON from AI response')
 }
 
 export async function generateQuizQuestions(
@@ -341,7 +341,7 @@ export async function generateQuizQuestions(
   difficulty: 'easy' | 'medium' | 'hard',
   count: number
 ): Promise<AIResponse> {
-  const difficultyMap = { easy: '简单', medium: '中等', hard: '困难' }
+  const difficultyMap = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
   const truncatedContent = documentContent.slice(0, 4000)
 
   const choiceCount = Math.ceil(count * 0.6)
@@ -350,20 +350,20 @@ export async function generateQuizQuestions(
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `你是一个出题助手。根据文档内容生成 ${count} 道题：${choiceCount} 道选择题、${tfCount} 道判断题。难度：${difficultyMap[difficulty]}。
-要求：
-1. 正确答案必须准确无误，绝对不能为了选项分布而牺牲答案正确性。correctAnswer 指向的选项内容必须与文档事实一致，且与 explanation 逻辑自洽。
-2. 对于涉及步骤、流程、顺序的题目（如"第一步是什么"、"先执行什么"），必须严格按照文档描述的顺序作答，仔细核实后再给出答案。
-3. 建议将正确答案尽量分散在 A、B、C、D 中，但如果某个选项恰好是正确答案，不要为了分布而改变。
-4. 每道题的 explanation 必须说明为什么 correctAnswer 是正确的。
-5. 题目之间不要重复或高度相似，尽量覆盖文档的不同知识点。
-只返回 JSON，不要其他文字。
-格式：
-{"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"题目","options":["A选项","B选项","C选项","D选项"],"correctAnswer":"A","explanation":"解析"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"题目","correctAnswer":"true","explanation":"解析"}]}`,
+      content: `You are a quiz question generator. Based on the document content, generate ${count} questions: ${choiceCount} multiple-choice questions and ${tfCount} true/false questions. Difficulty: ${difficultyMap[difficulty]}.
+Requirements:
+1. Correct answers must be accurate. Never sacrifice answer correctness for option distribution balance. The option pointed to by correctAnswer must match the document facts and be logically consistent with the explanation.
+2. For questions involving steps, processes, or sequences (e.g. "what is the first step", "what executes first"), answers must strictly follow the order described in the document. Verify carefully before providing the answer.
+3. It is recommended to distribute correct answers across A, B, C, and D, but if a particular option happens to be the correct answer, do not change it for the sake of distribution.
+4. Each question's explanation must explain why the correctAnswer is correct.
+5. Questions must not be duplicated or highly similar. Cover different knowledge points from the document.
+Return only JSON, no other text.
+Format:
+{"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"Question text","options":["Option A","Option B","Option C","Option D"],"correctAnswer":"A","explanation":"Explanation"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"Question text","correctAnswer":"true","explanation":"Explanation"}]}`,
     },
     {
       role: 'user',
-      content: `标题：${documentTitle}\n内容：${truncatedContent}`,
+      content: `Title: ${documentTitle}\nContent: ${truncatedContent}`,
     },
   ]
 
@@ -395,31 +395,31 @@ export async function gradeShortAnswers(
   const answerPairs = questions.map(q => ({
     id: q.id,
     question: q.text,
-    userAnswer: answers[q.id] || '（未作答）',
+    userAnswer: answers[q.id] || '(Not answered)',
     referenceAnswer: q.correctAnswer,
   }))
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `你是一个专业的阅卷助手。请根据参考答案为用户的简答题打分。
+      content: `You are a professional grader. Please grade the user's short-answer questions based on the reference answers.
 
-评分标准：
-- 完全正确或高度准确：满分
-- 基本正确但有小遗漏：70-90%
-- 部分正确：40-60%
-- 完全错误或未作答：0-20%
+Grading criteria:
+- Completely correct or highly accurate: full marks
+- Mostly correct with minor omissions: 70-90%
+- Partially correct: 40-60%
+- Completely wrong or unanswered: 0-20%
 
-请返回严格的 JSON 格式：
+Return strict JSON format:
 {
   "scores": {
-    "题目ID": { "score": 分数, "maxScore": 100, "feedback": "评语" }
+    "questionID": { "score": score, "maxScore": 100, "feedback": "feedback" }
   }
 }`,
     },
     {
       role: 'user',
-      content: `请为以下简答题打分：\n${JSON.stringify(answerPairs, null, 2)}`,
+      content: `Please grade the following short-answer questions:\n${JSON.stringify(answerPairs, null, 2)}`,
     },
   ]
 
@@ -428,7 +428,7 @@ export async function gradeShortAnswers(
     try {
       result.data = extractJSON(result.data)
     } catch {
-      return { success: false, error: 'AI 评分结果解析失败' }
+      return { success: false, error: 'Failed to parse AI grading results' }
     }
   }
   return result
@@ -446,25 +446,25 @@ export async function generateDocumentSummary(
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `你是一个文档摘要助手。请根据文档内容生成结构化摘要，使用以下四个 Markdown 标题段落：
+      content: `You are a document summary assistant. Please generate a structured summary based on the document content, using the following four Markdown section headings:
 
-## 核心要点
-总结文档的 3-5 个核心要点。
+## Key Points
+Summarize 3-5 key points of the document.
 
-## 重要概念
-列出文档中涉及的重要概念并简要解释。
+## Important Concepts
+List the important concepts covered in the document with brief explanations.
 
-## 内容大纲
-按章节顺序概括文档的主要内容结构。
+## Content Outline
+Summarize the main content structure of the document in section order.
 
-## 总结
-用 2-3 句话总结文档的总体内容。
+## Summary
+Summarize the overall content of the document in 2-3 sentences.
 
-要求：内容简洁准确，使用中文。只输出 Markdown 文本，不要输出其他内容。`,
+Requirements: Keep the content concise and accurate. Output only Markdown text, nothing else.`,
     },
     {
       role: 'user',
-      content: `标题：${documentTitle}\n\n章节列表：\n${sectionList}\n\n文档内容：\n${truncatedContent}`,
+      content: `Title: ${documentTitle}\n\nSection list:\n${sectionList}\n\nDocument content:\n${truncatedContent}`,
     },
   ]
 
@@ -491,38 +491,38 @@ export async function generateSpeakerNotes(
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `你是一位专业的演讲稿撰写助手，负责为幻灯片撰写口语化演讲稿。
+      content: `You are a professional speech writer responsible for creating conversational speaker notes for presentation slides.
 
-要求：
-1. 口语化风格，像在跟听众面对面交流，不要照念文档或标题
-2. 每页演讲稿对应 2-3 分钟演讲时长（约 300-500 字中文）
-3. 开头用引导性问题或场景描述切入，不要直接念标题
-4. 适当加入"大家可以看到"、"这里有个关键点"、"我们来看一下"等口语衔接
-5. 代码块或技术细节用通俗语言解释要点，不逐行读代码
-6. 结尾可以用一个简短的过渡句引出下一页
-7. 使用中文撰写
+Requirements:
+1. Conversational style, as if talking face-to-face with the audience. Do not simply read the document or titles aloud.
+2. Each slide's notes should correspond to 2-3 minutes of speaking time (approximately 300-500 words in English).
+3. Open with a guiding question or scenario description. Do not directly read the title.
+4. Include conversational transitions like "as you can see", "here's a key point", "let's take a look at this".
+5. Explain code blocks and technical details in plain language. Do not read code line by line.
+6. End with a brief transition sentence to introduce the next slide.
+7. Write in English.
 
-返回格式（严格按此格式输出，每页之间用分隔线隔开）：
---- Slide 1: 标题 ---
-演讲稿内容
+Output format (strictly follow this format, separate each slide with a divider):
+--- Slide 1: Title ---
+Speaker notes content
 
---- Slide 2: 标题 ---
-演讲稿内容
+--- Slide 2: Title ---
+Speaker notes content
 
-（以此类推，为每一页幻灯片撰写演讲稿）
+(And so on, write speaker notes for every slide)
 
-只输出演讲稿内容，不要输出其他说明文字。`,
+Output only the speaker notes content, no other explanatory text.`,
     },
     {
       role: 'user',
-      content: `文档标题：${documentTitle}\n\n以下是各幻灯片的标题和内容摘要：\n\n${sectionsList}`,
+      content: `Document title: ${documentTitle}\n\nBelow are the titles and content summaries for each slide:\n\n${sectionsList}`,
     },
   ]
 
   const result = await callAIStream(messages, undefined, externalSignal)
 
   if (!result.success || !result.data) {
-    throw new Error(result.error || 'AI 服务未返回内容')
+    throw new Error(result.error || 'AI service returned no content')
   }
 
   // Parse the response into Record<number, string>
@@ -555,26 +555,26 @@ export async function evaluateDocumentAccuracy(
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `你是一位严谨的领域专家审稿人。请对以下文档内容进行准确度评估，使用 Markdown 格式输出。
+      content: `You are a rigorous domain expert reviewer. Please evaluate the accuracy of the following document content and output in Markdown format.
 
-输出格式要求：
-## 评分：X/100
-（给出一个整数分数，基于内容的准确性、完整性和可靠性）
+Output format requirements:
+## Score: X/100
+(Provide an integer score based on the accuracy, completeness, and reliability of the content)
 
-## 整体评价
-（1-2 句话概括文档质量）
+## Overall Assessment
+(1-2 sentences summarizing the document quality)
 
-## 可能存在的问题
-（列出所有发现的问题，每项包含：问题所在的章节/主题、具体问题描述、建议修改方向。如果没有问题，说明"未发现明显问题"）
+## Potential Issues
+(List all issues found. Each item should include: the section/topic where the issue is located, a specific description of the problem, and suggested fixes. If no issues are found, state "No obvious issues found.")
 
-## 值得肯定的方面
-（列出准确可靠、表述清晰的内容）
+## Strengths
+(List content that is accurate, reliable, and clearly expressed)
 
-要求：内容客观公正，使用中文。只输出 Markdown 文本，不要输出其他内容。`,
+Requirements: Be objective and fair. Output only Markdown text, nothing else.`,
     },
     {
       role: 'user',
-      content: `标题：${documentTitle}\n\n文档内容：\n${truncatedContent}`,
+      content: `Title: ${documentTitle}\n\nDocument content:\n${truncatedContent}`,
     },
   ]
 

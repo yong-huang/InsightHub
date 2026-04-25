@@ -22,7 +22,7 @@ export function ReadingTrend({ entries, documents, source }: Props) {
   }
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无阅读记录</div>
+    return <div className="stats-empty">No reading records</div>
   }
 
   return (
@@ -32,13 +32,13 @@ export function ReadingTrend({ entries, documents, source }: Props) {
           className={mode === 'daily' ? 'active' : ''}
           onClick={() => setMode('daily')}
         >
-          日
+          Day
         </button>
         <button
           className={mode === 'weekly' ? 'active' : ''}
           onClick={() => setMode('weekly')}
         >
-          周
+          Week
         </button>
       </div>
       <ResponsiveContainer width="100%" height={260}>
@@ -68,7 +68,7 @@ export function ReadingTrend({ entries, documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={(value: number) => [`${value} 篇`, '阅读量']}
+            formatter={(value: number) => [`${value} docs`, 'Reading Count']}
             labelFormatter={(label: string) => label}
           />
           <Line

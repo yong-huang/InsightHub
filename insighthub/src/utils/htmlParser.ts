@@ -6,8 +6,8 @@ const TITLE_SUFFIXES = [
   ' - TechInsight',
   ' - Tech Visual',
   ' - LeetCodeInsight',
-  '| 思想洞察 MindInsight',
-  '| 技术洞察 TechInsight',
+  '| Mind & Insight MindInsight',
+  '| Tech & Insight TechInsight',
 ]
 
 function stripTitleSuffix(title: string): string {

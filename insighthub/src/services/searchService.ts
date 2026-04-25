@@ -79,7 +79,7 @@ export interface ParsedQuery {
   }
 }
 
-// Build reverse map: label→key for category matching (e.g. "哲学"→"philosophy")
+// Build reverse map: label→key for category matching (e.g. "Philosophy"→"philosophy")
 const categoryLabelToKey = new Map<string, string>()
 for (const c of CATEGORIES) {
   categoryLabelToKey.set(c.label, c.key)

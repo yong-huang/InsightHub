@@ -19,7 +19,7 @@ export function DecryptDialog({ onDecrypt, onCancel }: DecryptDialogProps) {
     try {
       await onDecrypt(password)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '密码错误或解密失败')
+      setError(e instanceof Error ? e.message : 'Incorrect password or decryption failed')
     } finally {
       setLoading(false)
     }
@@ -38,7 +38,7 @@ export function DecryptDialog({ onDecrypt, onCancel }: DecryptDialogProps) {
         <div className="import-dialog-header">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Lock size={18} />
-            文档已加密
+            Document Encrypted
           </h3>
         </div>
 
@@ -46,13 +46,13 @@ export function DecryptDialog({ onDecrypt, onCancel }: DecryptDialogProps) {
           fontSize: '0.85rem', color: 'var(--text-secondary)',
           marginBottom: '1rem', lineHeight: 1.5,
         }}>
-          该文档使用密码加密存储，请输入密码以查看内容。
+          This document is encrypted. Please enter the password to view its content.
         </p>
 
         <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
           <input
             type={showPassword ? 'text' : 'password'}
-            placeholder="请输入密码"
+            placeholder="Enter password"
             value={password}
             onChange={e => { setPassword(e.target.value); setError(null) }}
             onKeyDown={e => e.key === 'Enter' && handleSubmit()}
@@ -83,14 +83,14 @@ export function DecryptDialog({ onDecrypt, onCancel }: DecryptDialogProps) {
         )}
 
         <div className="import-dialog-actions">
-          <button className="btn btn-secondary" onClick={onCancel}>取消</button>
+          <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
             disabled={!password.trim() || loading}
           >
             {loading ? <Loader2 size={14} className="spin" /> : <Lock size={14} />}
-            解密
+            Decrypt
           </button>
         </div>
       </div>

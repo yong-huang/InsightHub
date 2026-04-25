@@ -168,7 +168,76 @@
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+}
+
+/* ========== Navbar Icon Buttons ========== */
+.navbar-icon-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.navbar-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  font-size: 0;
+}
+
+.navbar-icon-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.navbar-icon-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.navbar-icon-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  margin-top: 4px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.navbar-icon-btn:hover .navbar-icon-tooltip {
+  display: block;
 }
 
 .btn-icon {
@@ -407,5 +476,101 @@
     transition: none;
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ========== File Tree ========== */
+.file-tree {
+  user-select: none;
+}
+
+.file-tree-node {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.file-tree-row:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.file-tree-row.active {
+  background: rgba(50, 108, 229, 0.12);
+  color: var(--accent-blue-light);
+}
+
+.file-tree-row.is-dir {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.file-tree-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-dim);
+}
+
+.file-tree-row.is-dir .file-tree-icon {
+  color: var(--accent-yellow);
+}
+
+.file-tree-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+  color: var(--text-dim);
+}
+
+.file-tree-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.file-tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-count {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.file-tree-children {
+  margin-left: 12px;
+  border-left: 1px solid var(--border-subtle);
+  padding-left: 4px;
+}
+
+/* ========== Responsive: hide navbar icon tooltips and badges on small screens ========== */
+@media (max-width: 1024px) {
+  .navbar-icon-btns {
+    display: none;
+  }
+  .navbar-right {
+    gap: 0.75rem;
   }
 }

@@ -77,7 +77,7 @@ export function AnnotationPopup({ annotation: ann, rect, titleLookup, onClose, o
           className="annotation-popup-delete"
           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onRemove(ann.id) }}
         >
-          <Trash2 size={12} /> 删除
+          <Trash2 size={12} /> Delete
         </button>
       </div>
     </div>

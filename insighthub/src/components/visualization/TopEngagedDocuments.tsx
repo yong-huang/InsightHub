@@ -12,7 +12,7 @@ export function TopEngagedDocuments({ title, data, unit }: Props) {
   const location = useLocation()
 
   if (data.length === 0) {
-    return <div className="stats-empty">暂无数据</div>
+    return <div className="stats-empty">No data</div>
   }
 
   return (

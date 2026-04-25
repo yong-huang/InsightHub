@@ -1,5 +1,14 @@
 // ========== Source Type ==========
-export type Source = 'mindinsight' | 'techinsight' | 'leetcodeinsight'
+export type Source = string
+
+// ========== Workspace Config ==========
+export interface WorkspaceConfig {
+  id: string
+  label: string
+  icon: string
+  path: string
+  prefix: string
+}
 
 // ========== Document Types ==========
 export interface Document {
@@ -154,17 +163,6 @@ export interface ConceptCard {
   lastReview: number
 }
 
-// ========== Presentation Types ==========
-export interface Presentation {
-  id: string                 // pres-${Date.now()}
-  documentId: string
-  documentTitle: string
-  slideOrder: number[]       // ordered section indices
-  speakerNotes: Record<number, string>
-  createdAt: number
-  updatedAt: number
-}
-
 // ========== Imported Document Types ==========
 export interface ImportedDocumentRecord {
   id: string
@@ -188,6 +186,5 @@ export interface UserPreferences {
   aiApiKey: string
   activeWorkspace: Source
   conceptMaxCount: number
-  enablePresentation: boolean
 }
 

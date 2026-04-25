@@ -1,0 +1,23 @@
+[
+  {
+    "id": "mindinsight",
+    "label": "MindInsight",
+    "icon": "Brain",
+    "path": "/Users/hyhit/Desktop/workspace/projects/MindInsight",
+    "prefix": "mi"
+  },
+  {
+    "id": "techinsight",
+    "label": "TechInsight",
+    "icon": "Cpu",
+    "path": "/Users/hyhit/Desktop/workspace/projects/TechInsight",
+    "prefix": "ti"
+  },
+  {
+    "id": "leetcodeinsight",
+    "label": "LeetcodeInsight",
+    "icon": "Code2",
+    "path": "/Users/hyhit/Desktop/workspace/projects/LeetCodeInsight",
+    "prefix": "li"
+  }
+]

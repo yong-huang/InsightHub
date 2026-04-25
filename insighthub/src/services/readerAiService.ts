@@ -20,7 +20,7 @@ export async function chatWithDocument(
 
   const systemMsg = {
     role: 'system' as const,
-    content: `你是一个文档阅读助手。请基于以下文档内容回答用户的问题。如果问题超出文档范围，可以补充相关背景知识，但要明确标注哪些内容来自文档、哪些是你的补充。使用 Markdown 格式回复，保持简洁清晰。\n\n--- 文档内容 ---\n${truncatedDoc}`,
+    content: `You are a document reading assistant. Please answer the user's questions based on the document content below. If the question goes beyond the document scope, you may supplement with relevant background knowledge, but clearly indicate which content comes from the document and which is your supplement. Reply in Markdown format, keep it concise and clear.\n\n--- Document Content ---\n${truncatedDoc}`,
   }
 
   // Keep last 5 turns (10 messages) as conversation context
@@ -49,11 +49,11 @@ export async function explainConcept(
   const messages = [
     {
       role: 'system' as const,
-      content: '你是一个知识解释助手。用户会给你一段选中的文本及其上下文。如果是术语，请给出定义和背景知识；如果是段落，请概括核心含义。回答控制在 200 字以内，使用 Markdown 格式，简洁清晰。',
+      content: 'You are a knowledge explanation assistant. The user will give you a selected text and its context. If it is a term, provide the definition and background knowledge; if it is a paragraph, summarize the core meaning. Keep the answer within 200 words, use Markdown format, be concise and clear.',
     },
     {
       role: 'user' as const,
-      content: `选中文本：${selectedText}\n\n上下文：${context}`,
+      content: `Selected text: ${selectedText}\n\nContext: ${context}`,
     },
   ]
 
@@ -68,7 +68,7 @@ export async function translateText(
   const messages = [
     {
       role: 'system' as const,
-      content: '你是一个翻译助手。自动检测语言：如果是中文则翻译为英文，如果是英文则翻译为中文。只输出翻译结果，不要输出其他内容。',
+      content: 'You are a translation assistant. Auto-detect the language: if Chinese, translate to English; if English, translate to Chinese. Output only the translation result, nothing else.',
     },
     {
       role: 'user' as const,

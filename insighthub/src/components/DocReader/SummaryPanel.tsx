@@ -23,8 +23,8 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
   return (
     <div className="summary-panel">
       <div className="summary-panel-header">
-        <h3>AI 摘要</h3>
-        <button className="summary-panel-close" onClick={onClose} title="关闭">
+        <h3>AI Summary</h3>
+        <button className="summary-panel-close" onClick={onClose} title="Close">
           <X size={16} />
         </button>
       </div>
@@ -32,7 +32,7 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
       {isGenerating && (
         <div className="summary-panel-progress">
           <Loader2 size={14} className="spin" />
-          <span>正在生成摘要...</span>
+          <span>Generating summary...</span>
         </div>
       )}
 
@@ -40,10 +40,10 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
         {!summaryText && !isGenerating && !error && (
           <div className="summary-panel-empty">
             <FileText size={32} />
-            <p>AI 摘要</p>
-            <p className="summary-panel-empty-hint">基于文档内容自动生成结构化摘要</p>
+            <p>AI Summary</p>
+            <p className="summary-panel-empty-hint">Automatically generate a structured summary based on document content</p>
             <button className="btn btn-primary btn-sm" onClick={onGenerate}>
-              生成摘要
+              Generate Summary
             </button>
           </div>
         )}
@@ -52,7 +52,7 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
           <div className="summary-panel-error">
             <p>{error}</p>
             <button className="btn btn-secondary btn-sm" onClick={onGenerate}>
-              <RefreshCw size={14} /> 重试
+              <RefreshCw size={14} /> Retry
             </button>
           </div>
         )}
@@ -73,7 +73,7 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
       {!isGenerating && summaryText && !error && (
         <div className="summary-panel-footer">
           <button className="btn btn-secondary btn-sm" onClick={onGenerate}>
-            <RefreshCw size={14} /> 重新生成
+            <RefreshCw size={14} /> Regenerate
           </button>
         </div>
       )}

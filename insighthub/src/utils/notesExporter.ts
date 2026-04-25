@@ -21,7 +21,7 @@ function groupByDocument(annotations: Annotation[]): Map<string, Annotation[]> {
 
 export function exportNotesAsMarkdown({ annotations, getDocTitle }: ExportOptions): void {
   const groups = groupByDocument(annotations)
-  const lines: string[] = ['# 笔记导出', '', `导出时间：${new Date().toLocaleString('zh-CN')}`, '']
+  const lines: string[] = ['# Notes Export', '', `Exported at: ${new Date().toLocaleString('en-US')}`, '']
 
   for (const [docId, anns] of groups) {
     const title = getDocTitle(docId)
@@ -32,7 +32,7 @@ export function exportNotesAsMarkdown({ annotations, getDocTitle }: ExportOption
     for (const ann of sorted) {
       lines.push(`> ${ann.text.replace(/\n/g, '\n> ')}`, '')
       if (ann.comment) {
-        lines.push(`**批注**：${ann.comment}`, '')
+        lines.push(`**Annotation**: ${ann.comment}`, '')
       }
       lines.push('---', '')
     }

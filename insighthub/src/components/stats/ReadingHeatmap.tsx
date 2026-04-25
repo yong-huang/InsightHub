@@ -9,7 +9,7 @@ interface Props {
   source?: string
 }
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export function ReadingHeatmap({ entries, documents, source }: Props) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell } | null>(null)
@@ -36,7 +36,7 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
       if (!firstDate) continue
       const month = firstDate.slice(0, 7)
       if (month !== lastMonth) {
-        labels.push({ text: `${parseInt(month.split('-')[1])}月`, col })
+        labels.push({ text: `${parseInt(month.split('-')[1])}`, col })
         lastMonth = month
       }
     }
@@ -49,7 +49,7 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
     <div className="stats-heatmap-container">
       <div className="stats-heatmap-header">
         <span className="stats-heatmap-total">
-          共 <strong>{totalReads}</strong> 次阅读
+          <strong>{totalReads}</strong> reads total
         </span>
       </div>
 
@@ -110,11 +110,11 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
 
       {/* Legend */}
       <div className="stats-heatmap-legend">
-        <span className="stats-heatmap-legend-label">少</span>
+        <span className="stats-heatmap-legend-label">Less</span>
         {[0, 1, 2, 3, 4].map(level => (
           <div key={level} className={`stats-heatmap-cell level-${level}`} />
         ))}
-        <span className="stats-heatmap-legend-label">多</span>
+        <span className="stats-heatmap-legend-label">More</span>
       </div>
 
       {/* Tooltip */}
@@ -129,7 +129,7 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
         >
           <strong>{tooltip.cell.date}</strong>
           <br />
-          {tooltip.cell.count} 次阅读
+          {tooltip.cell.count} reads
         </div>
       )}
     </div>

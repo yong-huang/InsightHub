@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, Cpu, ClipboardCheck, Save, CheckCircle2, AlertTriangle, Zap, Server, KeyRound, Loader2, ArrowLeft, Database, Plus, Trash2 } from 'lucide-react'
+import {
+  CheckCircle2, AlertTriangle, Zap, KeyRound,
+  Loader2, ArrowLeft, Database, Plus, Trash2, FolderOpen, Folder, FileText,
+  ChevronRight,
+} from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import type { Difficulty } from '@/types'
+import type { Difficulty, WorkspaceConfig } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
 import type { ExportData } from '@/utils/dataExporter'
 
@@ -21,14 +25,23 @@ interface AIConfig {
   quizQuestionCount: number
 }
 
+const AVAILABLE_ICONS = [
+  'Brain', 'Cpu', 'Code2', 'GraduationCap', 'BookOpen', 'Sparkles',
+  'Server', 'Cloud', 'Database', 'Terminal', 'GitBranch', 'Network',
+  'BarChart3', 'Briefcase', 'Globe', 'Layers', 'Lightbulb', 'ShieldCheck',
+  'FileText', 'FolderOpen', 'Box', 'Package',
+] as const
+
 export function SettingsPage() {
   const {
     quizDifficulty, quizQuestionCount,
     setQuizDifficulty, setQuizQuestionCount,
     conceptMaxCount, setConceptMaxCount,
-    enablePresentation, setEnablePresentation,
+    workspaces, addWorkspace, updateWorkspace, removeWorkspace,
+    activeWorkspace,
   } = usePreferenceStore()
 
+  // AI profiles state
   const [profiles, setProfiles] = useState<AIProfile[]>([])
   const [activeProfileId, setActiveProfileId] = useState('')
   const [editingId, setEditingId] = useState('')
@@ -46,6 +59,16 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false)
 
   const navigate = useNavigate()
+
+  // Workspace editing state
+  const [editingWs, setEditingWs] = useState<WorkspaceConfig | null>(null)
+  const [isNewWs, setIsNewWs] = useState(false)
+
+  // Directory browser state
+  const [browsePath, setBrowsePath] = useState<string>('')
+  const [browseEntries, setBrowseEntries] = useState<{ name: string; isDirectory: boolean; path: string }[]>([])
+  const [browseOpen, setBrowseOpen] = useState(false)
+  const [browseLoading, setBrowseLoading] = useState(false)
 
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -113,7 +136,7 @@ export function SettingsPage() {
   const handleNewProfile = () => {
     setIsNewProfile(true)
     setEditingId('')
-    setEditName('新配置')
+    setEditName('New Config')
     setEditUrl('http://127.0.0.1:7001/v1')
     setEditModel('')
     setEditApiKey('')
@@ -134,7 +157,6 @@ export function SettingsPage() {
       const cfg: AIConfig = await res.json()
       setProfiles(cfg.profiles || [])
       setActiveProfileId(cfg.activeProfileId || '')
-      // If we were editing this profile, switch to active
       if (editingId === profileId) {
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
@@ -154,7 +176,7 @@ export function SettingsPage() {
           action: 'saveProfile',
           profile: {
             id: editingId || undefined,
-            name: editName || '未命名',
+            name: editName || 'Untitled',
             aiApiUrl: editUrl,
             aiModel: editModel,
             aiApiKey: editApiKey,
@@ -195,7 +217,6 @@ export function SettingsPage() {
     setTestResult(null)
     setAvailableModels([])
     try {
-      // Save profile (without switching active) so the new profile exists
       if (editingId || isNewProfile) {
         const saveRes = await fetch('/api/ai/config', {
           method: 'POST',
@@ -204,7 +225,7 @@ export function SettingsPage() {
             action: 'saveProfile',
             profile: {
               id: editingId || undefined,
-              name: editName || '未命名',
+              name: editName || 'Untitled',
               aiApiUrl: editUrl,
               aiModel: editModel,
               aiApiKey: editApiKey,
@@ -220,7 +241,6 @@ export function SettingsPage() {
           setIsNewProfile(false)
         }
       }
-      // Test connection by fetching models directly (no profile switch needed)
       const params = new URLSearchParams({ url: editUrl })
       if (editApiKey && !editApiKey.includes('●')) {
         params.set('apiKey', editApiKey)
@@ -230,7 +250,7 @@ export function SettingsPage() {
         const errText = await modelsRes.text().catch(() => '')
         let errMsg = `HTTP ${modelsRes.status}`
         try { const e = JSON.parse(errText); errMsg = e.error || errMsg } catch {}
-        setTestResult({ ok: false, msg: `连接失败: ${errMsg}` })
+        setTestResult({ ok: false, msg: `Connection failed: ${errMsg}` })
         return
       }
       const modelsData = await modelsRes.json()
@@ -240,12 +260,12 @@ export function SettingsPage() {
         .sort((a: string, b: string) => a.localeCompare(b))
       setAvailableModels(modelIds)
       if (modelIds.length > 0) {
-        setTestResult({ ok: true, msg: `连接成功！获取到 ${modelIds.length} 个模型。` })
+        setTestResult({ ok: true, msg: `Connected! Found ${modelIds.length} models.` })
       } else {
-        setTestResult({ ok: true, msg: '连接成功！但未获取到模型列表，请手动输入。' })
+        setTestResult({ ok: true, msg: 'Connected! No model list returned, please enter manually.' })
       }
     } catch (e: any) {
-      setTestResult({ ok: false, msg: e.name === 'AbortError' ? '连接超时' : `连接失败: ${e.message}` })
+      setTestResult({ ok: false, msg: e.name === 'AbortError' ? 'Connection timed out' : `Connection failed: ${e.message}` })
     } finally {
       setTesting(false)
     }
@@ -257,261 +277,430 @@ export function SettingsPage() {
     setAvailableModels([])
   }
 
+  // Workspace CRUD
+  const handleSaveWorkspace = () => {
+    if (!editingWs) return
+    if (isNewWs) {
+      addWorkspace(editingWs)
+    } else {
+      updateWorkspace(editingWs)
+    }
+    setEditingWs(null)
+    setIsNewWs(false)
+    syncWorkspacesToServer(isNewWs ? [...workspaces, editingWs] : workspaces.map(w => w.id === editingWs.id ? editingWs : w))
+  }
+
+  const handleDeleteWorkspace = (id: string) => {
+    if (id === activeWorkspace) return
+    removeWorkspace(id)
+    syncWorkspacesToServer(workspaces.filter(w => w.id !== id))
+  }
+
+  const syncWorkspacesToServer = async (ws: WorkspaceConfig[]) => {
+    try {
+      await fetch('/api/workspaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ws),
+      })
+    } catch {}
+  }
+
+  const handleNewWorkspace = () => {
+    const id = `workspace-${Date.now()}`
+    const prefix = id.slice(0, 2).toLowerCase()
+    setEditingWs({
+      id,
+      label: 'New Workspace',
+      icon: 'FolderOpen',
+      path: '',
+      prefix,
+    })
+    setIsNewWs(true)
+  }
+
+  const openDirBrowser = async (currentPath: string) => {
+    // Send raw path to backend; the server will path.resolve it
+    setBrowseLoading(true)
+    setBrowseOpen(true)
+    try {
+      const res = await fetch(`/api/browse-directories?path=${encodeURIComponent(currentPath)}`)
+      const data = await res.json()
+      setBrowsePath(data.currentPath)
+      setBrowseEntries(data.entries || [])
+    } catch {}
+    setBrowseLoading(false)
+  }
+
+  const navigateDir = async (dirPath: string) => {
+    setBrowseLoading(true)
+    try {
+      const res = await fetch(`/api/browse-directories?path=${encodeURIComponent(dirPath)}`)
+      const data = await res.json()
+      setBrowsePath(data.currentPath)
+      setBrowseEntries(data.entries || [])
+    } catch {}
+    setBrowseLoading(false)
+  }
+
+  const selectDir = () => {
+    if (editingWs) {
+      setEditingWs({ ...editingWs, path: browsePath })
+    }
+    setBrowseOpen(false)
+  }
+
   return (
-    <div className="page-settings">
-      <div className="page-header">
-        <h1><Settings size={22} style={{ marginRight: 8, verticalAlign: 'middle' }} /> 设置</h1>
-        <p>管理 AI 模型配置和测验偏好</p>
+    <div className="cs-settings">
+      {/* Page header — CodeSentinel style */}
+      <div className="cs-settings-header">
+        <div className="cs-section-label">SETTINGS</div>
+        <h1>Settings</h1>
+        <p className="cs-settings-subtitle">Manage AI model configurations, quiz preferences, and workspaces.</p>
       </div>
 
-      <div className="settings-grid">
-        {/* AI Model Config */}
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <Cpu size={20} />
-            <h2>AI 模型配置</h2>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Server size={12} /> 服务端管理
-            </span>
-          </div>
-          <div className="settings-card-body">
-            {/* Profile list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Card 1: AI Model Configuration */}
+      <div className="cs-card">
+        <div className="cs-card-header">AI MODEL CONFIGURATION</div>
+        <div className="cs-card-body">
+          {/* Existing profiles list */}
+          {profiles.length === 0 && !isNewProfile ? (
+            <div className="cs-empty-hint">
+              No AI configurations yet. Add one to enable AI-powered quizzes and concept extraction.
+            </div>
+          ) : (
+            <div className="cs-item-list">
               {profiles.map(p => (
                 <div
                   key={p.id}
-                  className={`settings-profile-item${p.id === activeProfileId ? ' active' : ''}${p.id === editingId ? ' editing' : ''}`}
+                  className={`cs-model-item${p.id === activeProfileId ? ' active' : ''}${p.id === editingId ? ' editing' : ''}`}
                   onClick={() => handleProfileClick(p)}
                 >
-                  <div className="settings-profile-dot" />
-                  <span className="settings-profile-name">{p.name}</span>
-                  {p.id === activeProfileId && <span className="settings-profile-badge">当前</span>}
-                  {p.id === editingId && p.id !== activeProfileId && (
-                    <span className="settings-profile-badge" style={{ background: 'rgba(167,139,250,0.15)', color: 'var(--accent-purple)' }}>编辑中</span>
-                  )}
-                  <div className="settings-profile-actions">
+                  <div className="cs-model-info">
+                    <div className="cs-model-name">
+                      {p.name}
+                      {p.id === activeProfileId && (
+                        <span className="cs-badge cs-badge-active">ACTIVE</span>
+                      )}
+                      {p.id === editingId && p.id !== activeProfileId && (
+                        <span className="cs-badge cs-badge-editing">EDITING</span>
+                      )}
+                    </div>
+                    <div className="cs-model-meta">
+                      <span>{p.aiApiUrl}</span>
+                      <span>{p.aiModel || '—'}</span>
+                    </div>
+                  </div>
+                  <div className="cs-model-actions">
                     {p.id !== activeProfileId && (
-                      <button
-                        className="settings-profile-delete"
-                        onClick={e => { e.stopPropagation(); handleDeleteProfile(p.id) }}
-                        title="删除此配置"
-                        disabled={saving}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <>
+                        <button
+                          className="cs-btn cs-btn-primary"
+                          onClick={e => { e.stopPropagation(); handleSwitchProfile(p.id) }}
+                          disabled={saving}
+                        >
+                          Activate
+                        </button>
+                        <button
+                          className="cs-btn cs-btn-ghost"
+                          onClick={e => { e.stopPropagation(); handleDeleteProfile(p.id) }}
+                          disabled={saving}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
               ))}
-              <div className="settings-profile-add" onClick={handleNewProfile}>
-                <Plus size={14} /> 添加新配置
-              </div>
             </div>
+          )}
 
-            {/* Edit section */}
-            <div className="settings-edit-section">
-              <div className="settings-edit-title">
-                {isNewProfile ? '新建配置' : editingId ? `编辑: ${editName}` : '选择一个配置进行编辑'}
+          {/* Add / Edit form — separated by border */}
+          <div className="cs-form-separator">
+            <div className="cs-section-label">
+              {(editingId || isNewProfile) ? 'EDIT CONFIG' : 'ADD NEW CONFIG'}
+            </div>
+          </div>
+
+          {(editingId || isNewProfile) ? (
+            <>
+              <div className="cs-form-row">
+                <div className="cs-form-group">
+                  <label>NAME</label>
+                  <input
+                    type="text"
+                    value={loading ? 'Loading...' : editName}
+                    onChange={e => setEditName(e.target.value)}
+                    placeholder="e.g.: Local Qwen"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="cs-form-group">
+                  <label>API URL</label>
+                  <input
+                    type="text"
+                    value={loading ? 'Loading...' : editUrl}
+                    onChange={e => setEditUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:7001/v1"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="cs-form-group">
+                  <label>API KEY</label>
+                  <input
+                    type="password"
+                    value={loading ? 'Loading...' : editApiKey}
+                    onChange={e => setEditApiKey(e.target.value)}
+                    placeholder="Leave empty to not send"
+                    disabled={loading}
+                  />
+                </div>
               </div>
-              {(editingId || isNewProfile) && (
-                <>
-                  <div className="settings-field">
-                    <label>配置名称</label>
-                    <input
-                      type="text"
-                      className="settings-input"
-                      value={loading ? '加载中...' : editName}
-                      onChange={e => setEditName(e.target.value)}
-                      placeholder="如：本地 Qwen、Claude API"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="settings-field">
-                    <label>API 地址</label>
-                    <input
-                      type="text"
-                      className="settings-input"
-                      value={loading ? '加载中...' : editUrl}
-                      onChange={e => setEditUrl(e.target.value)}
-                      placeholder="http://127.0.0.1:7001/v1"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="settings-field">
-                    <label><KeyRound size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />API Key</label>
-                    <input
-                      type="password"
-                      className="settings-input"
-                      value={loading ? '加载中...' : editApiKey}
-                      onChange={e => setEditApiKey(e.target.value)}
-                      placeholder="留空则不发送（本地模型通常不需要）"
-                      disabled={loading}
-                    />
-                  </div>
 
-                  {/* Connection test & model selection */}
-                  <div className="settings-edit-section" style={{ marginTop: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={handleTestConnection}
-                        disabled={testing}
-                      >
-                        <Zap size={14} /> {testing ? '测试中...' : '测试连接'}
-                      </button>
-                      {testResult && (
-                        <span className={`settings-test-result ${testResult.ok ? 'success' : 'error'}`}>
-                          {testResult.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                          {testResult.msg}
-                        </span>
-                      )}
+              <div className="cs-form-row">
+                <div className="cs-form-group">
+                  <label>MODEL NAME</label>
+                  {availableModels.length > 0 ? (
+                    <select
+                      value={editModel}
+                      onChange={e => setEditModel(e.target.value)}
+                    >
+                      <option value="" disabled>Select Model</option>
+                      {availableModels.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={loading ? 'Loading...' : editModel}
+                      onChange={e => setEditModel(e.target.value)}
+                      placeholder="Auto-fetched after Test Connection"
+                      disabled={loading}
+                    />
+                  )}
+                </div>
+                <div className="cs-form-group cs-form-actions">
+                  <div className="cs-btn-group">
+                    <button className="cs-btn cs-btn-primary" onClick={handleTestConnection} disabled={testing}>
+                      <Zap size={14} /> {testing ? 'Testing...' : 'Test Connection'}
+                    </button>
+                    <button className="cs-btn cs-btn-secondary" onClick={handleSave} disabled={saving}>
+                      {saving ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />} Save
+                    </button>
+                    <button className="cs-btn cs-btn-ghost" onClick={() => populateForm(undefined)}>
+                      Cancel
+                    </button>
+                  </div>
+                  {testResult && (
+                    <div className={`cs-test-result ${testResult.ok ? 'success' : 'error'}`}>
+                      {testResult.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                      {testResult.msg}
                     </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="cs-add-trigger" onClick={handleNewProfile}>
+              <Plus size={14} /> Add New Config
+            </div>
+          )}
+        </div>
+      </div>
 
-                    {/* Model selection — only shown after successful connection */}
-                    {availableModels.length > 0 ? (
-                      <div className="settings-field">
-                        <label>模型名称</label>
-                        <select
-                          className="filter-select"
-                          style={{ flex: 1 }}
-                          value={editModel}
-                          onChange={e => setEditModel(e.target.value)}
-                        >
-                          <option value="" disabled>选择模型</option>
-                          {availableModels.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div className="settings-field">
-                        <label>模型名称</label>
-                        <input
-                          type="text"
-                          className="settings-input"
-                          value={loading ? '加载中...' : editModel}
-                          onChange={e => setEditModel(e.target.value)}
-                          placeholder="点击「测试连接」后自动获取"
-                          disabled={loading}
-                        />
-                      </div>
-                    )}
+      {/* Card 2: Workspace Management */}
+      <div className="cs-card">
+        <div className="cs-card-header">WORKSPACE MANAGEMENT</div>
+        <div className="cs-card-body">
+          <div className="cs-card-desc">
+            Configure document workspaces. Each workspace maps to an independent document directory. Changes require restarting the dev server to take effect.
+          </div>
 
-                    {/* Switch button for non-active profile */}
-                    {editingId && editingId !== activeProfileId && (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => handleSwitchProfile(editingId)}
-                        disabled={saving || loading}
-                      >
-                        切换到此配置
-                      </button>
+          <div className="cs-item-list">
+            {workspaces.map(ws => (
+              <div
+                key={ws.id}
+                className={`cs-model-item${ws.id === activeWorkspace ? ' active' : ''}${editingWs?.id === ws.id ? ' editing' : ''}`}
+                onClick={() => {
+                  setEditingWs({ ...ws })
+                  setIsNewWs(false)
+                }}
+              >
+                <div className="cs-model-info">
+                  <div className="cs-model-name">
+                    {ws.label}
+                    {ws.id === activeWorkspace && (
+                      <span className="cs-badge cs-badge-active">ACTIVE</span>
                     )}
                   </div>
-                </>
-              )}
-            </div>
+                  <div className="cs-model-meta">
+                    <span>prefix: {ws.prefix}-</span>
+                    <span>{ws.path || '—'}</span>
+                  </div>
+                </div>
+                <div className="cs-model-actions">
+                  {ws.id !== activeWorkspace && (
+                    <button
+                      className="cs-btn cs-btn-ghost"
+                      onClick={e => { e.stopPropagation(); handleDeleteWorkspace(ws.id) }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
 
-        {/* Quiz Settings */}
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <ClipboardCheck size={20} />
-            <h2>测验设置</h2>
-          </div>
-          <div className="settings-card-body">
-            <div className="settings-field">
-              <label>默认难度</label>
+          {/* Workspace edit form */}
+          {editingWs && (
+            <>
+              <div className="cs-form-separator">
+                <div className="cs-section-label">
+                  {isNewWs ? 'ADD WORKSPACE' : 'EDIT WORKSPACE'}
+                </div>
+              </div>
+              <div className="cs-form-row">
+                <div className="cs-form-group">
+                  <label>DISPLAY NAME</label>
+                  <input
+                    type="text"
+                    value={editingWs.label}
+                    onChange={e => setEditingWs({ ...editingWs, label: e.target.value })}
+                    placeholder="e.g.: MindInsight"
+                  />
+                </div>
+                <div className="cs-form-group">
+                  <label>ICON</label>
+                  <select
+                    value={editingWs.icon}
+                    onChange={e => setEditingWs({ ...editingWs, icon: e.target.value })}
+                  >
+                    {AVAILABLE_ICONS.map(icon => (
+                      <option key={icon} value={icon}>{icon}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="cs-form-row">
+                <div className="cs-form-group">
+                  <label>FILE SYSTEM PATH</label>
+                  <div className="cs-path-browse">
+                    <input
+                      type="text"
+                      value={editingWs.path}
+                      onChange={e => setEditingWs({ ...editingWs, path: e.target.value })}
+                      placeholder="e.g.: ../MindInsight"
+                    />
+                    <button
+                      className="cs-btn cs-btn-secondary"
+                      type="button"
+                      onClick={() => openDirBrowser(editingWs.path)}
+                    >
+                      <FolderOpen size={14} /> Browse
+                    </button>
+                  </div>
+                </div>
+                <div className="cs-form-group">
+                  <label>DOCUMENT ID PREFIX</label>
+                  <input
+                    type="text"
+                    value={editingWs.prefix}
+                    onChange={e => setEditingWs({ ...editingWs, prefix: e.target.value })}
+                    placeholder="e.g.: mi, ti, li"
+                  />
+                </div>
+              </div>
+              <div className="cs-btn-group" style={{ marginTop: '0.5rem' }}>
+                <button className="cs-btn cs-btn-primary" onClick={handleSaveWorkspace}>
+                  <CheckCircle2 size={14} /> Save
+                </button>
+                <button className="cs-btn cs-btn-ghost" onClick={() => { setEditingWs(null); setIsNewWs(false) }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+
+          {!editingWs && (
+            <div className="cs-add-trigger" onClick={handleNewWorkspace} style={{ marginTop: '0.75rem' }}>
+              <Plus size={14} /> Add Workspace
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Card 3: Quiz & Concept Settings */}
+      <div className="cs-card">
+        <div className="cs-card-header">QUIZ & CONCEPT SETTINGS</div>
+        <div className="cs-card-body">
+          <div className="cs-form-row">
+            <div className="cs-form-group">
+              <label>QUIZ DIFFICULTY</label>
               <select
-                className="filter-select"
-                style={{ flex: 1 }}
                 value={localDifficulty}
                 onChange={e => setLocalDifficulty(e.target.value as Difficulty)}
               >
-                <option value="easy">简单</option>
-                <option value="medium">中等</option>
-                <option value="hard">困难</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
               </select>
             </div>
-            <div className="settings-field">
-              <label>题目数量</label>
+            <div className="cs-form-group">
+              <label>QUIZ QUESTION COUNT</label>
               <input
                 type="text"
                 inputMode="numeric"
-                className="settings-input"
                 value={localCount}
-                onChange={e => {
-                  const val = e.target.value.replace(/[^0-9]/g, '')
-                  setLocalCount(val)
-                }}
-                onBlur={() => {
-                  const n = Math.max(1, Math.min(20, Number(localCount) || 5))
-                  setLocalCount(String(n))
-                }}
+                onChange={e => setLocalCount(e.target.value.replace(/[^0-9]/g, ''))}
+                onBlur={() => setLocalCount(String(Math.max(1, Math.min(20, Number(localCount) || 5))))}
               />
             </div>
-            <div className="settings-field">
-              <label>概念数量</label>
+            <div className="cs-form-group">
+              <label>CONCEPT COUNT</label>
               <input
                 type="text"
                 inputMode="numeric"
-                className="settings-input"
                 value={localConceptCount}
-                onChange={e => {
-                  const val = e.target.value.replace(/[^0-9]/g, '')
-                  setLocalConceptCount(val)
-                }}
-                onBlur={() => {
-                  const n = Math.max(1, Math.min(50, Number(localConceptCount) || 10))
-                  setLocalConceptCount(String(n))
-                }}
+                onChange={e => setLocalConceptCount(e.target.value.replace(/[^0-9]/g, ''))}
+                onBlur={() => setLocalConceptCount(String(Math.max(1, Math.min(50, Number(localConceptCount) || 10))))}
               />
             </div>
           </div>
-        </div>
-
-        {/* Feature Toggles */}
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <Zap size={20} />
-            <h2>功能开关</h2>
-          </div>
-          <div className="settings-card-body">
-            <div className="settings-field">
-              <label>演示模式</label>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={enablePresentation}
-                  onChange={e => setEnablePresentation(e.target.checked)}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </div>
+          <div className="cs-btn-group">
+            <button className="cs-btn cs-btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />}
+              {saved ? 'Saved' : 'Save Settings'}
+            </button>
+            {saved && (
+              <div className="cs-test-result success">
+                <CheckCircle2 size={14} /> Settings saved
+              </div>
+            )}
           </div>
         </div>
       </div>
-      <div className="settings-card">
-        <div className="settings-card-header">
-          <Database size={20} />
-          <h2>数据管理</h2>
-        </div>
-        <div className="settings-card-body">
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>
-            导出所有学习数据（阅读记录、批注、标签、测验、闪卡、概念卡片、成就等）为 JSON 文件，可用于备份或迁移到其他设备。
-          </p>
-          <div className="settings-actions">
+
+      {/* Card 4: Data Management */}
+      <div className="cs-card">
+        <div className="cs-card-header">DATA MANAGEMENT</div>
+        <div className="cs-card-body">
+          <div className="cs-card-desc">
+            Export all learning data (reading history, annotations, tags, quizzes, flashcards, concept cards, achievements, etc.) as a JSON file for backup or migration to other devices.
+          </div>
+          <div className="cs-btn-group">
             <button
-              className="btn btn-primary"
+              className="cs-btn cs-btn-primary"
               onClick={async () => {
                 setExporting(true)
                 setDataMsg(null)
                 try {
                   await exportAllData()
-                  setDataMsg({ ok: true, msg: '导出成功！' })
+                  setDataMsg({ ok: true, msg: 'Export successful!' })
                 } catch (e: any) {
-                  setDataMsg({ ok: false, msg: `导出失败: ${e.message}` })
+                  setDataMsg({ ok: false, msg: `Export failed: ${e.message}` })
                 } finally {
                   setExporting(false)
                 }
@@ -519,18 +708,18 @@ export function SettingsPage() {
               disabled={exporting || importing}
             >
               {exporting ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
-              {exporting ? '导出中...' : '导出全部数据'}
+              {exporting ? 'Exporting...' : 'Export All Data'}
             </button>
             <button
-              className="btn btn-secondary"
-              onClick={() => document.getElementById('import-file-input')?.click()}
+              className="cs-btn cs-btn-secondary"
+              onClick={() => document.getElementById('cs-import-file')?.click()}
               disabled={exporting || importing}
             >
               {importing ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
-              {importing ? '导入中...' : '导入数据'}
+              {importing ? 'Importing...' : 'Import Data'}
             </button>
             <input
-              id="import-file-input"
+              id="cs-import-file"
               type="file"
               accept=".json"
               style={{ display: 'none' }}
@@ -542,46 +731,85 @@ export function SettingsPage() {
                   const text = await file.text()
                   const data = JSON.parse(text) as ExportData
                   if (data.version !== 1) {
-                    setDataMsg({ ok: false, msg: '不支持的备份文件格式' })
+                    setDataMsg({ ok: false, msg: 'Unsupported backup file format' })
                     return
                   }
-                  if (!window.confirm('导入将覆盖当前所有数据，确认继续？')) return
+                  if (!window.confirm('Import will overwrite all current data. Continue?')) return
                   setImporting(true)
                   const result = await importAllData(data)
-                  setDataMsg({ ok: true, msg: `导入成功！恢复了 ${result.localKeys} 项本地数据和 ${result.serverEndpoints} 项服务端数据。` })
+                  setDataMsg({ ok: true, msg: `Import successful! Restored ${result.localKeys} local items and ${result.serverEndpoints} server items.` })
                   setTimeout(() => window.location.reload(), 1500)
                 } catch (err: any) {
-                  setDataMsg({ ok: false, msg: `导入失败: ${err.message}` })
+                  setDataMsg({ ok: false, msg: `Import failed: ${err.message}` })
                 } finally {
                   setImporting(false)
                   e.target.value = ''
                 }
               }}
             />
-            {dataMsg && (
-              <span className={`settings-test-result ${dataMsg.ok ? 'success' : 'error'}`}>
-                {dataMsg.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                {dataMsg.msg}
-              </span>
-            )}
           </div>
+          {dataMsg && (
+            <div className={`cs-test-result ${dataMsg.ok ? 'success' : 'error'}`}>
+              {dataMsg.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+              {dataMsg.msg}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Save button */}
-      <div className="settings-save-bar">
-        <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-          <ArrowLeft size={18} /> 返回
-        </button>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />} 保存设置
-        </button>
-        {saved && (
-          <span className="settings-saved-msg">
-            <CheckCircle2 size={14} /> 已保存
-          </span>
-        )}
-      </div>
+      {/* Directory browser dialog */}
+      {browseOpen && (
+        <div className="cs-dir-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setBrowseOpen(false) }}>
+          <div className="cs-dir-dialog">
+            <div className="cs-dir-header">
+              <div className="cs-dir-current">
+                <FolderOpen size={16} />
+                <span>{browsePath}</span>
+              </div>
+              <div className="cs-dir-close" onClick={() => setBrowseOpen(false)}>
+                <Trash2 size={16} />
+              </div>
+            </div>
+            <div className="cs-dir-body">
+              {browseLoading ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  <Loader2 size={20} className="spin" />
+                </div>
+              ) : browseEntries.length === 0 ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                  Empty Directory
+                </div>
+              ) : (
+                browseEntries.map(entry => (
+                  <div
+                    key={entry.path}
+                    className="cs-dir-entry"
+                    onClick={() => entry.isDirectory ? navigateDir(entry.path) : undefined}
+                    onDoubleClick={() => entry.isDirectory ? navigateDir(entry.path) : undefined}
+                  >
+                    <div className="cs-dir-icon">
+                      {entry.isDirectory
+                        ? <Folder size={16} />
+                        : <FileText size={16} />
+                      }
+                    </div>
+                    <span className="cs-dir-name">{entry.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="cs-dir-footer">
+              <button className="cs-btn cs-btn-ghost" onClick={() => { const i = browsePath.lastIndexOf('/'); if (i > 0) navigateDir(browsePath.slice(0, i)) }}>
+                <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+                ..
+              </button>
+              <button className="cs-btn cs-btn-primary" onClick={selectDir}>
+                Select This Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
