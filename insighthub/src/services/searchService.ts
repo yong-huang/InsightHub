@@ -2,6 +2,11 @@ import { Document } from 'flexsearch'
 import type { SearchResult, SearchFilters, Source } from '@/types'
 
 let searchIndex: Document | null = null
+export let isIndexing = false
+
+export function setIsIndexing(value: boolean): void {
+  isIndexing = value
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createIndex(): Document {

@@ -3,7 +3,7 @@ import type { Document, ImportedDocumentRecord, SearchFilters, Source } from '@/
 import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
 import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
-import { indexDocument, clearIndex } from '@/services/searchService'
+import { indexDocument, clearIndex, setIsIndexing } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { getDirectoryFromSource } from '@/utils/workspaceUtils'
@@ -68,7 +68,7 @@ async function loadAllDocuments(
 
   clearIndex()
 
-  // Progressive indexing - batch fetch
+  // Phase 1: fetch + parse ALL docs (no indexing) — batches for progress UI
   const BATCH_SIZE = 20
   for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
     const batch = manifest.slice(i, i + BATCH_SIZE)
@@ -83,12 +83,6 @@ async function loadAllDocuments(
           doc.readCount = meta.readCount
         }
         docs.set(doc.id, doc)
-
-        // Index for search
-        await indexDocument(doc)
-
-        // Free content text after indexing — no longer needed in memory
-        doc.contentText = ''
 
         // Count categories
         categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
@@ -106,6 +100,7 @@ async function loadAllDocuments(
   const readCount = docArray.filter(d => d.isRead).length
   const categories = new Set(docArray.map(d => d.category))
 
+  // Phase 1 complete — UI becomes interactive
   set({
     documents: docs,
     isLoading: false,
@@ -122,6 +117,28 @@ async function loadAllDocuments(
 
   // Load imported documents
   get().loadImportedDocuments()
+
+  // Phase 2: index ALL docs in background (search becomes available progressively)
+  setIsIndexing(true)
+  indexAllDocs(Array.from(docs.values()))
+}
+
+async function indexAllDocs(allDocs: Document[]): Promise<void> {
+  const BATCH_SIZE = 20
+  for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
+    const batch = allDocs.slice(i, i + BATCH_SIZE)
+    await Promise.all(batch.map(async (doc) => {
+      try {
+        if (!doc.contentText) return
+        await indexDocument(doc)
+        doc.contentText = ''
+      } catch (e) {
+        console.error(`Failed to index document: ${doc.id}`, e)
+      }
+    }))
+    await new Promise(r => setTimeout(r, 0))
+  }
+  setIsIndexing(false)
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
