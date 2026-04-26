@@ -1,9 +1,9 @@
 import { Document } from 'flexsearch'
 import type { SearchResult, SearchFilters, Source } from '@/types'
-import { CATEGORIES } from '@/utils/categoryMap'
 
 let searchIndex: Document | null = null
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createIndex(): Document {
   const index = new Document({
     tokenize: 'forward',
@@ -12,10 +12,6 @@ function createIndex(): Document {
       id: 'id',
       index: ['title', 'content'],
       store: ['title', 'category', 'source', 'content'],
-    },
-    charset: {
-      Latin: 'C:0-255,A:192-255',
-      CJK: 'CJK:0-65535'
     },
     context: {
       resolution: 9,
@@ -43,6 +39,17 @@ export async function indexDocument(doc: {
     category: doc.category,
     source: doc.source,
   })
+}
+
+// Build reverse map: label→key for category matching
+const categoryLabelToKey = new Map<string, string>()
+
+/** Extend the category label→key map with dynamic categories (call after documents load) */
+export function extendCategoryMap(entries: { key: string; label: string }[]): void {
+  for (const entry of entries) {
+    categoryLabelToKey.set(entry.label, entry.key)
+    categoryLabelToKey.set(entry.key, entry.key)
+  }
 }
 
 export function generateSnippet(content: string, query: string, maxLen = 120): string {
@@ -79,13 +86,6 @@ export interface ParsedQuery {
   }
 }
 
-// Build reverse map: label→key for category matching (e.g. "Philosophy"→"philosophy")
-const categoryLabelToKey = new Map<string, string>()
-for (const c of CATEGORIES) {
-  categoryLabelToKey.set(c.label, c.key)
-  categoryLabelToKey.set(c.key, c.key)
-}
-
 export function parseSearchQuery(raw: string): ParsedQuery {
   const tokens = raw.trim().split(/\s+/)
   const textParts: string[] = []
@@ -104,9 +104,7 @@ export function parseSearchQuery(raw: string): ParsedQuery {
       if (val === 'note' || val === 'annotation') filters.hasAnnotation = true
     } else if (token.startsWith('source:')) {
       const val = token.slice('source:'.length).toLowerCase()
-      if (val === 'mindinsight') filters.source = 'mindinsight'
-      else if (val === 'techinsight') filters.source = 'techinsight'
-      else if (val === 'leetcodeinsight') filters.source = 'leetcodeinsight'
+      if (val) filters.source = val
     } else {
       textParts.push(token)
     }
@@ -134,13 +132,15 @@ export async function search(
     if (Array.isArray(titleResults) && titleResults.length > 0) {
       for (const group of titleResults) {
         for (const result of group.result) {
-          if (!results.find(r => r.id === result.id)) {
-            const content: string = result.doc?.content || ''
+          const id = String(result.id)
+          const doc = result.doc as Record<string, any> | undefined
+          if (!results.find(r => r.id === id)) {
+            const content: string = doc?.content || ''
             results.push({
-              id: result.id,
-              title: result.doc?.title || result.id,
-              category: result.doc?.category || '',
-              source: result.doc?.source || 'techinsight',
+              id,
+              title: doc?.title || id,
+              category: doc?.category || '',
+              source: doc?.source || 'techinsight',
               score: 10,
               snippet: generateSnippet(content, query),
             })
@@ -158,13 +158,15 @@ export async function search(
     if (Array.isArray(contentResults) && contentResults.length > 0) {
       for (const group of contentResults) {
         for (const result of group.result) {
-          if (!results.find(r => r.id === result.id)) {
-            const content: string = result.doc?.content || ''
+          const id = String(result.id)
+          const doc = result.doc as Record<string, any> | undefined
+          if (!results.find(r => r.id === id)) {
+            const content: string = doc?.content || ''
             results.push({
-              id: result.id,
-              title: result.doc?.title || result.id,
-              category: result.doc?.category || '',
-              source: result.doc?.source || 'techinsight',
+              id,
+              title: doc?.title || id,
+              category: doc?.category || '',
+              source: doc?.source || 'techinsight',
               score: 5,
               snippet: generateSnippet(content, query),
             })
@@ -221,7 +223,8 @@ export async function suggestTitles(query: string, limit = 5): Promise<string[]>
     if (Array.isArray(results) && results.length > 0) {
       for (const group of results) {
         for (const r of group.result) {
-          if (r.doc?.title) titles.push(r.doc.title)
+          const doc = r.doc as Record<string, any> | undefined
+          if (doc?.title) titles.push(String(doc.title))
         }
       }
     }

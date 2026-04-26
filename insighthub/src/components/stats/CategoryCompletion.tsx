@@ -53,10 +53,7 @@ export function CategoryCompletion({ documents, source }: Props) {
                 color: colors.textPrimary,
                 fontSize: '13px',
               }}
-              formatter={(value: number, name: string) => {
-                const item = data.find(d => d.name === name)
-                return [`${value} docs (read ${item?.read || 0})`, name]
-              }}
+              formatter={((value: number, name: string) => [`${value} docs (read ${(data as any[]).find((d: any) => d.name === name)?.read || 0})`, name]) as any}
             />
           </PieChart>
         </ResponsiveContainer>

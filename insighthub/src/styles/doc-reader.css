@@ -26,7 +26,71 @@
 .doc-reader-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 2px;
+}
+
+/* Toolbar action button — icon-only with tooltip on hover */
+.dr-action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+  font-size: 0;
+  white-space: nowrap;
+}
+.dr-action-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
+}
+.dr-action-btn.active {
+  color: var(--accent-blue);
+  background: rgba(50, 108, 229, 0.1);
+}
+.dr-action-btn .dr-action-label {
+  display: none;
+}
+.dr-action-btn:hover .dr-action-label {
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  z-index: 200;
+  pointer-events: none;
+}
+.dr-action-btn .dr-action-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .doc-reader-titlebar {

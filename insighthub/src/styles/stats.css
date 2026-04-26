@@ -1,112 +1,14 @@
 /* ========== Stats Page ========== */
-.stats-page {
-}
 
-.stats-page-header {
-  margin-bottom: 1.5rem;
-}
-
-.stats-page-title {
-  /* same as .page-header h1 */
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-
-.stats-page-desc {
-  /* same as .page-header p */
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-/* ========== Overview Cards ========== */
-.stats-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.stats-overview-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: all 0.25s var(--ease-smooth);
-}
-
-.stats-overview-card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-default);
-  box-shadow: var(--shadow-md);
-}
-
-.stats-overview-icon {
-  opacity: 0.7;
-}
-
-.stats-overview-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.stats-overview-label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-/* ========== Chart Card ========== */
-.stats-chart-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-  transition: all 0.25s var(--ease-smooth);
-}
-
-.stats-chart-card:hover {
-  border-color: var(--border-default);
-}
-
-.stats-chart-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.stats-chart-title {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.stats-chart-body {
-  min-height: 100px;
-  position: relative;
-}
-
-.stats-chart-extra {
-  display: flex;
-  gap: 0.5rem;
-}
-
-/* ========== 2-Column Grid ========== */
-.stats-grid-2 {
+/* 2-Column Grid */
+.cs-stats-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
 @media (max-width: 768px) {
-  .stats-overview-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .stats-grid-2 {
+  .cs-stats-grid-2 {
     grid-template-columns: 1fr;
   }
 }

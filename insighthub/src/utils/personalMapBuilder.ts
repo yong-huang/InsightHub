@@ -1,5 +1,6 @@
 import type { Document, Tag, QuizAttempt, Annotation } from '@/types'
 import { type GraphNode, type GraphLink, type GraphData } from './graphBuilder'
+import { getCategoryInfo } from '@/utils/categoryMap'
 
 export interface EngagementMetrics {
   readCount: number
@@ -152,14 +153,14 @@ export function buildPersonalMapData(
     const size = Math.max(14, Math.min(28, 10 + eng * 0.5))
     const color = metrics.bestQuizScore >= 0 ? getMasteryColor(metrics.bestQuizScore) : '#a78bfa'
 
-    const label = documents.get(docs[0])?.category || catKey
+    const catInfo = getCategoryInfo(catKey)
     addNode({
       id: `cat:${catKey}`,
       type: 'category',
-      label,
+      label: catInfo.label,
       color,
       size,
-      data: { categoryKey: catKey },
+      data: { categoryKey: catKey, categorySource: catInfo.source },
     })
     addLink('user:me', `cat:${catKey}`, 'engaged')
   }

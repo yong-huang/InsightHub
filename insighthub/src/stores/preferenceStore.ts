@@ -27,8 +27,8 @@ function savePrefs(partial: Record<string, any>) {
 }
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
-  theme: storageService.getPreferences().theme,
-  quizDifficulty: storageService.getPreferences().quizDifficulty,
+  theme: (storageService.getPreferences().theme as 'light' | 'dark') || 'light',
+  quizDifficulty: (storageService.getPreferences().quizDifficulty as Difficulty) || 'medium',
   quizQuestionCount: storageService.getPreferences().quizQuestionCount,
   sidebarCollapsed: storageService.getPreferences().sidebarCollapsed,
   aiApiUrl: storageService.getPreferences().aiApiUrl,

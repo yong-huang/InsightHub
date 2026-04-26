@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const TECHINSIGHT_DIR = path.resolve(__dirname, '../../../TechInsight')
-const LEETCODEINSIGHT_DIR = path.resolve(__dirname, '../../../LeetcodeInsight')
+const LEETCODEINSIGHT_DIR = path.resolve(__dirname, '../../../LeetCodeInsight')
 const DATA_DIR = path.resolve(__dirname, '..') // insighthub/
 
 // File classification

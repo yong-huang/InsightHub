@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy,
+  Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy, TreePine,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -12,8 +12,9 @@ import { buildPathData } from '@/utils/pathBuilder'
 import { getWorkspaceConfig } from '@/utils/workspaceUtils'
 import { buildTimeline, groupByDate, type TimelineTypeFilter, type TimelineEntry } from '@/utils/timelineBuilder'
 import { LearningPath } from '@/components/visualization/LearningPath'
+import { KnowledgeTree } from '@/components/visualization/KnowledgeTree'
 
-type ActiveTab = 'path' | 'timeline'
+type ActiveTab = 'tree' | 'path' | 'timeline'
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   read: <BookOpen size={14} />,
@@ -55,7 +56,7 @@ export function LearningPathPage() {
   const annotations = useAnnotationStore(s => s.annotations)
   const quizHistory = useQuizStore(s => s.quizHistory)
   const flashcards = useFlashcardStore(s => s.cards)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('path')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('tree')
   const [typeFilter, setTypeFilter] = useState<TimelineTypeFilter>('all')
 
   const pathData = useMemo(() => buildPathData(documents, activeWorkspace), [documents, activeWorkspace])
@@ -87,6 +88,12 @@ export function LearningPathPage() {
       {/* Tab buttons */}
       <div className="cs-btn-group" style={{ marginBottom: '1.25rem' }}>
         <button
+          className={`cs-btn ${activeTab === 'tree' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+          onClick={() => setActiveTab('tree')}
+        >
+          <TreePine size={14} /> Knowledge Tree
+        </button>
+        <button
           className={`cs-btn ${activeTab === 'path' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
           onClick={() => setActiveTab('path')}
         >
@@ -100,7 +107,14 @@ export function LearningPathPage() {
         </button>
       </div>
 
-      {activeTab === 'path' ? (
+      {activeTab === 'tree' ? (
+        <div className="cs-card">
+          <div className="cs-card-header">KNOWLEDGE TREE</div>
+          <div className="cs-card-body">
+            <KnowledgeTree />
+          </div>
+        </div>
+      ) : activeTab === 'path' ? (
         <div className="cs-card">
           <div className="cs-card-header">{workspaceLabel.toUpperCase()} LEARNING PATH</div>
           <div className="cs-card-body">

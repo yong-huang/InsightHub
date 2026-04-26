@@ -1,6 +1,8 @@
 import { X } from 'lucide-react'
 import type { SearchFilters, Tag } from '@/types'
-import { CATEGORIES, getSourceLabel, WORKSPACE_META } from '@/utils/categoryMap'
+import { useDynamicCategories } from '@/hooks/useDynamicCategories'
+import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getSourceLabel } from '@/utils/workspaceUtils'
 
 interface FilterBarProps {
   filters: SearchFilters
@@ -13,6 +15,8 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter = true, showSourceFilter = true, tags = [], onTagClear }: FilterBarProps) {
+  const workspaces = usePreferenceStore(s => s.workspaces)
+  const allCategories = useDynamicCategories()
   const hasFilters = filters.source || filters.category || filters.tag || filters.isRead !== undefined || filters.sortBy
 
   const activeTag = filters.tag ? tags.find(t => t.id === filters.tag) : null
@@ -27,8 +31,8 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
           >
             <option value="">All Sources</option>
-            {(Object.keys(WORKSPACE_META) as Array<keyof typeof WORKSPACE_META>).map(key => (
-              <option key={key} value={key}>{getSourceLabel(key)}</option>
+            {workspaces.map(ws => (
+              <option key={ws.id} value={ws.id}>{getSourceLabel(ws.id, workspaces)}</option>
             ))}
           </select>
         )}
@@ -40,7 +44,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
             onChange={e => onFilterChange({ category: e.target.value || undefined })}
           >
             <option value="">All Categories</option>
-            {CATEGORIES.filter(cat => !filters.source || cat.source === filters.source).map(cat => (
+            {allCategories.filter(cat => !filters.source || cat.source === filters.source).map(cat => (
               <option key={cat.key} value={cat.key}>
                 {cat.label}
               </option>

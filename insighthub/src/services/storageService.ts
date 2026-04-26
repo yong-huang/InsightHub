@@ -1,9 +1,9 @@
 const PREFIX = 'insighthub:'
 
-export const DEFAULT_WORKSPACES: import('./types').WorkspaceConfig[] = [
-  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../MindInsight', prefix: 'mi' },
-  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../TechInsight', prefix: 'ti' },
-  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../LeetcodeInsight', prefix: 'li' },
+export const DEFAULT_WORKSPACES: import('@/types').WorkspaceConfig[] = [
+  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../MindInsight', prefix: 'mi', shortLabel: 'Mind', subtitle: 'Mind & Insight', gradientClass: 'gradient-text-warm', color: '#ff8c42', colorBg: 'rgba(255, 140, 66, 0.15)' },
+  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../TechInsight', prefix: 'ti', shortLabel: 'Tech', subtitle: 'Tech & Insight', gradientClass: 'gradient-text', color: '#326ce5', colorBg: 'rgba(50, 108, 229, 0.15)' },
+  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../LeetCodeInsight', prefix: 'li', shortLabel: 'LC', subtitle: 'Algorithm Mastery', gradientClass: 'gradient-text-green', color: '#4ecdc4', colorBg: 'rgba(78, 205, 196, 0.15)' },
 ]
 
 export const storageKeys = {
@@ -74,14 +74,14 @@ export const storageService = {
       aiApiUrl: 'http://127.0.0.1:7001/v1',
       aiModel: 'default',
       aiApiKey: '',
-      activeWorkspace: 'mindinsight',
+      activeWorkspace: DEFAULT_WORKSPACES[0]?.id || 'mindinsight',
       conceptMaxCount: 10,
       workspaces: DEFAULT_WORKSPACES,
       ...stored,
     }
   },
 
-  setPreferences: (prefs: Parameters<typeof storageService.getPreferences>[0]) =>
+  setPreferences: (prefs: Record<string, any>) =>
     setItem(storageKeys.PREFERENCES, prefs),
 
   getDocumentMeta: () => getItem<Record<string, DocumentMeta>>(storageKeys.DOCUMENT_META, {}),
@@ -97,7 +97,7 @@ export const storageService = {
   addReadHistory: (entry: ReadHistoryEntry) => {
     const history = storageService.getReadHistory()
     // Remove duplicate entries for the same document
-    const filtered = history.filter(h => h.documentId !== entry.documentId)
+    const filtered = history.filter((h: ReadHistoryEntry) => h.documentId !== entry.documentId)
     filtered.unshift(entry)
     // Keep only last 365 entries
     setItem(storageKeys.READ_HISTORY, filtered.slice(0, 365))
@@ -110,7 +110,7 @@ export const storageService = {
     documentIds: string[]
   }[]>(storageKeys.TAGS, []),
 
-  setTags: (tags: Parameters<typeof storageService.getTags>[0]) =>
+  setTags: (tags: { id: string; name: string; color: string; documentIds: string[] }[]) =>
     setItem(storageKeys.TAGS, tags),
 
   getQuizHistory: () => getItem<any[]>(storageKeys.QUIZ_HISTORY, []),
@@ -127,7 +127,7 @@ export const storageService = {
 
   addSearchHistory: (query: string) => {
     const history = storageService.getSearchHistory()
-    const filtered = history.filter(h => h !== query)
+    const filtered = history.filter((h: string) => h !== query)
     filtered.unshift(query)
     setItem(storageKeys.SEARCH_HISTORY, filtered.slice(0, 20))
   },
@@ -136,7 +136,7 @@ export const storageService = {
 
   removeSearchHistory: (query: string) => {
     const history = storageService.getSearchHistory()
-    setItem(storageKeys.SEARCH_HISTORY, history.filter(h => h !== query))
+    setItem(storageKeys.SEARCH_HISTORY, history.filter((h: string) => h !== query))
   },
 
   getQuizzes: () => getItem<Record<string, any>>(storageKeys.QUIZZES, {}),

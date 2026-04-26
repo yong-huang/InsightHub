@@ -17,7 +17,7 @@
   min-height: calc(100vh - var(--nav-height));
 }
 .layout-main.sidebar-collapsed {
-  margin-left: var(--sidebar-collapsed-width);
+  margin-left: 0;
 }
 
 /* ========== Navbar ========== */
@@ -168,23 +168,17 @@
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-/* ========== Navbar Icon Buttons ========== */
-.navbar-icon-btns {
-  display: flex;
-  align-items: center;
   gap: 2px;
 }
 
+/* ========== Navbar Icon Buttons ========== */
 .navbar-icon-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -238,6 +232,14 @@
 
 .navbar-icon-btn:hover .navbar-icon-tooltip {
   display: block;
+}
+
+/* Sidebar toggle — subdued by default, visible on hover */
+.sidebar-toggle-btn {
+  opacity: 0.35;
+}
+.sidebar-toggle-btn:hover {
+  opacity: 1;
 }
 
 .btn-icon {
@@ -314,7 +316,9 @@
 }
 
 .sidebar.collapsed {
-  width: var(--sidebar-collapsed-width);
+  width: 0;
+  overflow: hidden;
+  border-right-color: transparent;
 }
 
 .sidebar-content {
@@ -366,26 +370,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.sidebar-collapse-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  margin-left: auto;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-.sidebar-collapse-btn:hover {
-  color: var(--text-primary);
-  background: var(--border-subtle);
 }
 
 .sidebar-item-label {
@@ -459,15 +443,22 @@
   }
 
   .sidebar {
+    position: fixed;
     transform: translateX(-100%);
     width: var(--sidebar-width);
+    overflow-y: auto;
+    border-right-color: transparent;
+    z-index: 50;
   }
   .sidebar:not(.collapsed) {
     transform: translateX(0);
     box-shadow: var(--shadow-lg);
+    border-right-color: var(--border-subtle);
   }
   .sidebar.collapsed {
     transform: translateX(-100%);
+    width: var(--sidebar-width);
+    overflow: hidden;
   }
 }
 
@@ -567,10 +558,8 @@
 
 /* ========== Responsive: hide navbar icon tooltips and badges on small screens ========== */
 @media (max-width: 1024px) {
-  .navbar-icon-btns {
+  .navbar-icon-btn .navbar-icon-tooltip,
+  .navbar-icon-btn .navbar-icon-badge {
     display: none;
-  }
-  .navbar-right {
-    gap: 0.75rem;
   }
 }

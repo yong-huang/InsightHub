@@ -39,8 +39,8 @@ export function ReadingHabits({ data }: Props) {
                 color: colors.textPrimary,
                 fontSize: '13px',
               }}
-              formatter={(v: number) => [`${v} times`, 'Reading']}
-              labelFormatter={(h: number) => `${h}:00`}
+              formatter={((v: number) => [`${v} times`, 'Reading']) as any}
+              labelFormatter={((h: any) => `${h}:00`) as any}
             />
           </BarChart>
         </ResponsiveContainer>

@@ -2,14 +2,13 @@ import { useRef, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3,
-  MessageSquare, Bookmark, Trophy, Network, Route,
+  MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { ImportDialog } from '@/components/Import/ImportDialog'
-import { ACHIEVEMENTS } from '@/services/achievementService'
 import { storageService } from '@/services/storageService'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -21,7 +20,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 export function Navbar() {
   const {
     theme, toggleTheme, activeWorkspace, setWorkspace,
-    workspaces,
+    workspaces, sidebarCollapsed, toggleSidebar,
   } = usePreferenceStore()
   const openDialog = useSearchStore(s => s.openDialog)
   const navigate = useNavigate()
@@ -77,6 +76,8 @@ export function Navbar() {
     { icon: Trophy, label: 'Achievements', to: '/achievements', badge: achievementCount },
     { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
     { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },
+    { icon: BarChart3, label: 'Statistics', to: '/stats', badge: 0 },
+    { icon: Settings, label: 'Settings', to: '/settings', badge: 0 },
   ]
 
   return (
@@ -114,27 +115,21 @@ export function Navbar() {
               </div>
             )}
           </div>
+
+          <button
+            className="navbar-icon-btn sidebar-toggle-btn"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            <span className="navbar-icon-tooltip">{sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
+          </button>
         </div>
 
         <div className="navbar-right">
-          {/* Function buttons with tooltips */}
-          <div className="navbar-icon-btns">
-            {navButtons.map(btn => (
-              <Link
-                key={btn.to}
-                to={btn.to}
-                className="navbar-icon-btn"
-                title={btn.label}
-              >
-                <btn.icon size={18} />
-                {btn.badge > 0 && <span className="navbar-icon-badge">{btn.badge}</span>}
-                <span className="navbar-icon-tooltip">{btn.label}</span>
-              </Link>
-            ))}
-          </div>
-
-          <button className="btn-icon" title="Search documents (⌘K)" onClick={openDialog}>
+          <button className="navbar-icon-btn" title="Search (⌘K)" onClick={openDialog}>
             <Search size={18} />
+            <span className="navbar-icon-tooltip">Search</span>
           </button>
           <input
             ref={fileInputRef}
@@ -150,17 +145,27 @@ export function Navbar() {
               e.target.value = ''
             }}
           />
-          <button className="btn-icon" title="Import Documents" onClick={() => fileInputRef.current?.click()}>
+          <button className="navbar-icon-btn" title="Import" onClick={() => fileInputRef.current?.click()}>
             <Upload size={18} />
+            <span className="navbar-icon-tooltip">Import</span>
           </button>
-          <Link to="/stats" className="btn-icon" title="Statistics">
-            <BarChart3 size={18} />
-          </Link>
-          <Link to="/settings" className="btn-icon" title="Settings">
-            <Settings size={18} />
-          </Link>
-          <button className="btn-icon theme-toggle" onClick={toggleTheme} title="Toggle Theme">
+
+          {navButtons.map(btn => (
+            <Link
+              key={btn.to}
+              to={btn.to}
+              className="navbar-icon-btn"
+              title={btn.label}
+            >
+              <btn.icon size={18} />
+              {btn.badge > 0 && <span className="navbar-icon-badge">{btn.badge}</span>}
+              <span className="navbar-icon-tooltip">{btn.label}</span>
+            </Link>
+          ))}
+
+          <button className="navbar-icon-btn theme-toggle" onClick={toggleTheme} title="Toggle Theme">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <span className="navbar-icon-tooltip">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
         </div>
       </div>

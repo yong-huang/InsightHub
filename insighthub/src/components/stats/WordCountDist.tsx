@@ -43,7 +43,7 @@ export function WordCountDist({ documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={(value: number) => [`${value} docs`, 'Document Count']}
+            formatter={((value: number) => [`${value} docs`, 'Document Count']) as any}
           />
           <Bar
             dataKey="count"

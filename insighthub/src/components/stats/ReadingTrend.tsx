@@ -68,8 +68,8 @@ export function ReadingTrend({ entries, documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={(value: number) => [`${value} docs`, 'Reading Count']}
-            labelFormatter={(label: string) => label}
+            formatter={((value: number) => [`${value} docs`, 'Reading Count']) as any}
+            labelFormatter={((label: any) => String(label)) as any}
           />
           <Line
             type="monotone"

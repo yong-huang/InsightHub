@@ -1,6 +1,20 @@
-import type { Document, Tag, Annotation, Source } from '@/types'
-import { CATEGORIES, getSourceLabel, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import type { Document, Tag, Annotation, Source, WorkspaceConfig } from '@/types'
+import { getCategoryInfo } from '@/utils/categoryMap'
 import { parseWikiLinks } from '@/utils/bidirectionalLinks'
+import { getSourceColor, getWorkspaceConfig } from '@/utils/workspaceUtils'
+
+/** Derive unique categories from documents */
+function deriveCategories(docs: Document[]): { key: string; label: string; source: string }[] {
+  const seen = new Set<string>()
+  const result: { key: string; label: string; source: string }[] = []
+  for (const doc of docs) {
+    if (!doc.category || seen.has(doc.category)) continue
+    seen.add(doc.category)
+    const info = getCategoryInfo(doc.category)
+    result.push({ key: doc.category, label: info.label, source: info.source })
+  }
+  return result
+}
 
 export interface GraphNode {
   id: string
@@ -8,7 +22,7 @@ export interface GraphNode {
   label: string
   color: string
   size: number
-  data?: { docId?: string; categoryKey?: string; tagId?: string }
+  data?: { docId?: string; categoryKey?: string; tagId?: string; categorySource?: string }
 }
 
 export interface GraphLink {
@@ -29,15 +43,7 @@ export interface GraphOptions {
   filterSource?: 'all' | Source
   showDocuments?: boolean
   annotations?: Annotation[]
-}
-
-const MIND_WARM = '#ff8c42'
-const TECH_COOL = '#326ce5'
-const LC_GREEN = '#4ecdc4'
-const SOURCE_COLORS: Record<string, string> = {
-  mindinsight: MIND_WARM,
-  techinsight: TECH_COOL,
-  leetcodeinsight: LC_GREEN,
+  workspaces?: WorkspaceConfig[]
 }
 
 const CATEGORY_COLORS = [
@@ -58,6 +64,7 @@ export function buildGraphData(
     showDocuments = true,
     readDocsOnly = false,
     annotations = [],
+    workspaces = [],
   } = options
 
   const nodes: GraphNode[] = []
@@ -84,22 +91,23 @@ export function buildGraphData(
 
   // Source nodes
   const sources = filterSource === 'all'
-    ? (Object.keys(WORKSPACE_META) as Workspace[])
+    ? workspaces.map(w => w.id)
     : [filterSource] as const
 
   for (const src of sources) {
     addNode({
       id: `source:${src}`,
       type: 'source',
-      label: WORKSPACE_META[src]?.label || src,
-      color: SOURCE_COLORS[src],
+      label: getWorkspaceConfig(src, workspaces)?.label || src,
+      color: getSourceColor(src, workspaces),
       size: 30,
     })
   }
 
-  // Category nodes
+  // Category nodes — derive from documents instead of hardcoded CATEGORIES
   let catIndex = 0
-  for (const cat of CATEGORIES) {
+  const derivedCategories = deriveCategories(filteredDocs)
+  for (const cat of derivedCategories) {
     if (filterSource !== 'all' && cat.source !== filterSource) continue
     const catDocs = filteredDocs.filter(d => d.category === cat.key)
     if (catDocs.length === 0) continue
@@ -110,7 +118,7 @@ export function buildGraphData(
       label: cat.label,
       color: CATEGORY_COLORS[catIndex % CATEGORY_COLORS.length],
       size: Math.max(12, Math.min(28, 8 + catDocs.length * 2)),
-      data: { categoryKey: cat.key },
+      data: { categoryKey: cat.key, categorySource: cat.source },
     })
     addLink(`source:${cat.source}`, `cat:${cat.key}`, 'contains')
     catIndex++
@@ -131,7 +139,7 @@ export function buildGraphData(
         id: `doc:${doc.id}`,
         type: 'document',
         label: doc.title.length > 20 ? doc.title.slice(0, 20) + '...' : doc.title,
-        color: SOURCE_COLORS[doc.source] + opacity,
+        color: getSourceColor(doc.source, workspaces) + opacity,
         size,
         data: { docId: doc.id },
       })

@@ -1,5 +1,18 @@
 import type { Document, Source } from '@/types'
-import { CATEGORIES, type Workspace } from '@/utils/categoryMap'
+import { getCategoryInfo } from '@/utils/categoryMap'
+
+/** Derive unique categories from documents */
+function deriveCategories(docs: Document[]): { key: string; label: string; source: Source; icon: string }[] {
+  const seen = new Set<string>()
+  const result: { key: string; label: string; source: Source; icon: string }[] = []
+  for (const doc of docs) {
+    if (!doc.category || seen.has(doc.category)) continue
+    seen.add(doc.category)
+    const info = getCategoryInfo(doc.category)
+    result.push({ key: doc.category, label: info.label, source: info.source, icon: info.icon })
+  }
+  return result
+}
 
 export interface PathMilestone {
   categoryKey: string
@@ -13,18 +26,17 @@ export interface PathMilestone {
 }
 
 export interface PathData {
-  mindinsight: PathMilestone[]
-  techinsight: PathMilestone[]
-  leetcodeinsight: PathMilestone[]
+  workspaces: Record<string, PathMilestone[]>
   overallProgress: number
   nextRecommendations: PathMilestone[]
 }
 
 export function buildPathData(documents: Map<string, Document>, source?: string): PathData {
   const allDocs = Array.from(documents.values()).filter(d => !source || d.source === source)
+  const derivedCategories = deriveCategories(allDocs)
   const results: Record<string, PathMilestone> = {}
 
-  for (const cat of CATEGORIES) {
+  for (const cat of derivedCategories) {
     const catDocs = allDocs.filter(d => d.category === cat.key)
     const readDocs = catDocs.filter(d => d.isRead)
     const total = catDocs.length
@@ -42,35 +54,36 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
   }
 
   // Mark next recommended (first incomplete category per source)
-  const markRecommended = (source: Source) => {
-    const sourceCategories = CATEGORIES.filter(c => c.source === source)
-    const sorted = sourceCategories
-      .map(c => results[c.key])
-      .sort((a, b) => b.progress - a.progress)
+  const seenSources = new Set<string>()
+  for (const cat of derivedCategories) {
+    if (!seenSources.has(cat.source)) {
+      seenSources.add(cat.source)
+      const sourceCategories = derivedCategories.filter(c => c.source === cat.source)
+      const sorted = sourceCategories
+        .map(c => results[c.key])
+        .sort((a, b) => b.progress - a.progress)
 
-    for (const m of sorted) {
-      if (m.progress < 1) {
-        m.isNextRecommended = true
-        break
+      for (const m of sorted) {
+        if (m.progress < 1) {
+          m.isNextRecommended = true
+          break
+        }
       }
     }
   }
 
-  markRecommended('mindinsight')
-  markRecommended('techinsight')
-  markRecommended('leetcodeinsight')
-
-  const mindinsight = CATEGORIES.filter(c => c.source === 'mindinsight')
-    .map(c => results[c.key])
-    .sort((a, b) => b.progress - a.progress)
-
-  const techinsight = CATEGORIES.filter(c => c.source === 'techinsight')
-    .map(c => results[c.key])
-    .sort((a, b) => b.progress - a.progress)
-
-  const leetcodeinsight = CATEGORIES.filter(c => c.source === 'leetcodeinsight')
-    .map(c => results[c.key])
-    .sort((a, b) => b.progress - a.progress)
+  // Build per-workspace milestone lists
+  const workspaceMilestones: Record<string, PathMilestone[]> = {}
+  for (const cat of derivedCategories) {
+    if (!workspaceMilestones[cat.source]) {
+      workspaceMilestones[cat.source] = []
+    }
+    workspaceMilestones[cat.source].push(results[cat.key])
+  }
+  // Sort each workspace by progress descending
+  for (const key of Object.keys(workspaceMilestones)) {
+    workspaceMilestones[key].sort((a, b) => b.progress - a.progress)
+  }
 
   // Overall progress
   const totalDocs = allDocs.length
@@ -79,5 +92,5 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
 
   const nextRecommendations = Object.values(results).filter(m => m.isNextRecommended)
 
-  return { mindinsight, techinsight, leetcodeinsight, overallProgress, nextRecommendations }
+  return { workspaces: workspaceMilestones, overallProgress, nextRecommendations }
 }

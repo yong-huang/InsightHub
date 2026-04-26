@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
-  ChevronDown, Highlighter, BrainCircuit, Bookmark,
+  Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages,
   ShieldCheck,
 } from 'lucide-react'
@@ -19,13 +19,8 @@ import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary, evaluateDocumentAccuracy } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
+import { getShortLabel } from '@/utils/workspaceUtils'
 import type { Source } from '@/types'
-
-const SOURCE_SHORT: Record<Source, string> = {
-  mindinsight: 'Mind',
-  techinsight: 'Tech',
-  leetcodeinsight: 'LC',
-}
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
@@ -102,7 +97,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount, conceptMaxCount } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount, workspaces } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -119,9 +114,6 @@ export function DocReaderPage() {
   const [showTagInput, setShowTagInput] = useState(false)
   const [tagName, setTagName] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
-  const [showConceptMenu, setShowConceptMenu] = useState(false)
-  const conceptMenuRef = useRef<HTMLDivElement>(null)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [showSummaryPanel, setShowSummaryPanel] = useState(false)
@@ -142,7 +134,6 @@ export function DocReaderPage() {
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(() => docId ? storageService.isReadLater(docId) : false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -189,21 +180,6 @@ export function DocReaderPage() {
     () => allAnnotations.find(a => a.id === activeAnnotationId) || null,
     [allAnnotations, activeAnnotationId]
   )
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!showRegenerateMenu && !showConceptMenu) return
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowRegenerateMenu(false)
-      }
-      if (conceptMenuRef.current && !conceptMenuRef.current.contains(e.target as Node)) {
-        setShowConceptMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showRegenerateMenu, showConceptMenu])
 
   // CSS class hides navbar/sidebar/toolbar, iframe fills viewport
   useEffect(() => {
@@ -413,7 +389,6 @@ export function DocReaderPage() {
 
   const handleExtractConcepts = useCallback(async (mode: 'new' | 'regenerate' | 'append') => {
     if (!doc || !docId) return
-    setShowConceptMenu(false)
     setExtractingDocId(docId, true)
     setExtractingError(docId, null)
 
@@ -535,7 +510,6 @@ export function DocReaderPage() {
   )
 
   const handleGenerate = async (mode: 'new' | 'regenerate' | 'append') => {
-    setShowRegenerateMenu(false)
     const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
     startGeneration(doc.id, mode, docWithContent || doc, quizDifficulty, quizQuestionCount)
   }
@@ -569,7 +543,7 @@ export function DocReaderPage() {
 
         <div className="doc-reader-toolbar-info">
           <span className={`badge badge-${doc.source}`}>
-            {SOURCE_SHORT[doc.source] ?? 'Doc'}
+            {getShortLabel(doc.source, workspaces)}
           </span>
           {catInfo && <span className="badge">{catInfo.label}</span>}
           <span className="badge">
@@ -661,34 +635,36 @@ export function DocReaderPage() {
         <div className="doc-reader-toolbar-actions">
           {/* Read status toggle */}
           <button
-            className={`btn btn-sm ${doc.isRead ? 'btn-primary' : 'btn-secondary'}`}
+            className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
             onClick={() => doc.isRead ? toggleRead(doc.id) : markAsRead(doc.id)}
-            title={doc.isRead ? 'Click to mark as unread' : 'Click to mark as read'}
           >
-            <CheckCircle2 size={14} /> {doc.isRead ? 'Read' : 'Unread'}
+            <CheckCircle2 size={16} fill={doc.isRead ? 'currentColor' : 'none'} />
+            <span className="dr-action-label">{doc.isRead ? 'Read' : 'Unread'}</span>
           </button>
 
           {/* Annotation panel toggle */}
           <button
-            className={`btn btn-sm ${showAnnotationPanel || docAnnotations.length > 0 ? 'btn-primary' : 'btn-secondary'}`}
+            className={`dr-action-btn ${showAnnotationPanel || docAnnotations.length > 0 ? 'active' : ''}`}
             onClick={() => setShowAnnotationPanel(v => !v)}
-            title="Notes panel"
           >
-            <Highlighter size={14} /> Notes{docAnnotations.length > 0 && ` ${docAnnotations.length}`}
+            <Highlighter size={16} />
+            <span className="dr-action-label">Notes</span>
+            {docAnnotations.length > 0 && <span className="dr-action-badge">{docAnnotations.length}</span>}
           </button>
 
           {/* Chat panel toggle */}
           <button
-            className={`btn btn-sm ${showChatPanel || chatHistorySize > 0 ? 'btn-primary' : 'btn-secondary'}`}
+            className={`dr-action-btn ${showChatPanel || chatHistorySize > 0 ? 'active' : ''}`}
             onClick={() => setShowChatPanel(v => !v)}
-            title="AI Chat"
           >
-            <MessageCircle size={14} /> Chat
+            <MessageCircle size={16} />
+            <span className="dr-action-label">Chat</span>
+            {chatHistorySize > 0 && <span className="dr-action-badge">{chatHistorySize}</span>}
           </button>
 
           {/* Summary panel toggle */}
           <button
-            className={`btn btn-sm ${showSummaryPanel || summaryText ? 'btn-primary' : 'btn-secondary'}`}
+            className={`dr-action-btn ${showSummaryPanel || summaryText ? 'active' : ''}`}
             onClick={() => {
               setShowSummaryPanel(v => {
                 if (!v && !summaryText && !isSummaryGenerating && !summaryError) {
@@ -697,211 +673,83 @@ export function DocReaderPage() {
                 return !v
               })
             }}
-            title="AI Summary"
           >
-            <BrainCircuit size={14} /> Summary
+            <BrainCircuit size={16} />
+            <span className="dr-action-label">Summary</span>
           </button>
 
           {/* Evaluation button */}
-          {isEvalGenerating ? (
-            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> Evaluate
-            </span>
-          ) : (
-            <button
-              className={`btn btn-sm ${showEvalPanel || evalResult ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => {
-                setShowEvalPanel(v => {
-                  if (!v && !evalResult && !isEvalGenerating && !evalError) {
-                    handleEvaluate()
-                  }
-                  return !v
-                })
-              }}
-              title="AI Evaluation"
-            >
-              <ShieldCheck size={14} /> Evaluate
-            </button>
-          )}
+          <button
+            className={`dr-action-btn ${showEvalPanel || evalResult ? 'active' : ''}`}
+            onClick={() => {
+              if (isEvalGenerating) return
+              setShowEvalPanel(v => {
+                if (!v && !evalResult && !isEvalGenerating && !evalError) {
+                  handleEvaluate()
+                }
+                return !v
+              })
+            }}
+            style={isEvalGenerating ? { opacity: 0.7, cursor: 'wait' } : undefined}
+          >
+            {isEvalGenerating ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />}
+            <span className="dr-action-label">Evaluate</span>
+          </button>
 
           {/* Extract concepts button */}
-          {isExtractingConcepts ? (
-            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> Concepts
-            </span>
-          ) : docConceptCount > 0 ? (
-            <div ref={conceptMenuRef} style={{ position: 'relative', display: 'inline-flex' }}>
-              <Link
-                to={`/spaced-repetition?docId=${doc.id}`}
-                className="btn btn-primary btn-sm"
-              >
-                <Lightbulb size={14} /> Concepts {docConceptCount}
-              </Link>
-              <button
-                className="btn btn-secondary btn-sm"
-                style={{ padding: '6px 6px' }}
-                onClick={() => setShowConceptMenu(v => !v)}
-                title="More options"
-              >
-                <ChevronDown size={12} />
-              </button>
-              {showConceptMenu && (
-                <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                  background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
-                  borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
-                  minWidth: 140, overflow: 'hidden',
-                }}>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      display: 'block', width: '100%', padding: '8px 14px',
-                      border: 'none', background: 'none', cursor: 'pointer',
-                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
-                    }}
-                    onClick={() => handleExtractConcepts('regenerate')}
-                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                  >
-                    Regenerate
-                  </button>
-                  {docConceptCount < conceptMaxCount && (
-                    <button
-                      className="dropdown-item"
-                      style={{
-                        display: 'block', width: '100%', padding: '8px 14px',
-                        border: 'none', borderTop: '1px solid var(--border-primary)',
-                        background: 'none', cursor: 'pointer',
-                        textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
-                      }}
-                      onClick={() => handleExtractConcepts('append')}
-                      onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                      onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                    >
-                      Append Concepts
-                    </button>
-                  )}
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      display: 'block', width: '100%', padding: '8px 14px',
-                      border: 'none', borderTop: '1px solid var(--border-primary)',
-                      background: 'none', cursor: 'pointer',
-                      textAlign: 'left', fontSize: '0.85rem', color: '#e74c3c',
-                    }}
-                    onClick={() => {
-                      const ids = conceptCards.filter(c => c.sourceDocId === docId).map(c => c.id)
-                      ids.forEach(id => conceptRemoveCard(id))
-                      setShowConceptMenu(false)
-                    }}
-                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                  >
-                    Delete All
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleExtractConcepts('new')}
-            >
-              <Lightbulb size={14} /> Concepts
-            </button>
-          )}
+          <button
+            className={`dr-action-btn ${docConceptCount > 0 ? 'active' : ''}`}
+            onClick={() => {
+              if (isExtractingConcepts) return
+              if (docConceptCount > 0) {
+                navigate(`/spaced-repetition?docId=${doc.id}`)
+              } else {
+                handleExtractConcepts('new')
+              }
+            }}
+            style={isExtractingConcepts ? { opacity: 0.7, cursor: 'wait' } : undefined}
+          >
+            {isExtractingConcepts ? <Loader2 size={16} className="spin" /> : <Lightbulb size={16} />}
+            <span className="dr-action-label">Concepts</span>
+            {docConceptCount > 0 && <span className="dr-action-badge">{docConceptCount}</span>}
+          </button>
 
           {/* Quiz button area */}
-          {isGenerating ? (
-            <span className="btn btn-primary btn-sm" style={{ opacity: 0.7, cursor: 'wait' }}>
-              <Loader2 size={14} className="spin" /> Quiz
-            </span>
-          ) : generatingError ? (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleGenerate(existingQuiz ? 'regenerate' : 'new')}
-              title={generatingError}
-            >
-              <RefreshCw size={14} /> Retry
-            </button>
-          ) : existingQuiz ? (
-            <div ref={menuRef} style={{ position: 'relative', display: 'inline-flex' }}>
-              <Link
-                to={`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`}
-                className="btn btn-primary btn-sm"
-              >
-                <Sparkles size={14} /> Quiz {existingQuiz.questions.length}
-              </Link>
-              <button
-                className="btn btn-secondary btn-sm"
-                style={{ padding: '6px 6px' }}
-                onClick={() => setShowRegenerateMenu(v => !v)}
-                title="More options"
-              >
-                <ChevronDown size={12} />
-              </button>
-              {showRegenerateMenu && (
-                <div className="dropdown-menu" onMouseDown={e => e.stopPropagation()} style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: 4,
-                  background: 'var(--bg-card)', border: '1px solid var(--border-primary)',
-                  borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 100,
-                  minWidth: 140, overflow: 'hidden',
-                }}>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      display: 'block', width: '100%', padding: '8px 14px',
-                      border: 'none', background: 'none', cursor: 'pointer',
-                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
-                    }}
-                    onClick={() => handleGenerate('regenerate')}
-                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                  >
-                    Regenerate
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    style={{
-                      display: 'block', width: '100%', padding: '8px 14px',
-                      border: 'none', borderTop: '1px solid var(--border-primary)',
-                      background: 'none', cursor: 'pointer',
-                      textAlign: 'left', fontSize: '0.85rem', color: 'var(--text-primary)',
-                    }}
-                    onClick={() => handleGenerate('append')}
-                    onMouseEnter={e => (e.target as HTMLElement).style.background = 'var(--bg-hover)'}
-                    onMouseLeave={e => (e.target as HTMLElement).style.background = 'none'}
-                  >
-                    Append Questions
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleGenerate('new')}
-            >
-              <Sparkles size={14} /> Quiz
-            </button>
-          )}
+          <button
+            className={`dr-action-btn ${existingQuiz ? 'active' : ''}`}
+            onClick={() => {
+              if (isGenerating) return
+              if (generatingError) {
+                handleGenerate(existingQuiz ? 'regenerate' : 'new')
+              } else if (existingQuiz) {
+                navigate(`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`)
+              } else {
+                handleGenerate('new')
+              }
+            }}
+            style={isGenerating ? { opacity: 0.7, cursor: 'wait' } : undefined}
+          >
+            {isGenerating ? <Loader2 size={16} className="spin" /> : generatingError ? <RefreshCw size={16} /> : <Sparkles size={16} />}
+            <span className="dr-action-label">{isGenerating ? 'Generating...' : generatingError ? 'Retry' : existingQuiz ? `Quiz (${existingQuiz.questions.length})` : 'Quiz'}</span>
+            {existingQuiz && <span className="dr-action-badge">{existingQuiz.questions.length}</span>}
+          </button>
 
           {/* Bookmark toggle */}
           <button
-            className={`btn btn-sm ${isBookmarked ? 'btn-primary' : 'btn-secondary'}`}
+            className={`dr-action-btn ${isBookmarked ? 'active' : ''}`}
             onClick={toggleReadLater}
-            title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
           >
-            <Bookmark size={14} fill={isBookmarked ? 'currentColor' : 'none'} /> Bookmark
+            <Bookmark size={16} fill={isBookmarked ? 'currentColor' : 'none'} />
+            <span className="dr-action-label">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
           </button>
 
           {/* Fullscreen */}
           <button
-            className="btn btn-ghost btn-sm"
+            className="dr-action-btn"
             onClick={toggleFullscreen}
-            title="Fullscreen"
           >
-            <Maximize size={16} /> Fullscreen
+            <Maximize size={16} />
+            <span className="dr-action-label">Fullscreen</span>
           </button>
         </div>
       </div>

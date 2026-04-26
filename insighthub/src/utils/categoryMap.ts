@@ -9,95 +9,51 @@ export interface CategoryEntry {
 
 export type Workspace = Source
 
-export const DEFAULT_WORKSPACE_META: Record<Workspace, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> = {
+/** @deprecated Use workspaceUtils.getWorkspaceConfig() instead */
+export const DEFAULT_WORKSPACE_META: Record<string, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> = {
   mindinsight: { label: 'MindInsight', subtitle: 'Mind & Insight', icon: 'Brain', gradientClass: 'gradient-text-warm', basePath: '/mindinsight' },
   techinsight: { label: 'TechInsight', subtitle: 'Tech & Insight', icon: 'Cpu', gradientClass: 'gradient-text', basePath: '/techinsight' },
   leetcodeinsight: { label: 'LeetcodeInsight', subtitle: 'Algorithm Mastery', icon: 'Code2', gradientClass: 'gradient-text-green', basePath: '/leetcodeinsight' },
 }
 
-/** Backward-compatible alias — existing code can still import WORKSPACE_META */
+/** @deprecated Use workspaceUtils.getWorkspaceConfig() instead */
 export const WORKSPACE_META = DEFAULT_WORKSPACE_META
 
-/** Build dynamic WORKSPACE_META from WorkspaceConfig[] */
-export function buildWorkspaceMeta(workspaces: WorkspaceConfig[]): Record<Workspace, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> {
-  const meta: Record<string, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> = {}
-  for (const ws of workspaces) {
-    meta[ws.id] = {
-      label: ws.label,
-      subtitle: '',
-      icon: ws.icon,
-      gradientClass: 'gradient-text',
-      basePath: `/${ws.id}`,
-    }
-  }
-  return meta
+/** Runtime category registry — populated from documents on init */
+const dynamicCategoryMap = new Map<string, CategoryEntry>()
+
+function titleCase(key: string): string {
+  return key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-/** Keep WORKSPACE_META for backward compat — reads from preferenceStore at call time */
-export function getWorkspaceMeta(activeWorkspace: string, workspaces: WorkspaceConfig[]) {
-  const ws = workspaces.find(w => w.id === activeWorkspace)
-  if (ws) {
-    return {
-      label: ws.label,
-      subtitle: '',
-      icon: ws.icon,
-      gradientClass: 'gradient-text',
-      basePath: `/${ws.id}`,
-    }
-  }
-  return DEFAULT_WORKSPACE_META[activeWorkspace] || {
-    label: activeWorkspace,
-    subtitle: '',
-    icon: 'FileText',
-    gradientClass: 'gradient-text',
-    basePath: `/${activeWorkspace}`,
+/** Register categories discovered from documents. Call once after documents load. */
+export function registerDynamicCategories(entries: { key: string; source: Source }[]): void {
+  for (const entry of entries) {
+    if (dynamicCategoryMap.has(entry.key)) continue
+    dynamicCategoryMap.set(entry.key, {
+      key: entry.key,
+      label: titleCase(entry.key),
+      source: entry.source,
+      icon: 'Folder',
+    })
   }
 }
 
-export const CATEGORIES: CategoryEntry[] = [
-  // MindInsight — General Knowledge → Humanities → Practical
-  { key: 'academic', label: 'Academic Foundations', source: 'mindinsight', icon: 'GraduationCap' },
-  { key: 'philosophy', label: 'Philosophy', source: 'mindinsight', icon: 'Brain' },
-  { key: 'history', label: 'History', source: 'mindinsight', icon: 'Landmark' },
-  { key: 'literature', label: 'Literature', source: 'mindinsight', icon: 'BookOpen' },
-  { key: 'media-analysis', label: 'Media Analysis', source: 'mindinsight', icon: 'Film' },
-  { key: 'pop-culture', label: 'Pop Culture', source: 'mindinsight', icon: 'Monitor' },
-  { key: 'finance', label: 'Finance', source: 'mindinsight', icon: 'TrendingUp' },
-  // TechInsight — Fundamentals → Advanced → Infrastructure → Career
-  { key: 'programming', label: 'Programming', source: 'techinsight', icon: 'Code' },
-  { key: 'linux', label: 'Linux', source: 'techinsight', icon: 'TerminalSquare' },
-  { key: 'algorithms', label: 'Algorithms', source: 'techinsight', icon: 'GitBranch' },
-  { key: 'dl-fundamentals', label: 'Deep Learning', source: 'techinsight', icon: 'Sparkles' },
-  { key: 'ai-frameworks', label: 'AI Frameworks', source: 'techinsight', icon: 'Cpu' },
-  { key: 'architecture', label: 'System Architecture', source: 'techinsight', icon: 'Building2' },
-  { key: 'devops', label: 'DevOps', source: 'techinsight', icon: 'Terminal' },
-  { key: 'cloud', label: 'Cloud Platforms', source: 'techinsight', icon: 'Cloud' },
-  { key: 'kubernetes', label: 'Container Orchestration', source: 'techinsight', icon: 'Container' },
-  { key: 'networking', label: 'Networking', source: 'techinsight', icon: 'Wifi' },
-  { key: 'storage', label: 'Storage', source: 'techinsight', icon: 'HardDrive' },
-  { key: 'vmware', label: 'VMware', source: 'techinsight', icon: 'Server' },
-  { key: 'dell', label: 'Dell Solutions', source: 'techinsight', icon: 'Database' },
-  { key: 'job', label: 'Job Interview', source: 'techinsight', icon: 'Briefcase' },
-  // LeetcodeInsight — Basic Data Structures → Algorithms → Comprehensive
-  { key: 'two-pointers', label: 'Two Pointers', source: 'leetcodeinsight', icon: 'MoveHorizontal' },
-  { key: 'sliding-window', label: 'Sliding Window', source: 'leetcodeinsight', icon: 'PanelLeftClose' },
-  { key: 'linked-list', label: 'Linked List', source: 'leetcodeinsight', icon: 'Link' },
-  { key: 'stack', label: 'Stack', source: 'leetcodeinsight', icon: 'Archive' },
-  { key: 'hashmap', label: 'HashMap', source: 'leetcodeinsight', icon: 'Table2' },
-  { key: 'binary-search', label: 'Binary Search', source: 'leetcodeinsight', icon: 'Binary' },
-  { key: 'backtracking', label: 'Backtracking', source: 'leetcodeinsight', icon: 'Undo2' },
-  { key: 'dynamic-programming', label: 'Dynamic Programming', source: 'leetcodeinsight', icon: 'Puzzle' },
-  { key: 'strings', label: 'Strings', source: 'leetcodeinsight', icon: 'Type' },
-  { key: 'math', label: 'Math', source: 'leetcodeinsight', icon: 'Calculator' },
-  { key: 'summary', label: 'Summary', source: 'leetcodeinsight', icon: 'FileText' },
-]
-
-export function getCategoryInfo(key: string): CategoryEntry | undefined {
-  return CATEGORIES.find(c => c.key === key)
+/** All registered categories — only categories from actual documents appear here */
+export function getRegisteredCategories(): CategoryEntry[] {
+  return Array.from(dynamicCategoryMap.values())
 }
 
+/** Never returns undefined — always returns a CategoryEntry with titleCase fallback */
+export function getCategoryInfo(key: string): CategoryEntry {
+  const dynamic = dynamicCategoryMap.get(key)
+  if (dynamic) return dynamic
+  return { key, label: titleCase(key), source: 'techinsight' as Source, icon: 'Folder' }
+}
+
+/** @deprecated Use useDynamicCategories hook instead */
 export function getCategoriesBySource(source: Source): CategoryEntry[] {
-  return CATEGORIES.filter(c => c.source === source)
+  return getRegisteredCategories().filter(c => c.source === source)
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -107,10 +63,17 @@ const SOURCE_LABELS: Record<string, string> = {
 }
 
 export function getSourceLabel(source: Source): string {
-  return SOURCE_LABELS[source] || source
+  const entry = SOURCE_LABELS[source]
+  if (entry) return entry
+  return source.charAt(0).toUpperCase() + source.slice(1)
 }
 
-export function getSourceFromCategory(category: string): Source {
-  const cat = CATEGORIES.find(c => c.key === category)
-  return cat?.source ?? 'techinsight'
+export function getSourceFromCategory(category: string, documents?: Map<string, { source: Source; category: string }>): Source {
+  if (documents) {
+    for (const doc of documents.values()) {
+      if (doc.category === category) return doc.source
+    }
+  }
+  const info = getCategoryInfo(category)
+  return info.source
 }

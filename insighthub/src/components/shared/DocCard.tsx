@@ -1,15 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
 import { CheckCircle2, Circle, FileText, Clock } from 'lucide-react'
-import type { Document, Source } from '@/types'
-import { getCategoryInfo, getSourceLabel } from '@/utils/categoryMap'
+import type { Document } from '@/types'
+import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText } from '@/services/searchService'
+import { getShortLabel } from '@/utils/workspaceUtils'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useMemo, memo } from 'react'
-
-const SOURCE_SHORT: Record<Source, string> = {
-  mindinsight: 'Mind',
-  techinsight: 'Tech',
-  leetcodeinsight: 'LC',
-}
 
 interface DocCardProps {
   doc: Document
@@ -39,12 +35,13 @@ const HighlightedSnippet = memo(function HighlightedSnippet({ text, query }: { t
 export const DocCard = memo(function DocCard({ doc, snippet, query }: DocCardProps) {
   const catInfo = getCategoryInfo(doc.category)
   const location = useLocation()
+  const workspaces = usePreferenceStore(s => s.workspaces)
 
   return (
     <Link to={`/doc/${doc.id}`} state={{ from: location.pathname }} className="doc-card card card-hover">
       <div className="doc-card-header">
         <span className={`badge badge-${doc.source}`}>
-          {SOURCE_SHORT[doc.source] ?? 'Doc'}
+          {getShortLabel(doc.source, workspaces)}
         </span>
         <span className={`badge ${doc.isRead ? 'badge-read' : 'badge-unread'}`}>
           {doc.isRead ? <CheckCircle2 size={12} /> : <Circle size={12} />}

@@ -6,7 +6,7 @@ import { documentDiscovery } from './vite-plugins/documentDiscovery'
 const PROJECT_DIR = path.resolve(__dirname)
 const MINDINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/MindInsight'
 const TECHINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/TechInsight'
-const LEETCODEINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/LeetcodeInsight'
+const LEETCODEINSIGHT_DIR = '/Users/hyhit/Desktop/workspace/projects/LeetCodeInsight'
 
 export default defineConfig({
   plugins: [

@@ -1,6 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useQuizStore } from '@/stores/quizStore'
@@ -17,8 +15,13 @@ import { TopEngagedDocuments } from '@/components/visualization/TopEngagedDocume
 import { ReadingHabits } from '@/components/visualization/ReadingHabits'
 import { TagCloud } from '@/components/visualization/TagCloud'
 
+const PERIODS: { key: ReportPeriod; label: string }[] = [
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
+  { key: 'all', label: 'All Time' },
+]
+
 export function StatsPage() {
-  const navigate = useNavigate()
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const quizHistory = useQuizStore(s => s.quizHistory)
@@ -35,30 +38,24 @@ export function StatsPage() {
   )
 
   return (
-    <div className="stats-page">
-      <div className="stats-page-header">
-        <div className="page-header-row">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
-            <ArrowLeft size={18} />
+    <div className="cs-settings">
+      <div className="cs-settings-header">
+        <div className="cs-section-label">STATISTICS</div>
+        <h1>Statistics</h1>
+        <p className="cs-settings-subtitle">Track your learning progress and reading habits.</p>
+      </div>
+
+      {/* Period selector */}
+      <div className="cs-btn-group" style={{ marginBottom: '1.25rem' }}>
+        {PERIODS.map(p => (
+          <button
+            key={p.key}
+            className={`cs-btn ${period === p.key ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+            onClick={() => setPeriod(p.key)}
+          >
+            {p.label}
           </button>
-          <h1 className="stats-page-title">Statistics</h1>
-        </div>
-        <p className="stats-page-desc">Track your learning progress and reading habits</p>
-        <div className="viz-period-selector" style={{ marginTop: '0.75rem' }}>
-          {([
-            { key: 'month' as const, label: 'This Month' },
-            { key: 'year' as const, label: 'This Year' },
-            { key: 'all' as const, label: 'All Time' },
-          ]).map(p => (
-            <button
-              key={p.key}
-              className={period === p.key ? 'active' : ''}
-              onClick={() => setPeriod(p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
 
       {/* Hero overview */}
@@ -70,7 +67,7 @@ export function StatsPage() {
       </ChartCard>
 
       {/* Two-column: Category Radar + Quiz Performance */}
-      <div className="stats-grid-2">
+      <div className="cs-stats-grid-2">
         <ChartCard title="Category Exploration Radar">
           <CategoryRadar data={report.categoryDistribution} />
         </ChartCard>
@@ -80,12 +77,12 @@ export function StatsPage() {
       </div>
 
       {/* Two-column: Top Annotated + Top Quizzed */}
-      <div className="stats-grid-2">
+      <div className="cs-stats-grid-2">
         <ChartCard title="Most Annotated Documents">
-          <TopEngagedDocuments data={report.topAnnotated} unit="annotations" />
+          <TopEngagedDocuments title="Most Annotated" data={report.topAnnotated} unit="annotations" />
         </ChartCard>
         <ChartCard title="Most Quizzed Documents">
-          <TopEngagedDocuments data={report.topQuizzed} unit="quizzes" />
+          <TopEngagedDocuments title="Most Quizzed" data={report.topQuizzed} unit="quizzes" />
         </ChartCard>
       </div>
 

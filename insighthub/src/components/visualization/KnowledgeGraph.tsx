@@ -3,13 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
 import { buildGraphData, type GraphNode, type GraphOptions } from '@/utils/graphBuilder'
 import type { Document, Tag, Source } from '@/types'
-import { WORKSPACE_META } from '@/utils/categoryMap'
-
-const SOURCE_COLORS_LEGEND: Record<string, string> = {
-  mindinsight: '#ff8c42',
-  techinsight: '#326ce5',
-  leetcodeinsight: '#4ecdc4',
-}
+import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getSourceColor, getWorkspaceConfig } from '@/utils/workspaceUtils'
 
 interface SimNode extends GraphNode {
   x: number
@@ -52,9 +47,10 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   const simRef = useRef<any>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const workspaces = usePreferenceStore(s => s.workspaces)
 
   const graphData = useMemo(
-    () => buildGraphData(documents, tags, externalOptions || { filterSource: 'all', showDocuments: true }),
+    () => buildGraphData(documents, tags, { ...(externalOptions || { filterSource: 'all', showDocuments: true }), workspaces }),
     [documents, tags, externalOptions],
   )
 
@@ -107,8 +103,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   const connectedIds = useCallback((nodeId: string): Set<string> => {
     const ids = new Set<string>([nodeId])
     for (const link of graphData.links) {
-      const sid = typeof link.source === 'string' ? link.source : link.source.id
-      const tid = typeof link.target === 'string' ? link.target : link.target.id
+      const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
+      const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
       if (sid === nodeId) ids.add(tid)
       if (tid === nodeId) ids.add(sid)
     }
@@ -267,10 +263,9 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     if (node.type === 'document' && node.data?.docId) {
       navigate(`/doc/${node.data.docId}`, { state: { from: location.pathname } })
     } else if (node.type === 'category' && node.data?.categoryKey) {
-      const cat = node.data.categoryKey
-      const source = cat === 'mindinsight' || cat === 'techinsight' ? cat : ''
+      const source = node.data.categorySource
       if (source) {
-        navigate(`/${source}`)
+        navigate(`/${source}/${node.data.categoryKey}`)
       }
     } else if (node.type === 'tag' && node.data?.tagId) {
       navigate(`/tag/${node.data.tagId}`)
@@ -308,8 +303,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* Links */}
           {graphData.links.map((link, i) => {
-            const sid = typeof link.source === 'string' ? link.source : link.source.id
-            const tid = typeof link.target === 'string' ? link.target : link.target.id
+            const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
+            const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
             const sn = simNodes.find(n => n.id === sid)
             const tn = simNodes.find(n => n.id === tid)
             if (!sn || !tn) return null
@@ -404,8 +399,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
           ))
         ) : (
           <div className="kg-legend-item">
-            <span className="kg-legend-dot" style={{ background: SOURCE_COLORS_LEGEND[externalOptions?.filterSource || 'techinsight'] || '#326ce5' }} />
-            <span>{WORKSPACE_META[(externalOptions?.filterSource || 'techinsight') as keyof typeof WORKSPACE_META]?.label || 'TechInsight'}</span>
+            <span className="kg-legend-dot" style={{ background: getSourceColor(externalOptions?.filterSource || 'techinsight', workspaces) }} />
+            <span>{getWorkspaceConfig(externalOptions?.filterSource || 'techinsight', workspaces)?.label || 'TechInsight'}</span>
           </div>
         )}
         <div className="kg-legend-item">

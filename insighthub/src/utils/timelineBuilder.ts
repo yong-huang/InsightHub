@@ -102,7 +102,7 @@ function buildAchievementEntries(): TimelineEntry[] {
 }
 
 export interface TimelineOptions {
-  source?: 'mindinsight' | 'techinsight' | 'leetcodeinsight' | 'all'
+  source?: string
   typeFilter?: TimelineTypeFilter
   limit?: number
 }
@@ -142,6 +142,14 @@ export function buildTimeline(
       return doc?.source === source
     })
   }
+
+  // Deduplicate entries with identical ids (e.g. multiple reads at same timestamp)
+  const seen = new Set<string>()
+  entries = entries.filter(e => {
+    if (seen.has(e.id)) return false
+    seen.add(e.id)
+    return true
+  })
 
   // Sort by timestamp descending
   entries.sort((a, b) => b.timestamp - a.timestamp)

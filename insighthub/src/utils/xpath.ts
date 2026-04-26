@@ -205,6 +205,7 @@ export function findTextRangeFuzzy(doc: Document, text: string): Range | null {
  */
 export function trimRangeEdges(range: Range): Range {
   const doc = range.startContainer.ownerDocument
+  if (!doc) return range
   const walker = doc.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT)
 
   let firstNonWs: { node: Text; offset: number } | null = null
@@ -279,9 +280,12 @@ export function isInsideSVG(node: Node): boolean {
  */
 export function applyMarkToRange(range: Range, annotationId: string, color: string): Element {
   const doc = range.commonAncestorContainer.ownerDocument
+  if (!doc) return document.createElement('mark')
 
   // Skip SVG text — cannot wrap SVG text nodes with HTML <mark>
   if (isInsideSVG(range.commonAncestorContainer)) {
+    const d = range.commonAncestorContainer.ownerDocument
+    if (d) return makeMark(d, annotationId, color)
     return makeMark(doc, annotationId, color)
   }
 
@@ -353,6 +357,7 @@ export function applyMarkToRange(range: Range, annotationId: string, color: stri
  */
 export function restoreMarkFromRange(range: Range, annotationId: string, color: string): void {
   const doc = range.startContainer.ownerDocument
+  if (!doc) return
 
   // Skip SVG text — cannot wrap SVG text nodes with HTML <mark>
   if (isInsideSVG(range.commonAncestorContainer)) return

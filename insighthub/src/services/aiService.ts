@@ -139,7 +139,7 @@ export async function callAIStream(
     let buffer = ''
 
     // Idle timeout: reset every time we receive data
-    let idleTimer: ReturnType<typeof setTimeout>
+    let idleTimer: ReturnType<typeof setTimeout> = undefined as any
     const resetIdle = () => {
       clearTimeout(idleTimer)
       idleTimer = setTimeout(() => { abortedByTimeout = true; controller.abort() }, IDLE_TIMEOUT_MS)

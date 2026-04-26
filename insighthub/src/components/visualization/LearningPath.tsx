@@ -4,10 +4,12 @@ import {
   Cpu, GitBranch, Cloud, Server, Network, Code, Code2,
   TrendingUp, Landmark, BarChart3, Monitor, Briefcase,
   Sparkles, Layers, Type, Link, Archive, Calculator, Puzzle, Search, FileText,
+  TerminalSquare, Building2, Terminal, Container, Wifi, HardDrive, Database, Undo2, Binary,
 } from 'lucide-react'
-import { WORKSPACE_META } from '@/utils/categoryMap'
+import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getWorkspaceConfig, getSourceColor } from '@/utils/workspaceUtils'
 import type { PathData, PathMilestone } from '@/utils/pathBuilder'
-import type { Source } from '@/types'
+import type { Source, WorkspaceConfig } from '@/types'
 
 interface Props {
   data: PathData
@@ -39,12 +41,15 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Puzzle: <Puzzle size={16} />,
   Search: <Search size={16} />,
   FileText: <FileText size={16} />,
-}
-
-const SOURCE_BAR_CLASS: Record<string, string> = {
-  mindinsight: 'lp-overall-bar-mind',
-  techinsight: 'lp-overall-bar-tech',
-  leetcodeinsight: 'lp-overall-bar-leetc',
+  TerminalSquare: <TerminalSquare size={16} />,
+  Building2: <Building2 size={16} />,
+  Terminal: <Terminal size={16} />,
+  Container: <Container size={16} />,
+  Wifi: <Wifi size={16} />,
+  HardDrive: <HardDrive size={16} />,
+  Database: <Database size={16} />,
+  Undo2: <Undo2 size={16} />,
+  Binary: <Binary size={16} />,
 }
 
 function getStatus(milestone: PathMilestone): 'completed' | 'in-progress' | 'not-started' {
@@ -53,41 +58,35 @@ function getStatus(milestone: PathMilestone): 'completed' | 'in-progress' | 'not
   return 'not-started'
 }
 
-function MilestoneCard({ milestone, navigate }: { milestone: PathMilestone; navigate: ReturnType<typeof useNavigate> }) {
+function MilestoneRow({ milestone, workspaces, navigate }: { milestone: PathMilestone; workspaces: WorkspaceConfig[]; navigate: ReturnType<typeof useNavigate> }) {
   const status = getStatus(milestone)
   const cls = milestone.isNextRecommended ? 'recommended' : status
-
-  const meta = WORKSPACE_META[milestone.source]
-  const basePath = meta.basePath
+  const meta = getWorkspaceConfig(milestone.source, workspaces)
+  const basePath = meta ? `/${meta.id}` : ''
 
   return (
     <div
-      className={`lp-milestone ${cls}`}
+      className={`cs-model-item cs-milestone ${cls}`}
       onClick={() => navigate(`${basePath}/${milestone.categoryKey}`)}
     >
-      <div className="lp-dot-area">
-        <div className="lp-dot" />
-        {status !== 'not-started' && <div className="lp-line" />}
-      </div>
-      <div className="lp-card">
-        <div className="lp-card-header">
-          <span className="lp-card-icon">{ICON_MAP[milestone.icon]}</span>
-          <span className="lp-card-name">{milestone.label}</span>
+      <div className={`cs-status-dot ${cls}`} />
+      <div className="cs-model-info">
+        <div className="cs-model-name">
+          {ICON_MAP[milestone.icon]}
+          {milestone.label}
           {milestone.isNextRecommended && (
-            <span className="lp-recommend-badge">
-              <Sparkles size={12} /> Recommended
+            <span className="cs-badge cs-badge-recommended">
+              <Sparkles size={10} /> Recommended
             </span>
           )}
-          <span className="lp-card-source">{meta.label}</span>
         </div>
-        <div className="lp-progress-bar">
-          <div
-            className="lp-progress-fill"
-            style={{ width: `${Math.round(milestone.progress * 100)}%` }}
-          />
+        <div className="cs-model-meta">
+          <span>{milestone.readCount} / {milestone.totalCount} docs</span>
+          <span>{Math.round(milestone.progress * 100)}%</span>
+          <span>{meta?.label || milestone.source}</span>
         </div>
-        <div className="lp-card-count">
-          {milestone.readCount} / {milestone.totalCount} docs · {Math.round(milestone.progress * 100)}%
+        <div className="cs-progress-bar">
+          <div className="cs-progress-fill" style={{ width: `${Math.round(milestone.progress * 100)}%` }} />
         </div>
       </div>
     </div>
@@ -96,8 +95,9 @@ function MilestoneCard({ milestone, navigate }: { milestone: PathMilestone; navi
 
 export function LearningPath({ data, source }: Props) {
   const navigate = useNavigate()
-  const milestones = data[source]
-  const meta = WORKSPACE_META[source]
+  const workspaces = usePreferenceStore(s => s.workspaces)
+  const milestones = data.workspaces[source] || []
+  const sourceColor = getSourceColor(source, workspaces)
   const overallPct = milestones.length > 0
     ? Math.round(milestones.reduce((s, m) => s + m.progress, 0) / milestones.length * 100)
     : 0
@@ -105,23 +105,20 @@ export function LearningPath({ data, source }: Props) {
   return (
     <div>
       {/* Overall progress */}
-      <div className="lp-overall-progress">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
           <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Overall Progress</span>
-          <span className="lp-overall-pct">{overallPct}%</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-blue)' }}>{overallPct}%</span>
         </div>
-        <div className="lp-overall-bar">
-          <div
-            className={SOURCE_BAR_CLASS[source] || 'lp-overall-bar-tech'}
-            style={{ width: `${overallPct}%` }}
-          />
+        <div style={{ height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-input)' }}>
+          <div style={{ height: '100%', borderRadius: '4px', width: `${overallPct}%`, background: sourceColor, transition: 'width 0.5s ease' }} />
         </div>
       </div>
 
-      {/* Milestones */}
-      <div className="lp-timeline">
+      {/* Milestone list */}
+      <div className="cs-item-list">
         {milestones.map(m => (
-          <MilestoneCard key={m.categoryKey} milestone={m} navigate={navigate} />
+          <MilestoneRow key={m.categoryKey} milestone={m} workspaces={workspaces} navigate={navigate} />
         ))}
       </div>
     </div>

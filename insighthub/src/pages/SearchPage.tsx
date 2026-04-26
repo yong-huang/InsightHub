@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Clock, ArrowLeft } from 'lucide-react'
+import { Search, Clock } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -35,37 +35,36 @@ export function SearchPage() {
   const recentReads = getRecentReads().filter(d => d.source === activeWorkspace)
   const navigate = useNavigate()
 
+  const title = !query ? 'Recent Reads' : `Search: ${query}`
+
   return (
-    <div className="page-search">
-      <div className="search-page-header">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} title="Back">
-          <ArrowLeft size={18} />
-        </button>
-        {!query ? (
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}><Clock size={20} style={{ marginRight: 8, verticalAlign: 'middle' }} /> Recent Reads</h1>
-        ) : (
-          <span style={{ fontSize: '1rem', fontWeight: 600 }}>
-            Search: {query}
-          </span>
-        )}
+    <div className="cs-settings">
+      <div className="cs-settings-header">
+        <div className="cs-section-label">SEARCH</div>
+        <h1>{title}</h1>
         {results.length > 0 && (
-          <span className="search-page-count">
-            Found {results.length} results
-          </span>
+          <p className="cs-settings-subtitle">Found {results.length} results</p>
         )}
       </div>
 
       {isSearching && (
-        <div className="empty-state">
-          <p>Searching...</p>
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">Searching...</div>
+          </div>
         </div>
       )}
 
       {!isSearching && query && results.length === 0 && (
-        <div className="empty-state">
-          <Search size={48} />
-          <h3>No Results Found</h3>
-          <p>Try different keywords</p>
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-dim)' }}>
+                <Search size={20} />
+              </div>
+              No results found. Try different keywords.
+            </div>
+          </div>
         </div>
       )}
 
@@ -78,12 +77,10 @@ export function SearchPage() {
       )}
 
       {!isSearching && !query && recentReads.length > 0 && (
-        <div className="section">
-          <div className="recent-reads-grid">
-            {recentReads.map(doc => (
-              <DocCard key={doc.id} doc={doc} />
-            ))}
-          </div>
+        <div className="doc-grid grid-3">
+          {recentReads.map(doc => (
+            <DocCard key={doc.id} doc={doc} />
+          ))}
         </div>
       )}
     </div>

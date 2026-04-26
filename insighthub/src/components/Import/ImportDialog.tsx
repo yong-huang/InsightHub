@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import { getCategoriesBySource } from '@/utils/categoryMap'
+import { useDynamicCategories } from '@/hooks/useDynamicCategories'
 
 interface ImportDialogProps {
   files: File[]
@@ -18,8 +18,9 @@ function formatFileSize(bytes: number): string {
 export function ImportDialog({ files, onClose }: ImportDialogProps) {
   const importDoc = useDocumentStore(s => s.importDocument)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
-  const categories = getCategoriesBySource(activeWorkspace)
+  const categories = useDynamicCategories(activeWorkspace)
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || '')
+  const [customCategory, setCustomCategory] = useState('')
   const [importing, setImporting] = useState(false)
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<{ file: string; ok: boolean; error?: string }[]>([])
@@ -35,7 +36,8 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
     for (let i = 0; i < files.length; i++) {
       setCurrent(i + 1)
       try {
-        await importDoc(files[i], activeWorkspace, selectedCategory)
+        const category = selectedCategory === '__custom__' ? customCategory.trim() : selectedCategory
+    await importDoc(files[i], activeWorkspace, category)
         importResults.push({ file: files[i].name, ok: true })
       } catch (e) {
         importResults.push({ file: files[i].name, ok: false, error: e instanceof Error ? e.message : 'Unknown error' })
@@ -88,7 +90,19 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
                 {categories.map(cat => (
                   <option key={cat.key} value={cat.key}>{cat.label}</option>
                 ))}
+                <option value="__custom__">+ New Category...</option>
               </select>
+              {selectedCategory === '__custom__' && (
+                <input
+                  type="text"
+                  className="filter-select"
+                  style={{ marginTop: 4 }}
+                  placeholder="Enter category name"
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value)}
+                  disabled={importing}
+                />
+              )}
             </div>
 
             {importing && (

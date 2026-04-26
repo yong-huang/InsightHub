@@ -23,7 +23,7 @@ function stripTitleSuffix(title: string): string {
   return cleaned.replace(/\s+/g, ' ').trim()
 }
 
-function extractSections(doc: Document): Element[] {
+function extractSections(doc: globalThis.Document): Element[] {
   return Array.from(doc.querySelectorAll('h2, h3'))
 }
 
@@ -78,7 +78,7 @@ export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): O
   const contentText = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim()
 
   // Extract sections
-  const headings = extractSections(doc)
+  const headings = extractSections(doc as globalThis.Document)
   const sections: Section[] = headings.map((el, i) => ({
     id: `section-${i}`,
     title: el.textContent?.trim() || '',

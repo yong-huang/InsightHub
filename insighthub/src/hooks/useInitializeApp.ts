@@ -6,6 +6,8 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
+import { extendCategoryMap } from '@/services/searchService'
+import { registerDynamicCategories, getCategoryInfo } from '@/utils/categoryMap'
 
 export function useInitializeApp() {
   const initialized = useRef(false)
@@ -22,7 +24,25 @@ export function useInitializeApp() {
     if (initialized.current) return
     initialized.current = true
 
-    useDocumentStore.getState().initializeDocuments()
+    const initDocs = useDocumentStore.getState().initializeDocuments()
+    // After documents load, register dynamic categories globally
+    initDocs.then(() => {
+      const docs = useDocumentStore.getState().documents
+      const catEntries: { key: string; source: string }[] = []
+      for (const doc of docs.values()) {
+        if (doc.category && !catEntries.some(e => e.key === doc.category)) {
+          catEntries.push({ key: doc.category, source: doc.source })
+        }
+      }
+      registerDynamicCategories(catEntries)
+
+      // Also extend search service's label→key map
+      extendCategoryMap(catEntries.map(e => ({
+        key: e.key,
+        label: getCategoryInfo(e.key).label,
+      })))
+    })
+
     useTagStore.getState().loadTags()
     useSearchStore.getState().loadHistory()
     useQuizStore.getState().loadHistory()

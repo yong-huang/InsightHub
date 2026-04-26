@@ -5,6 +5,8 @@ import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
+import { usePreferenceStore } from '@/stores/preferenceStore'
+import { getDirectoryFromSource } from '@/utils/workspaceUtils'
 import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
 
 interface DocumentState {
@@ -414,7 +416,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const htmlContent = await file.text()
     const parsed = parseHtmlDocument(htmlContent, {
       id: '', // will be set after upload
-      filePath: `../${source === 'leetcodeinsight' ? 'LeetcodeInsight' : source === 'mindinsight' ? 'MindInsight' : 'TechInsight'}/${category}/${file.name}`,
+      filePath: `../${getDirectoryFromSource(source, usePreferenceStore.getState().workspaces)}/${category}/${file.name}`,
       fileName: file.name,
       source,
       category,

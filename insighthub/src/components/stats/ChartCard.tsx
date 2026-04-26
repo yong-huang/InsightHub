@@ -8,12 +8,12 @@ interface ChartCardProps {
 
 export function ChartCard({ title, children, extra }: ChartCardProps) {
   return (
-    <div className="stats-chart-card">
-      <div className="stats-chart-header">
-        <h3 className="stats-chart-title">{title}</h3>
-        {extra && <div className="stats-chart-extra">{extra}</div>}
+    <div className="cs-card">
+      <div className="cs-card-header">
+        {title}
+        {extra && <div style={{ marginLeft: 'auto' }}>{extra}</div>}
       </div>
-      <div className="stats-chart-body">
+      <div className="cs-card-body">
         {children}
       </div>
     </div>

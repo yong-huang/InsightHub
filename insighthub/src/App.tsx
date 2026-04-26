@@ -29,12 +29,7 @@ function AppContent() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/mindinsight" element={<CategoryPage />} />
-            <Route path="/mindinsight/:category" element={<CategoryPage />} />
-            <Route path="/techinsight" element={<CategoryPage />} />
-            <Route path="/techinsight/:category" element={<CategoryPage />} />
-            <Route path="/leetcodeinsight" element={<CategoryPage />} />
-            <Route path="/leetcodeinsight/:category" element={<CategoryPage />} />
+            {/* Named routes must come before dynamic workspace routes */}
             <Route path="/search" element={<SearchPage />} />
             <Route path="/doc/:docId" element={<DocReaderPage />} />
             <Route path="/quiz/:quizId" element={<QuizPage />} />
@@ -47,6 +42,9 @@ function AppContent() {
             <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
             <Route path="/learning-path" element={<LearningPathPage />} />
             <Route path="/spaced-repetition" element={<SpacedRepetitionPage />} />
+            {/* Dynamic workspace routes — catch-all for workspace IDs */}
+            <Route path="/:workspace" element={<CategoryPage />} />
+            <Route path="/:workspace/:category" element={<CategoryPage />} />
           </Route>
         </Routes>
       </ErrorBoundary>

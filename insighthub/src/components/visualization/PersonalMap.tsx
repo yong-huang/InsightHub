@@ -196,8 +196,8 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
   const connectedIds = useCallback((nodeId: string): Set<string> => {
     const ids = new Set<string>([nodeId])
     for (const link of graphData.links) {
-      const sid = typeof link.source === 'string' ? link.source : link.source.id
-      const tid = typeof link.target === 'string' ? link.target : link.target.id
+      const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
+      const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
       if (sid === nodeId) ids.add(tid)
       if (tid === nodeId) ids.add(sid)
     }
@@ -358,10 +358,9 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
     if (node.type === 'document' && node.data?.docId) {
       navigate(`/doc/${node.data.docId}`, { state: { from: location.pathname } })
     } else if (node.type === 'category' && node.data?.categoryKey) {
-      const cat = node.data.categoryKey
-      const doc = Array.from(documents.values()).find(d => d.category === cat)
-      if (doc) {
-        navigate(`/${doc.source}/${cat}`)
+      const source = node.data.categorySource
+      if (source) {
+        navigate(`/${source}/${node.data.categoryKey}`)
       }
     } else if (node.type === 'tag' && node.data?.tagId) {
       navigate(`/tag/${node.data.tagId}`)
@@ -441,8 +440,8 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* Links */}
           {graphData.links.map((link, i) => {
-            const sid = typeof link.source === 'string' ? link.source : link.source.id
-            const tid = typeof link.target === 'string' ? link.target : link.target.id
+            const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
+            const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
             const sn = simNodes.find(n => n.id === sid)
             const tn = simNodes.find(n => n.id === tid)
             if (!sn || !tn) return null

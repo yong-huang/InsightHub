@@ -8,6 +8,11 @@ export interface WorkspaceConfig {
   icon: string
   path: string
   prefix: string
+  shortLabel?: string
+  subtitle?: string
+  gradientClass?: string
+  color?: string
+  colorBg?: string
 }
 
 // ========== Document Types ==========
