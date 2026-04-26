@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { X, Trash2, Send, Loader2, Square, Pencil, Check } from 'lucide-react'
 import { renderMarkdown } from '@/utils/markdownRenderer'
-import { chatWithDocument, type ChatMessage } from '@/services/readerAiService'
+import { chatWithDocument, generateFollowUpSuggestions, type ChatMessage, type ChatContextMode } from '@/services/readerAiService'
 import { storageService } from '@/services/storageService'
 
 interface ChatPanelProps {
@@ -25,6 +25,8 @@ export function ChatPanel({
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
   const [activeSelectedText, setActiveSelectedText] = useState<string | undefined>(selectedText)
+  const [contextMode, setContextMode] = useState<ChatContextMode>('full')
+  const [suggestions, setSuggestions] = useState<string[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
@@ -34,6 +36,8 @@ export function ChatPanel({
   const userScrolledUp = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const streamingTextRef = useRef<string>('')
+  const lastUserQuestionRef = useRef<string>('')
+  const lastAssistantAnswerRef = useRef<string>('')
 
   // Keep ref in sync for abort handler
   useEffect(() => {
@@ -54,6 +58,52 @@ export function ChatPanel({
     return documentContent
   }, [iframeRef, documentContent])
 
+  // Get section content from iframe based on current scroll position
+  const getSectionContent = useCallback(() => {
+    try {
+      const doc = iframeRef.current?.contentDocument
+      if (!doc) return documentContent
+      const win = doc.defaultView
+      if (!win) return documentContent
+
+      const scrollTop = win.scrollY
+      // Find nearest heading at or before scroll position
+      const headings = doc.querySelectorAll('h2, h3')
+      let targetHeading: Element | null = null
+      for (const h of headings) {
+        if (h.getBoundingClientRect().top + scrollTop <= scrollTop + 100) {
+          targetHeading = h
+        }
+      }
+
+      if (!targetHeading) return documentContent
+
+      // Get content from this heading to the next heading
+      let sectionText = ''
+      let sibling: Element | null = targetHeading.nextElementSibling
+      while (sibling && !['H2', 'H3'].includes(sibling.tagName)) {
+        sectionText += sibling.textContent + '\n'
+        sibling = sibling.nextElementSibling
+      }
+      sectionText = targetHeading.textContent + '\n' + sectionText
+
+      return sectionText.trim() || documentContent
+    } catch {
+      return documentContent
+    }
+  }, [iframeRef, documentContent])
+
+  // Get context based on mode
+  const getContextContent = useCallback(() => {
+    if (contextMode === 'selection' && activeSelectedText) {
+      return activeSelectedText.slice(0, 2000)
+    }
+    if (contextMode === 'section') {
+      return getSectionContent().slice(0, 6000)
+    }
+    return getDocContent().slice(0, 6000)
+  }, [contextMode, activeSelectedText, getSectionContent, getDocContent])
+
   // Track whether user has scrolled up away from the bottom
   useEffect(() => {
     const el = messagesRef.current
@@ -71,7 +121,7 @@ export function ChatPanel({
     if (!userScrolledUp.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages, streamingText])
+  }, [messages, streamingText, suggestions])
 
   // Sync selectedText from parent
   useEffect(() => {
@@ -87,6 +137,7 @@ export function ChatPanel({
     setStreamingText(null)
     setIsStreaming(false)
     setEditingMsgId(null)
+    setSuggestions([])
     // Don't clear selectedText if it was just passed in
     if (!selectedText) {
       setActiveSelectedText(undefined)
@@ -109,11 +160,25 @@ export function ChatPanel({
     }
   }, [messages, documentId])
 
+  // Generate follow-up suggestions after assistant message completes
+  const generateSuggestions = useCallback(async (docCtx: string, lastQ: string, lastA: string) => {
+    if (!lastQ || !lastA) return
+    try {
+      const sugs = await generateFollowUpSuggestions(docCtx, lastQ, lastA)
+      if (sugs.length > 0) {
+        setSuggestions(sugs)
+      }
+    } catch {
+      // Silently ignore suggestion generation errors
+    }
+  }, [])
+
   const doSend = useCallback(async (msgs: ChatMessage[], userText: string, withSelected?: string) => {
     setIsStreaming(true)
     userScrolledUp.current = false
     setStreamingText('')
     streamingTextRef.current = ''
+    setSuggestions([])
 
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -123,7 +188,8 @@ export function ChatPanel({
       finalUserText = `Regarding the following selected text:\n"${withSelected}"\n\nUser question: ${userText}`
     }
 
-    const docCtx = getDocContent()
+    lastUserQuestionRef.current = userText
+    const docCtx = getContextContent()
     const result = await chatWithDocument(
       docCtx,
       msgs,
@@ -133,6 +199,7 @@ export function ChatPanel({
         streamingTextRef.current = chunk
       },
       controller.signal,
+      contextMode,
     )
 
     abortControllerRef.current = null
@@ -148,6 +215,8 @@ export function ChatPanel({
         timestamp: Date.now(),
       }
       setMessages(prev => [...prev, assistantMsg])
+      lastAssistantAnswerRef.current = streamingTextRef.current
+      generateSuggestions(docCtx, userText, streamingTextRef.current)
     } else if (result.success && result.data) {
       const assistantMsg: ChatMessage = {
         id: `msg-${Date.now()}`,
@@ -156,6 +225,8 @@ export function ChatPanel({
         timestamp: Date.now(),
       }
       setMessages(prev => [...prev, assistantMsg])
+      lastAssistantAnswerRef.current = result.data
+      generateSuggestions(docCtx, userText, result.data)
     } else if (!isAborted) {
       const errorMsg: ChatMessage = {
         id: `msg-${Date.now()}`,
@@ -167,7 +238,7 @@ export function ChatPanel({
     }
 
     setStreamingText(null)
-  }, [getDocContent])
+  }, [getContextContent, contextMode, generateSuggestions])
 
   const handleSend = useCallback(async () => {
     const text = inputText.trim()
@@ -194,6 +265,22 @@ export function ChatPanel({
     await doSend([...messages, userMsg], text, withSelected)
   }, [inputText, isStreaming, messages, activeSelectedText, doSend, onSelectionUsed])
 
+  const handleSuggestionClick = useCallback(async (suggestion: string) => {
+    if (isStreaming) return
+
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content: suggestion,
+      timestamp: Date.now(),
+    }
+
+    setSuggestions([])
+    setMessages(prev => [...prev, userMsg])
+
+    await doSend([...messages, userMsg], suggestion)
+  }, [isStreaming, messages, doSend])
+
   const handleStop = useCallback(() => {
     abortControllerRef.current?.abort()
   }, [])
@@ -210,6 +297,7 @@ export function ChatPanel({
     setMessages([])
     setStreamingText(null)
     setIsStreaming(false)
+    setSuggestions([])
     storageService.deleteChatHistory(documentId)
   }
 
@@ -241,6 +329,7 @@ export function ChatPanel({
     setMessages(newMessages)
     setEditingMsgId(null)
     setEditDraft('')
+    setSuggestions([])
 
     // Trigger AI regeneration
     await doSend(newMessages, editDraft.trim())
@@ -250,6 +339,7 @@ export function ChatPanel({
     const idx = messages.findIndex(m => m.id === msgId)
     if (idx === -1) return
     setMessages(prev => prev.slice(0, idx))
+    setSuggestions([])
   }
 
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
@@ -288,6 +378,24 @@ export function ChatPanel({
             <X size={16} />
           </button>
         </div>
+      </div>
+
+      {/* Context mode selector */}
+      <div className="chat-panel-context-mode">
+        {([
+          { mode: 'full' as ChatContextMode, label: 'Full Doc' },
+          { mode: 'section' as ChatContextMode, label: 'Section' },
+          { mode: 'selection' as ChatContextMode, label: 'Selection' },
+        ]).map(({ mode, label }) => (
+          <button
+            key={mode}
+            className={`chat-panel-context-mode-btn ${contextMode === mode ? 'active' : ''}`}
+            onClick={() => setContextMode(mode)}
+            disabled={contextMode === mode || isStreaming}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="chat-panel-messages" ref={messagesRef}>
@@ -357,6 +465,20 @@ export function ChatPanel({
             <span className="ai-bubble-cursor" />
           </div>
         )}
+        {/* Follow-up suggestions */}
+        {!isStreaming && suggestions.length > 0 && (
+          <div className="chat-panel-suggestions">
+            {suggestions.map((sug, i) => (
+              <button
+                key={i}
+                className="chat-panel-suggestion-chip"
+                onClick={() => handleSuggestionClick(sug)}
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -384,7 +506,11 @@ export function ChatPanel({
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={activeSelectedText ? 'Ask about selected text...' : 'Type a question...'}
+            placeholder={contextMode === 'selection'
+              ? 'Ask about the selected text...'
+              : contextMode === 'section'
+                ? 'Ask about this section...'
+                : 'Type a question...'}
             disabled={isStreaming}
             rows={1}
           />

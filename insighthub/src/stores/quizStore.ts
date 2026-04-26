@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Quiz, QuizAttempt, Question, Difficulty } from '@/types'
+import type { Quiz, QuizAttempt, Difficulty, QuestionType } from '@/types'
 import { storageService } from '@/services/storageService'
 import { createQuiz } from '@/services/quizService'
 
@@ -23,7 +23,7 @@ interface QuizState {
   saveAttempt: (attempt: QuizAttempt) => void
   reset: () => void
   loadSavedQuizzes: () => void
-  startGeneration: (docId: string, mode: 'new' | 'regenerate' | 'append', doc: { id: string; title: string; contentText: string }, difficulty: Difficulty, count: number) => Promise<void>
+  startGeneration: (docId: string, mode: 'new' | 'regenerate' | 'append', doc: { id: string; title: string; contentText: string }, difficulty: Difficulty, count: number, enabledTypes?: QuestionType[]) => Promise<void>
   clearGeneration: (docId: string) => void
   removeSavedQuiz: (docId: string) => void
 }
@@ -111,7 +111,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     set({ savedQuizzes: localQuizzes })
   },
 
-  startGeneration: async (docId, mode, doc, difficulty, count) => {
+  startGeneration: async (docId, mode, doc, difficulty, count, enabledTypes) => {
     set(s => {
       const ids = new Set(s.generatingDocIds)
       ids.add(docId)
@@ -124,6 +124,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         doc as any,
         difficulty,
         count,
+        enabledTypes,
       )
       if (err) {
         set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: err } }))

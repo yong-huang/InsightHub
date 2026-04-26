@@ -6,7 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import type { Difficulty, WorkspaceConfig } from '@/types'
+import type { Difficulty, WorkspaceConfig, QuestionType } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
 import type { ExportData } from '@/utils/dataExporter'
 
@@ -34,8 +34,8 @@ const AVAILABLE_ICONS = [
 
 export function SettingsPage() {
   const {
-    quizDifficulty, quizQuestionCount,
-    setQuizDifficulty, setQuizQuestionCount,
+    quizDifficulty, quizQuestionCount, quizEnabledTypes,
+    setQuizDifficulty, setQuizQuestionCount, setQuizEnabledTypes,
     conceptMaxCount, setConceptMaxCount,
     workspaces, addWorkspace, updateWorkspace, removeWorkspace,
     activeWorkspace,
@@ -54,6 +54,7 @@ export function SettingsPage() {
   const [localDifficulty, setLocalDifficulty] = useState<Difficulty>(quizDifficulty)
   const [localCount, setLocalCount] = useState(String(quizQuestionCount))
   const [localConceptCount, setLocalConceptCount] = useState(String(conceptMaxCount))
+  const [localEnabledTypes, setLocalEnabledTypes] = useState<QuestionType[]>(quizEnabledTypes)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -204,6 +205,7 @@ export function SettingsPage() {
       if (quizRes.ok) {
         setQuizDifficulty(localDifficulty)
         setQuizQuestionCount(Number(localCount))
+        setQuizEnabledTypes(localEnabledTypes)
         setConceptMaxCount(Number(localConceptCount) || 10)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
@@ -668,6 +670,35 @@ export function SettingsPage() {
                 onChange={e => setLocalConceptCount(e.target.value.replace(/[^0-9]/g, ''))}
                 onBlur={() => setLocalConceptCount(String(Math.max(1, Math.min(50, Number(localConceptCount) || 10))))}
               />
+            </div>
+          </div>
+          <div className="cs-form-row" style={{ marginTop: '0.5rem' }}>
+            <div className="cs-form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>QUESTION TYPES</label>
+              <div className="cs-question-types">
+                {([
+                  { type: 'choice' as QuestionType, label: 'Multiple Choice' },
+                  { type: 'truefalse' as QuestionType, label: 'True/False' },
+                  { type: 'fill_blank' as QuestionType, label: 'Fill in Blank' },
+                  { type: 'short_answer' as QuestionType, label: 'Short Answer' },
+                  { type: 'code_completion' as QuestionType, label: 'Code Completion' },
+                ]).map(({ type, label }) => (
+                  <label key={type} className="cs-question-type-item">
+                    <input
+                      type="checkbox"
+                      checked={localEnabledTypes.includes(type)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setLocalEnabledTypes(prev => [...prev, type])
+                        } else {
+                          setLocalEnabledTypes(prev => prev.filter(t => t !== type))
+                        }
+                      }}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <div className="cs-btn-group">

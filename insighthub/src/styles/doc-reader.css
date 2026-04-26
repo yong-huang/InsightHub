@@ -173,3 +173,68 @@
   padding-top: 0.35rem;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* ========== Chat Context Mode Selector ========== */
+.chat-panel-context-mode {
+  display: flex;
+  gap: 2px;
+  padding: 0.4rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.chat-panel-context-mode-btn {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.chat-panel-context-mode-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.chat-panel-context-mode-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.chat-panel-context-mode-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ========== Chat Follow-up Suggestions ========== */
+.chat-panel-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+}
+
+.chat-panel-suggestion-chip {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  color: var(--accent-blue);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.chat-panel-suggestion-chip:hover {
+  background: rgba(50, 108, 229, 0.1);
+  border-color: var(--accent-blue);
+}

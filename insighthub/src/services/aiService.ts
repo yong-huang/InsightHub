@@ -21,7 +21,7 @@ export interface AIResponse {
   error?: string
 }
 
-async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AIResponse> {
+export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AIResponse> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
@@ -32,8 +32,6 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
       max_tokens: 4000,
       ...NO_THINK_KWARGS,
     }
-    console.log('[callAI] → POST /api/ai/chat/completions', { model: '(server-side)', max_tokens: reqBody.max_tokens, think: reqBody.think, msgCount: messages.length })
-
     const response = await fetch(PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -42,8 +40,6 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
     })
 
     clearTimeout(timeoutId)
-
-    console.log('[callAI] ← response:', response.status, response.statusText)
 
     if (!response.ok) {
       const errBody = await response.text().catch(() => '')
@@ -54,15 +50,6 @@ async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AI
     const data = await response.json()
     const choice = data.choices?.[0]
     let content = choice?.message?.content
-
-    console.log('[callAI] choice:', {
-      finish_reason: choice?.finish_reason,
-      hasContent: !!content,
-      contentLen: content?.length || 0,
-      hasReasoning: !!choice?.message?.reasoning,
-      reasoningLen: choice?.message?.reasoning?.length || 0,
-      usage: data.usage,
-    })
 
     // Fallback: if model used thinking mode and content is empty but reasoning has output,
     // extract any JSON-like content from reasoning as last resort
@@ -339,27 +326,48 @@ export async function generateQuizQuestions(
   documentTitle: string,
   documentContent: string,
   difficulty: 'easy' | 'medium' | 'hard',
-  count: number
+  count: number,
+  enabledTypes?: string[]
 ): Promise<AIResponse> {
   const difficultyMap = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
   const truncatedContent = documentContent.slice(0, 4000)
 
-  const choiceCount = Math.ceil(count * 0.6)
-  const tfCount = count - choiceCount
+  // Default distribution if no types specified
+  const types = enabledTypes && enabledTypes.length > 0 ? enabledTypes : ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']
+  const choiceCount = Math.max(1, Math.round(count * 0.4))
+  const tfCount = Math.round(count * 0.2)
+  const fillCount = Math.round(count * 0.2)
+  const shortCount = Math.round(count * 0.1)
+  const codeCount = count - choiceCount - tfCount - fillCount - shortCount
+
+  const typeDescriptions: string[] = []
+  if (types.includes('choice')) typeDescriptions.push(`${choiceCount} multiple-choice (type: "choice", with options A-D)`)
+  if (types.includes('truefalse')) typeDescriptions.push(`${tfCount} true/false (type: "truefalse", correctAnswer: "true"/"false")`)
+  if (types.includes('fill_blank')) typeDescriptions.push(`${fillCount} fill-in-the-blank (type: "fill_blank", use ___ in text, correctAnswer is the exact word(s) to fill in, include placeholder hint)`)
+  if (types.includes('short_answer')) typeDescriptions.push(`${shortCount} short answer (type: "short_answer", correctAnswer is a concise reference answer)`)
+  if (types.includes('code_completion')) typeDescriptions.push(`${codeCount} code completion (type: "code_completion", codeSnippet is code with ___ blank, correctAnswer is the code to fill in)`)
+
+  const questionDescription = typeDescriptions.join(', ')
+  const enabledCount = typeDescriptions.length
+  const actualCount = enabledCount > 0 ? count : count
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `You are a quiz question generator. Based on the document content, generate ${count} questions: ${choiceCount} multiple-choice questions and ${tfCount} true/false questions. Difficulty: ${difficultyMap[difficulty]}.
+      content: `You are a quiz question generator. Based on the document content, generate ${actualCount} questions: ${questionDescription}. Difficulty: ${difficultyMap[difficulty]}.
+
 Requirements:
-1. Correct answers must be accurate. Never sacrifice answer correctness for option distribution balance. The option pointed to by correctAnswer must match the document facts and be logically consistent with the explanation.
-2. For questions involving steps, processes, or sequences (e.g. "what is the first step", "what executes first"), answers must strictly follow the order described in the document. Verify carefully before providing the answer.
-3. It is recommended to distribute correct answers across A, B, C, and D, but if a particular option happens to be the correct answer, do not change it for the sake of distribution.
+1. Correct answers must be accurate. Never sacrifice answer correctness for option distribution balance.
+2. For questions involving steps, processes, or sequences, answers must strictly follow the order described in the document.
+3. Distribute correct answers across options, but correctness takes priority over distribution.
 4. Each question's explanation must explain why the correctAnswer is correct.
 5. Questions must not be duplicated or highly similar. Cover different knowledge points from the document.
+6. For fill_blank questions: use exactly ___ (three underscores) to mark the blank in the text field. The correctAnswer must be the exact word(s) that fill the blank. Include a placeholder field with a brief hint.
+7. For code_completion questions: provide a codeSnippet field containing code with ___ marking the blank. The correctAnswer is the exact code to fill the blank.
+
 Return only JSON, no other text.
 Format:
-{"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"Question text","options":["Option A","Option B","Option C","Option D"],"correctAnswer":"A","explanation":"Explanation"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"Question text","correctAnswer":"true","explanation":"Explanation"}]}`,
+{"questions":[{"id":"q1","type":"choice","difficulty":"${difficulty}","text":"Question text","options":["Option A","Option B","Option C","Option D"],"correctAnswer":"A","explanation":"Explanation"},{"id":"q2","type":"truefalse","difficulty":"${difficulty}","text":"Question text","correctAnswer":"true","explanation":"Explanation"},{"id":"q3","type":"fill_blank","difficulty":"${difficulty}","text":"The ___ is the main component.","correctAnswer":"CPU","placeholder":"a hardware component","explanation":"Explanation"},{"id":"q4","type":"code_completion","difficulty":"${difficulty}","text":"Complete the following code","codeSnippet":"const sum = (a, b) => ___;","correctAnswer":"a + b","explanation":"Explanation"},{"id":"q5","type":"short_answer","difficulty":"${difficulty}","text":"Question text","correctAnswer":"Reference answer","explanation":"Explanation"}]}`,
     },
     {
       role: 'user',
@@ -368,7 +376,6 @@ Format:
   ]
 
   const result = await callAI(messages)
-  console.log('[generateQuizQuestions] result:', { success: result.success, hasData: !!result.data, error: result.error })
   if (!result.success || !result.data) {
     return result
   }
@@ -379,7 +386,6 @@ Format:
       ...q,
       id: `q${i + 1}`,
     }))
-    console.log(`[generateQuizQuestions] got ${questions.length} questions`)
     return { success: true, data: { questions } }
   } catch (e: any) {
     console.warn(`[generateQuizQuestions] JSON parse failed:`, e.message)

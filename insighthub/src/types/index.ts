@@ -69,15 +69,18 @@ export interface SearchFilters {
 
 // ========== Quiz Types ==========
 export type Difficulty = 'easy' | 'medium' | 'hard'
+export type QuestionType = 'choice' | 'truefalse' | 'short_answer' | 'fill_blank' | 'code_completion'
 
 export interface Question {
   id: string
-  type: 'choice' | 'truefalse' | 'short_answer'
+  type: QuestionType
   difficulty: Difficulty
   text: string
   options?: string[] // for choice questions
   correctAnswer: string
   explanation: string
+  codeSnippet?: string   // For code_completion: code with ___ blank
+  placeholder?: string   // For fill_blank: input hint
 }
 
 export interface Quiz {
@@ -191,5 +194,26 @@ export interface UserPreferences {
   aiApiKey: string
   activeWorkspace: Source
   conceptMaxCount: number
+  quizEnabledTypes: QuestionType[]
+}
+
+// ========== Concept Challenge Types ==========
+export interface ChallengeRound {
+  id: string
+  challenge: string
+  userResponse: string
+  feedback: string
+  score: number  // 0-100
+  timestamp: number
+}
+
+export interface ConceptChallenge {
+  id: string
+  documentId: string
+  concept: string
+  rounds: ChallengeRound[]
+  totalScore: number
+  completedAt: number | null
+  createdAt: number
 }
 

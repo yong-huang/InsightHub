@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { storageService } from '@/services/storageService'
-import type { UserPreferences, Difficulty, Source, WorkspaceConfig } from '@/types'
+import type { UserPreferences, Difficulty, Source, WorkspaceConfig, QuestionType } from '@/types'
 
 interface PreferenceState extends UserPreferences {
   workspaces: WorkspaceConfig[]
@@ -8,6 +8,7 @@ interface PreferenceState extends UserPreferences {
   toggleTheme: () => void
   setQuizDifficulty: (d: Difficulty) => void
   setQuizQuestionCount: (n: number) => void
+  setQuizEnabledTypes: (t: QuestionType[]) => void
   setConceptMaxCount: (n: number) => void
   setSidebarCollapsed: (c: boolean) => void
   toggleSidebar: () => void
@@ -36,6 +37,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   aiApiKey: storageService.getPreferences().aiApiKey,
   activeWorkspace: storageService.getPreferences().activeWorkspace,
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
+  quizEnabledTypes: (storageService.getPreferences().quizEnabledTypes || ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']) as QuestionType[],
   workspaces: storageService.getPreferences().workspaces,
 
   setTheme: (theme) => {
@@ -62,6 +64,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   setConceptMaxCount: (conceptMaxCount) => {
     savePrefs({ conceptMaxCount })
     set({ conceptMaxCount })
+  },
+
+  setQuizEnabledTypes: (quizEnabledTypes) => {
+    savePrefs({ quizEnabledTypes })
+    set({ quizEnabledTypes })
   },
 
   setSidebarCollapsed: (sidebarCollapsed) => {

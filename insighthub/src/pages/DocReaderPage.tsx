@@ -5,7 +5,7 @@ import {
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages,
-  ShieldCheck,
+  ShieldCheck, Swords,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -27,6 +27,7 @@ import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
 import { EvaluationPanel } from '@/components/DocReader/EvaluationPanel'
 import { ChatPanel } from '@/components/DocReader/ChatPanel'
+import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { explainConcept, translateText } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
@@ -97,7 +98,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount, conceptMaxCount, workspaces } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount, quizEnabledTypes, workspaces } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -127,6 +128,8 @@ export function DocReaderPage() {
   const [showChatPanel, setShowChatPanel] = useState(false)
   const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
+  const [showChallengePanel, setShowChallengePanel] = useState(false)
+  const [challengeSelectedText, setChallengeSelectedText] = useState<string | undefined>(undefined)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
@@ -253,6 +256,8 @@ export function DocReaderPage() {
     setEvalError(null)
     setShowChatPanel(false)
     setChatSelectedText(undefined)
+    setShowChallengePanel(false)
+    setChallengeSelectedText(undefined)
     setExplainState(null)
     setTranslateState(null)
     if (docId) {
@@ -464,6 +469,15 @@ export function DocReaderPage() {
     setChatSelectedText(undefined)
   }, [])
 
+  const handleChallengeFromSelection = useCallback(() => {
+    if (!selectionInfo) return
+    const text = selectionInfo.text
+    clearSelection()
+    setChallengeSelectedText(text)
+    if (doc) useDocumentStore.getState().ensureContentText(doc.id)
+    setShowChallengePanel(true)
+  }, [selectionInfo, clearSelection, doc])
+
   if (!doc) {
     return (
       <div className="empty-state">
@@ -511,7 +525,7 @@ export function DocReaderPage() {
 
   const handleGenerate = async (mode: 'new' | 'regenerate' | 'append') => {
     const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
-    startGeneration(doc.id, mode, docWithContent || doc, quizDifficulty, quizQuestionCount)
+    startGeneration(doc.id, mode, docWithContent || doc, quizDifficulty, quizQuestionCount, quizEnabledTypes)
   }
 
   const handleHighlight = (color: string) => {
@@ -660,6 +674,15 @@ export function DocReaderPage() {
             <MessageCircle size={16} />
             <span className="dr-action-label">Chat</span>
             {chatHistorySize > 0 && <span className="dr-action-badge">{chatHistorySize}</span>}
+          </button>
+
+          {/* Challenge panel toggle */}
+          <button
+            className={`dr-action-btn ${showChallengePanel ? 'active' : ''}`}
+            onClick={() => setShowChallengePanel(v => !v)}
+          >
+            <Swords size={16} />
+            <span className="dr-action-label">Challenge</span>
           </button>
 
           {/* Summary panel toggle */}
@@ -829,6 +852,16 @@ export function DocReaderPage() {
             selectedText={chatSelectedText}
             onClose={() => { setShowChatPanel(false); setChatSelectedText(undefined) }}
             onSelectionUsed={handleChatSelectionUsed}
+          />
+        )}
+
+        {showChallengePanel && (
+          <ChallengePanel
+            documentId={docId || ''}
+            documentContent={doc.contentText}
+            selectedText={challengeSelectedText}
+            onClose={() => { setShowChallengePanel(false); setChallengeSelectedText(undefined) }}
+            onSelectionUsed={() => setChallengeSelectedText(undefined)}
           />
         )}
       </div>

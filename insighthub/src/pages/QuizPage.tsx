@@ -1,9 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
-import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react'
+import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, Code2 } from 'lucide-react'
 import { useQuizStore } from '@/stores/quizStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { gradeQuiz } from '@/services/quizService'
+import type { QuestionType } from '@/types'
+
+const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  choice: 'Single Choice',
+  truefalse: 'True/False',
+  short_answer: 'Short Answer',
+  fill_blank: 'Fill in Blank',
+  code_completion: 'Code Completion',
+}
+
+function renderTextWithBlank(text: string) {
+  if (!text) return null
+  const parts = text.split('___')
+  return parts.map((part, i) => (
+    <span key={i}>
+      {part}
+      {i < parts.length - 1 && <span className="blank-marker">___</span>}
+    </span>
+  ))
+}
 
 export function QuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
@@ -153,6 +173,11 @@ export function QuizPage() {
                           Correct: {q.correctAnswer === 'true' ? 'True' : 'False'}
                         </span>
                       )}
+                      {(q.type === 'fill_blank' || q.type === 'code_completion') && (
+                        <span style={{ marginLeft: '0.5rem', color: 'var(--accent-green)' }}>
+                          Correct: {q.correctAnswer}
+                        </span>
+                      )}
                     </div>
                     {score?.feedback && (
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.35rem', fontStyle: 'italic' }}>
@@ -225,9 +250,7 @@ export function QuizPage() {
       <div className="question-card slide-in-right" key={currentQuestion.id}>
         <div className="question-card-header">
           <span className="question-type-badge">
-            {currentQuestion.type === 'choice' ? 'Single Choice'
-              : currentQuestion.type === 'truefalse' ? 'True/False'
-                : 'Short Answer'}
+            {QUESTION_TYPE_LABELS[currentQuestion.type] || currentQuestion.type}
           </span>
           <span className={`question-difficulty-badge difficulty-${currentQuestion.difficulty}`}>
             {currentQuestion.difficulty === 'easy' ? 'Easy'
@@ -273,6 +296,40 @@ export function QuizPage() {
             value={answers[currentQuestion.id] || ''}
             onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
           />
+        )}
+
+        {currentQuestion.type === 'fill_blank' && (
+          <div className="question-fill-blank">
+            <div className="question-fill-text">
+              {renderTextWithBlank(currentQuestion.text)}
+            </div>
+            <input
+              type="text"
+              className="question-fill-input"
+              placeholder={currentQuestion.placeholder || 'Type your answer...'}
+              value={answers[currentQuestion.id] || ''}
+              onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
+            />
+          </div>
+        )}
+
+        {currentQuestion.type === 'code_completion' && (
+          <div className="question-code-block">
+            <div className="question-code-header">
+              <Code2 size={14} />
+              <span>Complete the code</span>
+            </div>
+            <pre className="question-code-snippet">
+              <code>{renderTextWithBlank(currentQuestion.codeSnippet || currentQuestion.text)}</code>
+            </pre>
+            <textarea
+              className="question-code-input"
+              placeholder="Enter the code to fill in the blank..."
+              value={answers[currentQuestion.id] || ''}
+              onChange={e => handleAnswer(currentQuestion.id, e.target.value)}
+              rows={3}
+            />
+          </div>
         )}
       </div>
 

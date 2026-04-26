@@ -1,16 +1,18 @@
-import type { Quiz, QuizAttempt, Question, Difficulty } from '@/types'
+import type { Quiz, QuizAttempt, Question, Difficulty, QuestionType } from '@/types'
 import { generateQuizQuestions, gradeShortAnswers } from './aiService'
 import type { Document } from '@/types'
 
 export function parseQuizResponse(data: any, documentId: string, documentTitle: string): Quiz {
   const questions: Question[] = (data.questions || []).map((q: any, i: number) => ({
     id: q.id || `q${i + 1}`,
-    type: q.type || 'choice',
+    type: (q.type || 'choice') as QuestionType,
     difficulty: q.difficulty || 'medium',
     text: q.text || '',
     options: q.options,
     correctAnswer: q.correctAnswer || '',
     explanation: q.explanation || '',
+    codeSnippet: q.codeSnippet,
+    placeholder: q.placeholder,
   }))
 
   return {
@@ -27,13 +29,15 @@ export function parseQuizResponse(data: any, documentId: string, documentTitle: 
 export async function createQuiz(
   doc: Document,
   difficulty: Difficulty,
-  questionCount: number
+  questionCount: number,
+  enabledTypes?: QuestionType[]
 ): Promise<{ quiz: Quiz; error?: string }> {
   const result = await generateQuizQuestions(
     doc.title,
     doc.contentText,
     difficulty,
-    questionCount
+    questionCount,
+    enabledTypes
   )
 
   if (!result.success || !result.data) {
@@ -52,13 +56,12 @@ export function gradeObjectiveQuestions(
   const perQuestion = Math.round(100 / quiz.questions.length)
 
   for (const q of quiz.questions) {
-    if (q.type === 'short_answer') continue
+    if (q.type === 'short_answer' || q.type === 'code_completion') continue
 
     const userAnswer = (answers[q.id] || '').trim().toLowerCase()
     const correctAnswer = q.correctAnswer.trim().toLowerCase()
 
     if (q.type === 'truefalse') {
-      // Normalize: both 'true'/'1' and 'false'/'0' map to 'true'/'false'
       const normalizedUser = userAnswer === '1' ? 'true' : userAnswer === '0' ? 'false' : userAnswer
       const normalizedCorrect = correctAnswer === '1' ? 'true' : correctAnswer === '0' ? 'false' : correctAnswer
       const isCorrect = normalizedUser === normalizedCorrect
@@ -68,7 +71,6 @@ export function gradeObjectiveQuestions(
         feedback: isCorrect ? 'Correct!' : `Incorrect. ${q.explanation}`,
       }
     } else if (q.type === 'choice') {
-      // Compare user answer with correct answer (support both 'A' and full text)
       const isCorrect = userAnswer === correctAnswer ||
         userAnswer === q.correctAnswer.trim() ||
         (correctAnswer.length === 1 && userAnswer.startsWith(correctAnswer))
@@ -76,6 +78,14 @@ export function gradeObjectiveQuestions(
         score: isCorrect ? perQuestion : 0,
         maxScore: perQuestion,
         feedback: isCorrect ? 'Correct!' : `The correct answer is ${q.correctAnswer}. ${q.explanation}`,
+      }
+    } else if (q.type === 'fill_blank') {
+      // Case-insensitive exact match for fill-in-the-blank
+      const isCorrect = userAnswer === correctAnswer
+      scores[q.id] = {
+        score: isCorrect ? perQuestion : 0,
+        maxScore: perQuestion,
+        feedback: isCorrect ? 'Correct!' : `The correct answer is "${q.correctAnswer}". ${q.explanation}`,
       }
     }
   }
@@ -90,16 +100,16 @@ export async function gradeQuiz(
   // Grade objective questions locally
   const objectiveScores = gradeObjectiveQuestions(quiz, answers)
 
-  // Get short answer questions
-  const shortAnswerQuestions = quiz.questions.filter(q => q.type === 'short_answer')
-  let aiScores: Record<string, { score: number; maxScore: number; feedback?: string }> = {}
+  // Get short answer and code completion questions (need AI grading)
+  const aiGradeQuestions = quiz.questions.filter(q => q.type === 'short_answer' || q.type === 'code_completion')
+  const aiScores: Record<string, { score: number; maxScore: number; feedback?: string }> = {}
 
-  // Grade short answers with AI if there are any
-  if (shortAnswerQuestions.length > 0) {
+  // Grade with AI if there are any
+  if (aiGradeQuestions.length > 0) {
     const result = await gradeShortAnswers(
-      shortAnswerQuestions.map(q => ({
+      aiGradeQuestions.map(q => ({
         id: q.id,
-        text: q.text,
+        text: q.type === 'code_completion' ? `Complete the code:\n${q.codeSnippet || q.text}` : q.text,
         correctAnswer: q.correctAnswer,
       })),
       answers
@@ -115,8 +125,7 @@ export async function gradeQuiz(
         }
       }
     } else {
-      // Fallback: mark all short answers as 0
-      for (const q of shortAnswerQuestions) {
+      for (const q of aiGradeQuestions) {
         const perQuestion = Math.round(100 / quiz.questions.length)
         aiScores[q.id] = { score: 0, maxScore: perQuestion, feedback: 'AI grading unavailable' }
       }
@@ -138,6 +147,6 @@ export async function gradeQuiz(
     totalScore,
     maxScore,
     completedAt: Date.now(),
-    aiGraded: shortAnswerQuestions.length > 0,
+    aiGraded: aiGradeQuestions.length > 0,
   }
 }

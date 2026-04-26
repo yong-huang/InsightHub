@@ -22,6 +22,7 @@ export const storageKeys = {
   FLASHCARDS: `${PREFIX}flashcards`,
   CHAT_HISTORY: `${PREFIX}chat-history`,
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
+  CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -76,6 +77,7 @@ export const storageService = {
       aiApiKey: '',
       activeWorkspace: DEFAULT_WORKSPACES[0]?.id || 'mindinsight',
       conceptMaxCount: 10,
+      quizEnabledTypes: ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion'],
       workspaces: DEFAULT_WORKSPACES,
       ...stored,
     }
@@ -243,5 +245,40 @@ export const storageService = {
   getConceptCards: () => getItem<any[]>(storageKeys.CONCEPT_CARDS, []),
 
   setConceptCards: (cards: any[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
+
+  // Concept challenge history
+  getChallengeHistory: () => getItem<any[]>(storageKeys.CHALLENGE_HISTORY, []),
+
+  saveChallenge: (challenge: any) => {
+    const history = storageService.getChallengeHistory()
+    const idx = history.findIndex((c: any) => c.id === challenge.id)
+    if (idx >= 0) {
+      history[idx] = challenge
+    } else {
+      history.unshift(challenge)
+    }
+    setItem(storageKeys.CHALLENGE_HISTORY, history.slice(0, 50))
+  },
+
+  deleteChallenge: (challengeId: string) => {
+    const history = storageService.getChallengeHistory()
+    setItem(storageKeys.CHALLENGE_HISTORY, history.filter((c: any) => c.id !== challengeId))
+  },
+
+  // Active challenge session (per document) — survives panel toggle / page switch
+  getChallengeSession: (docId: string) =>
+    getItem<Record<string, any> | null>(storageKeys.CHALLENGE_HISTORY, null)?.[`__session_${docId}`] ?? null,
+
+  saveChallengeSession: (docId: string, session: any) => {
+    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_HISTORY, {})
+    data[`__session_${docId}`] = session
+    setItem(storageKeys.CHALLENGE_HISTORY, data)
+  },
+
+  clearChallengeSession: (docId: string) => {
+    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_HISTORY, {})
+    delete data[`__session_${docId}`]
+    setItem(storageKeys.CHALLENGE_HISTORY, data)
+  },
 
 }
