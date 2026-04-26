@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Build
+dist/
+
+# Vite
+.vite/
+
 # OS
 .DS_Store
 
