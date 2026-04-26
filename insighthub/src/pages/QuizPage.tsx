@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react'
+import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react'
 import { useQuizStore } from '@/stores/quizStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { gradeQuiz } from '@/services/quizService'
-import type { QuizAttempt } from '@/types'
 
 export function QuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
@@ -24,16 +23,13 @@ export function QuizPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
 
-  // Load quiz from persisted store — re-run when savedQuizzes changes
   useEffect(() => {
-    // Clear previous attempt so we always start a fresh quiz
     setCurrentAttempt(null)
     if (docId && savedQuizzes[docId]) {
       setCurrentQuiz(savedQuizzes[docId])
     } else if (currentQuiz && currentQuiz.id === quizId) {
       // Already loaded
     } else {
-      // No saved quiz found
       setError('Quiz not found. Please generate a quiz from the document page first.')
     }
   }, [docId, quizId, savedQuizzes])
@@ -64,20 +60,23 @@ export function QuizPage() {
 
   if (error) {
     return (
-      <div className="quiz-container">
-        <div className="quiz-error">
-          <div className="quiz-error-icon">
-            <AlertTriangle size={40} />
-          </div>
-          <h3>Error</h3>
-          <p>{error}</p>
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-            <button className="btn btn-primary" onClick={handleRetry}>
-              <RotateCcw size={14} /> Retry
-            </button>
-            <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
-              Back
-            </Link>
+      <div className="cs-settings">
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--text-dim)' }}>
+                <AlertTriangle size={20} />
+              </div>
+              <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0' }}>{error}</p>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                <button className="cs-btn cs-btn-primary" onClick={handleRetry}>
+                  <RotateCcw size={14} /> Retry
+                </button>
+                <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="cs-btn cs-btn-secondary">
+                  Back
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -86,10 +85,11 @@ export function QuizPage() {
 
   if (!currentQuiz) {
     return (
-      <div className="quiz-container">
-        <div className="empty-state">
-          <h3>Invalid Quiz</h3>
-          <Link to="/" className="btn btn-primary">Go Home</Link>
+      <div className="cs-settings">
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-empty-hint">Invalid Quiz</div>
+          </div>
         </div>
       </div>
     )
@@ -105,61 +105,73 @@ export function QuizPage() {
     const passed = percentage >= 60
 
     return (
-      <div className="quiz-container">
-        <div className="scoreboard">
-          <Trophy size={40} style={{ color: passed ? 'var(--accent-yellow)' : 'var(--text-dim)' }} />
-          <h2>Quiz Complete!</h2>
-          <div className={`scoreboard-score ${passed ? 'score-pass' : 'score-fail'}`}>
-            {currentAttempt.totalScore} / {currentAttempt.maxScore}
-          </div>
-          <div className="scoreboard-detail">
-            Score {percentage}% · {passed ? 'Passed' : 'Failed'}
-          </div>
+      <div className="cs-settings">
+        <div className="cs-settings-header">
+          <div className="cs-section-label">QUIZ RESULT</div>
+          <h1>{passed ? 'Passed!' : 'Failed'}</h1>
+          <p className="cs-settings-subtitle">{currentAttempt.totalScore} / {currentAttempt.maxScore} points ({percentage}%)</p>
+        </div>
 
-          {questions.map((q, i) => {
-            const score = currentAttempt.scores[q.id]
-            const isCorrect = score && score.score >= 60
-            return (
-              <div key={q.id} className="scoreboard-question">
-                <div className="scoreboard-question-header">
-                  <span className={`badge ${isCorrect ? 'badge-read' : 'badge-unread'}`}>
-                    Q{i + 1}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                    {score?.score ?? 0}/{score?.maxScore ?? 100}
-                  </span>
-                </div>
-                <div className="scoreboard-question-text">{q.text}</div>
-                <div className="scoreboard-question-answer">
-                  {'Your answer: '}{q.type === 'truefalse'
-                    ? (answers[q.id] === 'true' ? 'True' : answers[q.id] === 'false' ? 'False' : '—')
-                    : (answers[q.id] || '—')
-                  }
-                  {q.type === 'choice' && (
-                    <span style={{ marginLeft: '0.5rem' }}>
-                      Correct answer: {q.correctAnswer}. {q.options?.[q.correctAnswer.charCodeAt(0) - 65] ?? ''}
-                    </span>
-                  )}
-                  {q.type === 'truefalse' && (
-                    <span style={{ marginLeft: '0.5rem' }}>
-                      Correct answer: {q.correctAnswer === 'true' ? 'True' : 'False'}
-                    </span>
-                  )}
-                </div>
-                {score?.feedback && (
-                  <div className="scoreboard-question-feedback">{score.feedback}</div>
-                )}
-              </div>
-            )
-          })}
+        <div className="cs-card">
+          <div className="cs-card-header" style={{ justifyContent: 'center' }}>
+            <Trophy size={20} style={{ color: passed ? 'var(--accent-yellow)' : 'var(--text-dim)' }} />
+            <span style={{ marginLeft: '0.5rem' }}>QUIZ COMPLETE</span>
+          </div>
+          <div className="cs-card-body">
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              {questions.map((q, i) => {
+                const score = currentAttempt.scores[q.id]
+                const isCorrect = score && score.score >= 60
+                return (
+                  <div key={q.id} className="cs-quiz-result-item" style={{
+                    padding: '1rem',
+                    background: 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    borderLeft: `3px solid ${isCorrect ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span className={`cs-badge ${isCorrect ? 'cs-badge-green' : 'cs-badge-red'}`}>
+                        Q{i + 1}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, marginLeft: 'auto' }}>
+                        {score?.score ?? 0}/{score?.maxScore ?? 100}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>{q.text}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      Your answer: {q.type === 'truefalse'
+                        ? (answers[q.id] === 'true' ? 'True' : answers[q.id] === 'false' ? 'False' : '—')
+                        : (answers[q.id] || '—')
+                      }
+                      {q.type === 'choice' && (
+                        <span style={{ marginLeft: '0.5rem', color: 'var(--accent-green)' }}>
+                          Correct: {q.correctAnswer}. {q.options?.[q.correctAnswer.charCodeAt(0) - 65] ?? ''}
+                        </span>
+                      )}
+                      {q.type === 'truefalse' && (
+                        <span style={{ marginLeft: '0.5rem', color: 'var(--accent-green)' }}>
+                          Correct: {q.correctAnswer === 'true' ? 'True' : 'False'}
+                        </span>
+                      )}
+                    </div>
+                    {score?.feedback && (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '0.35rem', fontStyle: 'italic' }}>
+                        {score.feedback}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
-            <button className="btn btn-primary" onClick={handleRetry}>
-              <RotateCcw size={14} /> Retake Quiz
-            </button>
-            <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="btn btn-secondary">
-              Back to Document
-            </Link>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+              <button className="cs-btn cs-btn-primary" onClick={handleRetry}>
+                <RotateCcw size={14} /> Retake Quiz
+              </button>
+              <Link to={docId ? `/doc/${docId}` : '/'} state={{ from: fromPath || undefined }} className="cs-btn cs-btn-secondary">
+                Back to Document
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -168,46 +180,52 @@ export function QuizPage() {
 
   // Show quiz questions
   return (
-    <div className="quiz-container">
+    <div className="cs-settings">
+      <div className="cs-settings-header" style={{ marginBottom: '0.75rem' }}>
+        <div className="cs-section-label">QUIZ</div>
+        <h1 style={{ fontSize: '1.25rem' }}>{doc?.title || 'Quiz'}</h1>
+      </div>
+
       {/* Progress */}
-      <div className="quiz-progress-bar">
-        <Link
-          to={docId ? `/doc/${docId}` : '/'}
-          state={{ from: fromPath || undefined }}
-          className="btn btn-ghost btn-sm"
-          style={{ marginRight: '0.5rem' }}
-        >
-          <ArrowLeft size={18} /> Exit
-        </Link>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-          {answeredCount} / {questions.length} answered
-        </span>
-        <div className="progress-bar" style={{ flex: 1 }}>
-          <div
-            className="progress-fill"
-            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
-          />
+      <div className="cs-card" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem' }}>
+          <Link
+            to={docId ? `/doc/${docId}` : '/'}
+            state={{ from: fromPath || undefined }}
+            className="cs-btn cs-btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+          >
+            <ChevronLeft size={14} /> Exit
+          </Link>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            {answeredCount} / {questions.length}
+          </span>
+          <div style={{ flex: 1, height: '6px', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(answeredCount / questions.length) * 100}%`, background: 'var(--accent-blue)', borderRadius: '3px', transition: 'width 0.3s' }} />
+          </div>
         </div>
       </div>
 
       {/* Question navigation */}
-      <div className="quiz-question-nav">
-        {questions.map((q, i) => (
-          <button
-            key={q.id}
-            className={`quiz-question-nav-item ${i === currentIndex ? 'current' : ''} ${answers[q.id] ? 'answered' : ''}`}
-            onClick={() => setCurrentIndex(i)}
-          >
-            {i + 1}
-          </button>
-        ))}
+      <div className="cs-card" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
+          {questions.map((q, i) => (
+            <button
+              key={q.id}
+              className={`quiz-question-nav-item ${i === currentIndex ? 'current' : ''} ${answers[q.id] ? 'answered' : ''}`}
+              onClick={() => setCurrentIndex(i)}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Current question */}
       <div className="question-card slide-in-right" key={currentQuestion.id}>
         <div className="question-card-header">
           <span className="question-type-badge">
-            {currentQuestion.type === 'choice' ? 'Multiple Choice'
+            {currentQuestion.type === 'choice' ? 'Single Choice'
               : currentQuestion.type === 'truefalse' ? 'True/False'
                 : 'Short Answer'}
           </span>
@@ -222,7 +240,6 @@ export function QuizPage() {
 
         <div className="question-text">{currentQuestion.text}</div>
 
-        {/* Choice / TrueFalse */}
         {(currentQuestion.type === 'choice' || currentQuestion.type === 'truefalse') && (
           <div className="question-options">
             {(currentQuestion.type === 'truefalse'
@@ -249,7 +266,6 @@ export function QuizPage() {
           </div>
         )}
 
-        {/* Short Answer */}
         {currentQuestion.type === 'short_answer' && (
           <textarea
             className="question-textarea"
@@ -263,22 +279,22 @@ export function QuizPage() {
       {/* Navigation & Submit */}
       <div className="question-actions">
         <button
-          className="btn btn-secondary"
+          className="cs-btn cs-btn-secondary"
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex(i => i - 1)}
         >
-          <ChevronLeft size={16} /> Previous
+          <ChevronLeft size={14} /> Previous
         </button>
         {currentIndex < questions.length - 1 ? (
           <button
-            className="btn btn-primary"
+            className="cs-btn cs-btn-primary"
             onClick={() => setCurrentIndex(i => i + 1)}
           >
-            Next <ChevronRight size={16} />
+            Next <ChevronRight size={14} />
           </button>
         ) : (
           <button
-            className="btn btn-primary"
+            className="cs-btn cs-btn-primary"
             disabled={answeredCount < questions.length || isGrading}
             onClick={handleSubmit}
           >

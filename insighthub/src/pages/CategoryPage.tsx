@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useParams, useLocation, useNavigate } from 'react-router-dom'
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { DocGrid } from '@/components/shared/DocGrid'
 import { FilterBar } from '@/components/shared/FilterBar'
-import { getCategoryInfo, getSourceLabel, getSourceFromCategory, WORKSPACE_META, type Workspace } from '@/utils/categoryMap'
+import { getCategoryInfo, getSourceFromCategory } from '@/utils/categoryMap'
+import { getSourceFromPath, getWorkspaceConfig, getSourceLabel } from '@/utils/workspaceUtils'
 import type { Source } from '@/types'
 
 export function CategoryPage() {
@@ -17,17 +19,16 @@ export function CategoryPage() {
   const resetFilters = useDocumentStore(s => s.resetFilters)
   const allTags = useTagStore(s => s.tags)
   const setWorkspace = usePreferenceStore(s => s.setWorkspace)
+  const workspaces = usePreferenceStore(s => s.workspaces)
   const documents = useDocumentStore(s => s.documents)
   const navigate = useNavigate()
 
-  // Parse source from pathname (/mindinsight/... or /techinsight/... or /leetcodeinsight/...)
+  // Parse source from pathname first segment
   const source = useMemo((): Source | undefined => {
-    const path = location.pathname
-    if (path.startsWith('/mindinsight')) return 'mindinsight'
-    if (path.startsWith('/techinsight')) return 'techinsight'
-    if (path.startsWith('/leetcodeinsight')) return 'leetcodeinsight'
-    return undefined
-  }, [location.pathname])
+    const pathSource = getSourceFromPath(location.pathname)
+    if (!pathSource) return undefined
+    return workspaces.some(w => w.id === pathSource) ? pathSource : undefined
+  }, [location.pathname, workspaces])
 
   const category = categoryParam || undefined
 
@@ -56,11 +57,10 @@ export function CategoryPage() {
 
   // Apply URL-based filters on mount and sync workspace
   useEffect(() => {
-    const urlSource = source || (category ? getSourceFromCategory(category) : undefined)
+    const urlSource = source || (category ? getSourceFromCategory(category, documents) : undefined)
     if (urlSource) {
       setWorkspace(urlSource)
     }
-    // Reset all filters (search text, tag selection, etc.) when switching categories
     if (category !== prevCategoryRef.current) {
       resetFilters()
     }
@@ -76,43 +76,44 @@ export function CategoryPage() {
     : catInfo
       ? catInfo.label
       : source
-        ? getSourceLabel(source)
+        ? getSourceLabel(source, workspaces)
         : 'All Documents'
 
-  const description = activeTag
-    ? ''
-    : catInfo
-      ? ''
-      : 'Browse all learning documents'
-
   return (
-    <div className="page-category">
-      <div className="page-header">
+    <div className="cs-settings">
+      <div className="cs-settings-header">
         {catInfo && source && (
-          <nav className="breadcrumb">
-            <a
-              href=""
-              onClick={e => { e.preventDefault(); setWorkspace(source as Workspace); navigate('/') }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+            <Link
+              to="/"
+              style={{ color: 'var(--text-dim)', textDecoration: 'none', fontSize: '0.85rem' }}
+              onClick={() => setWorkspace(source as Source)}
             >
-              {WORKSPACE_META[source as Workspace].label}
-            </a>
-            <span className="breadcrumb-sep">/</span>
-            <span className="breadcrumb-current">{catInfo.label}</span>
-          </nav>
+              {getWorkspaceConfig(source, workspaces)?.label || source}
+            </Link>
+            <ChevronRight size={12} style={{ color: 'var(--text-dim)' }} />
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>{catInfo.label}</span>
+          </div>
         )}
         <h1>{title}</h1>
-        {description && <p>{description}</p>}
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{filteredDocuments.length} documents</p>
+        <p className="cs-settings-subtitle">{filteredDocuments.length} documents</p>
       </div>
 
-      <FilterBar
-        filters={filters}
-        onFilterChange={setFilters}
-        showSourceFilter={false}
-        onTagClear={() => { resetFilters(); navigate('/') }}
-        onReset={() => { resetFilters(); navigate('/') }}
-        tags={filteredTags}
-      />
+      {/* Only show filter bar when browsing all docs or a tag, not for a specific category */}
+      {!category && (
+        <div className="cs-card">
+          <div className="cs-card-body" style={{ padding: '0.75rem 1rem' }}>
+            <FilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+              showSourceFilter={false}
+              onTagClear={() => { resetFilters(); navigate('/') }}
+              onReset={() => { resetFilters(); navigate('/') }}
+              tags={filteredTags}
+            />
+          </div>
+        </div>
+      )}
 
       <DocGrid documents={filteredDocuments} emptyMessage="No documents in this category" />
     </div>

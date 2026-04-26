@@ -13,7 +13,7 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useQuizStore } from '@/stores/quizStore'
-import { getCategoriesBySource } from '@/utils/categoryMap'
+import { useDynamicCategories } from '@/hooks/useDynamicCategories'
 import type { Document } from '@/types'
 
 interface TreeNodeProps {
@@ -54,7 +54,7 @@ const TreeNode = memo(function TreeNode({ label, icon, color, count, defaultOpen
 export function KnowledgeTree() {
   const navigate = useNavigate()
   const location = useLocation()
-  const fromPath = '/knowledge-graph?tab=tree'
+  const fromPath = '/learning-path'
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
   const conceptCards = useConceptCardStore(s => s.cards)
@@ -63,17 +63,19 @@ export function KnowledgeTree() {
   // Restore scroll position when navigating back from a document
   useEffect(() => {
     const saved = sessionStorage.getItem('kt-scroll')
-    if (saved && (location.state as { from?: string } | null)?.from === fromPath) {
-      requestAnimationFrame(() => {
+    if (saved) {
+      // Wait for tree content to render before restoring scroll
+      const timer = setTimeout(() => {
         window.scrollTo(0, Number(saved))
         sessionStorage.removeItem('kt-scroll')
-      })
+      }, 50)
+      return () => clearTimeout(timer)
     }
   }, [location])
 
-  const { tree, conceptsByDoc, quizCountByDoc } = useMemo(() => {
-    const categories = getCategoriesBySource(activeWorkspace)
+  const dynamicCategories = useDynamicCategories(activeWorkspace)
 
+  const { tree, conceptsByDoc, quizCountByDoc } = useMemo(() => {
     // Group docs by category
     const docsByCategory = new Map<string, Document[]>()
     for (const doc of documents.values()) {
@@ -97,7 +99,7 @@ export function KnowledgeTree() {
       quizCountByDoc.set(attempt.documentId, (quizCountByDoc.get(attempt.documentId) ?? 0) + 1)
     }
 
-    const tree = categories.map(cat => {
+    const tree = dynamicCategories.map(cat => {
       const docs = docsByCategory.get(cat.key) ?? []
       const totalConcepts = docs.reduce((sum, d) => sum + (conceptsByDoc.get(d.id)?.length ?? 0), 0)
       const totalQuizzes = docs.reduce((sum, d) => sum + (quizCountByDoc.get(d.id) ?? 0), 0)
@@ -105,7 +107,7 @@ export function KnowledgeTree() {
     }).filter(g => g.docs.length > 0)
 
     return { tree, conceptsByDoc, quizCountByDoc }
-  }, [activeWorkspace, documents, conceptCards, quizHistory])
+  }, [activeWorkspace, documents, conceptCards, quizHistory, dynamicCategories])
 
   const stats = useMemo(() => {
     let totalDocs = 0

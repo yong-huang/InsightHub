@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Bookmark, Search, X } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -15,6 +15,7 @@ function formatTime(ts: number): string {
 
 export function ReadLaterPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const workspaces = usePreferenceStore(s => s.workspaces)
@@ -45,6 +46,23 @@ export function ReadLaterPage() {
       }))
       .sort((a, b) => b.addedAt - a.addedAt)
   }, [list, searchQuery, documents, activeWorkspace])
+
+  const goReadLaterDoc = (docId: string) => {
+    sessionStorage.setItem('readlater-scroll', String(window.scrollY))
+    navigate(`/doc/${docId}`, { state: { from: '/read-later' } })
+  }
+
+  // Restore scroll position when navigating back from a document
+  useEffect(() => {
+    const saved = sessionStorage.getItem('readlater-scroll')
+    if (saved) {
+      const timer = setTimeout(() => {
+        window.scrollTo(0, Number(saved))
+        sessionStorage.removeItem('readlater-scroll')
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [location])
 
   const handleRemove = (documentId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -103,9 +121,7 @@ export function ReadLaterPage() {
                 <div
                   key={item.documentId}
                   className="cs-model-item"
-                  onClick={() =>
-                    navigate(`/doc/${item.documentId}`, { state: { from: '/read-later' } })
-                  }
+                  onClick={() => goReadLaterDoc(item.documentId)}
                 >
                   <div className="cs-model-info">
                     <div className="cs-model-name">

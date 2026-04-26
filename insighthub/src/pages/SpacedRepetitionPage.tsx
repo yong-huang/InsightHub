@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Lightbulb, RotateCcw, Trash2, BookOpen,
-  Clock, CheckCircle2, AlertCircle, Star, Zap, Search,
+  Clock, CheckCircle2, AlertCircle, Star, Zap, ChevronLeft, Send, Sparkles,
 } from 'lucide-react'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -35,6 +35,7 @@ export function SpacedRepetitionPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const filterDocId = searchParams.get('docId') || undefined
+  const fromPath = searchParams.get('from') || undefined
   const { cards, isLoaded, loadCards, reviewCard, removeCard, skipCard } = useConceptCardStore()
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
@@ -52,33 +53,12 @@ export function SpacedRepetitionPage() {
     [cards, documents, activeWorkspace, filterDocId]
   )
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>(filterDocId ? 'review' : 'review')
+  const [viewMode, setViewMode] = useState<ViewMode>('review')
   const [flipped, setFlipped] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [page, setPage] = useState(1)
   const [sessionQueue, setSessionQueue] = useState<ConceptCard[]>([])
   const PAGE_SIZE = 30
-
-  const filteredCards = useMemo(() => {
-    if (!searchQuery.trim()) return workspaceCards
-    const q = searchQuery.toLowerCase()
-    return workspaceCards.filter(c => {
-      const doc = documents.get(c.sourceDocId)
-      return (
-        c.conceptName.toLowerCase().includes(q) ||
-        c.definition.toLowerCase().includes(q) ||
-        c.examples?.some(e => e.toLowerCase().includes(q)) ||
-        c.relatedConcepts?.some(r => r.toLowerCase().includes(q)) ||
-        (doc?.title.toLowerCase().includes(q))
-      )
-    })
-  }, [workspaceCards, searchQuery, documents])
-
-  useEffect(() => {
-    setPage(1)
-    if (searchQuery.trim()) setViewMode('list')
-  }, [searchQuery, viewMode])
 
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
@@ -94,10 +74,10 @@ export function SpacedRepetitionPage() {
 
   const dueCards = useMemo(() => {
     const now = Date.now()
-    return filteredCards
+    return workspaceCards
       .filter(c => c.nextReview <= now)
       .sort((a, b) => a.nextReview - b.nextReview)
-  }, [filteredCards])
+  }, [workspaceCards])
 
   useEffect(() => {
     if (isLoaded && sessionQueue.length === 0 && dueCards.length > 0) {
@@ -156,11 +136,11 @@ export function SpacedRepetitionPage() {
     setSessionResults([])
     setSessionDone(false)
     const now = Date.now()
-    const queue = filteredCards
+    const queue = workspaceCards
       .filter(c => c.nextReview <= now)
       .sort((a, b) => a.nextReview - b.nextReview)
     setSessionQueue(queue)
-  }, [filteredCards])
+  }, [workspaceCards])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -203,251 +183,11 @@ export function SpacedRepetitionPage() {
     )
   }
 
-  return (
-    <div className="cs-settings">
-      {/* Page header */}
-      <div className="cs-settings-header">
-        <div className="cs-section-label">SPACED REPETITION</div>
-        <h1>
-          Concept Cards
-          {filterDocId && (
-            <span style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginLeft: '0.5rem', fontWeight: 400 }}>
-              — {documents.get(filterDocId)?.title || 'Unknown Document'}
-            </span>
-          )}
-        </h1>
-        <p className="cs-settings-subtitle">
-          Reinforce core concepts extracted by AI from documents through spaced repetition.
-        </p>
-      </div>
-
-      {/* Stats card */}
-      <div className="cs-card">
-        <div className="cs-card-header">OVERVIEW</div>
-        <div className="cs-card-body">
-          <div className="cs-sr-stats">
-            <div className="cs-sr-stat">
-              <div className="cs-sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-                <Clock size={18} />
-              </div>
-              <div className="cs-sr-stat-value">{stats.due}</div>
-              <div className="cs-sr-stat-label">Due</div>
-            </div>
-            <div className="cs-sr-stat">
-              <div className="cs-sr-stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
-                <Zap size={18} />
-              </div>
-              <div className="cs-sr-stat-value">{stats.new}</div>
-              <div className="cs-sr-stat-label">New</div>
-            </div>
-            <div className="cs-sr-stat">
-              <div className="cs-sr-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
-                <AlertCircle size={18} />
-              </div>
-              <div className="cs-sr-stat-value">{stats.learning}</div>
-              <div className="cs-sr-stat-label">Learning</div>
-            </div>
-            <div className="cs-sr-stat">
-              <div className="cs-sr-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
-                <Star size={18} />
-              </div>
-              <div className="cs-sr-stat-value">{stats.mastered}</div>
-              <div className="cs-sr-stat-label">Mastered</div>
-            </div>
-          </div>
-
-          {/* View toggle + search */}
-          {workspaceCards.length > 0 && (
-            <div className="cs-sr-toolbar">
-              <div className="cs-btn-group">
-                <button
-                  className={`cs-btn ${viewMode === 'review' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
-                  onClick={() => setViewMode('review')}
-                >
-                  <RotateCcw size={14} /> Review
-                </button>
-                <button
-                  className={`cs-btn ${viewMode === 'list' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
-                  onClick={() => setViewMode('list')}
-                >
-                  <Lightbulb size={14} /> All Cards
-                </button>
-              </div>
-              <div className="cs-search-wrap">
-                <Search size={14} />
-                <input
-                  type="text"
-                  className="cs-search-input"
-                  placeholder="Search concept cards..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Session progress */}
-          {viewMode === 'review' && sessionTotal > 0 && (
-            <div className="cs-sr-progress">
-              <div className="cs-progress-bar">
-                <div
-                  className="cs-progress-fill"
-                  style={{ width: `${Math.round((sessionCorrect / sessionTotal) * 100)}%`, background: 'var(--accent-green)' }}
-                />
-              </div>
-              <span className="cs-sr-progress-text">{sessionCorrect}/{sessionTotal} Correct</span>
-            </div>
-          )}
-
-          {/* Mode content */}
-          {viewMode === 'review' && renderReviewMode()}
-          {viewMode === 'list' && renderListMode()}
-        </div>
-      </div>
-    </div>
-  )
-
-  function renderReviewMode() {
-    if (!isLoaded) return <div className="cs-empty-hint">Loading...</div>
-
-    if (sessionDone) {
-      const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
-      return (
-        <div className="cs-sr-summary">
-          <CheckCircle2 size={40} style={{ color: 'var(--accent-green)', marginBottom: '0.75rem' }} />
-          <h2 style={{ margin: 0 }}>Review Complete!</h2>
-          <div className="cs-sr-summary-stats">
-            <div className="cs-sr-summary-stat">
-              <span className="cs-sr-summary-value">{sessionTotal}</span>
-              <span className="cs-sr-summary-label">This Session</span>
-            </div>
-            <div className="cs-sr-summary-stat">
-              <span className="cs-sr-summary-value">{sessionCorrect}</span>
-              <span className="cs-sr-summary-label">Correct</span>
-            </div>
-            <div className="cs-sr-summary-stat">
-              <span className="cs-sr-summary-value">{accuracy}%</span>
-              <span className="cs-sr-summary-label">Accuracy</span>
-            </div>
-          </div>
-          <button className="cs-btn cs-btn-primary" onClick={startNewSession}>
-            {stats.due > 0 ? 'Continue Review' : 'No more cards to review'}
-          </button>
-        </div>
-      )
-    }
-
-    if (sessionQueue.length === 0 && !sessionDone) {
-      return (
-        <div className="cs-sr-summary">
-          <CheckCircle2 size={40} style={{ color: 'var(--accent-green)', marginBottom: '0.75rem' }} />
-          <h2 style={{ margin: 0 }}>No Cards Due for Review</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            {stats.total === 0
-              ? 'Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.'
-              : 'All cards have been reviewed. Check back later.'}
-          </p>
-          <button className="cs-btn cs-btn-primary" onClick={startNewSession}>Refresh</button>
-        </div>
-      )
-    }
-
-    return (
-      <div className="cs-sr-card-area">
-        <div className="cs-sr-card-counter">{currentIdx + 1} / {sessionQueue.length}</div>
-        <div
-          className={`sr-card ${flipped ? 'flipped' : ''} ${slidingOut ? 'slide-out' : ''}`}
-          onClick={handleFlip}
-        >
-          <div className="sr-card-inner">
-            <div className="sr-card-front">
-              <div className="sr-card-doc">
-                <span className="sr-card-doc-icon">?</span>
-                {getDocTitle(currentCard?.sourceDocId)}
-              </div>
-              <div className="sr-card-text">{currentCard?.conceptName}</div>
-              <div className="sr-card-hint">Click to flip</div>
-            </div>
-            <div className="sr-card-back">
-              <div className="sr-card-back-header">
-                <div className="sr-card-doc">
-                  <span className="sr-card-doc-icon">Q</span>
-                  {currentCard?.conceptName}
-                </div>
-              </div>
-              <div className="sr-card-text">{currentCard?.definition}</div>
-              {currentCard?.examples && currentCard.examples.length > 0 && (
-                <div className="sr-card-examples">
-                  {currentCard.examples.map((ex, i) => (
-                    <div key={i} className="sr-card-example">{ex}</div>
-                  ))}
-                </div>
-              )}
-              {currentCard?.relatedConcepts && currentCard.relatedConcepts.length > 0 && (
-                <div className="sr-card-label">
-                  Related: {currentCard.relatedConcepts.join(', ')}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {flipped && (
-          <div className="sr-grade-buttons">
-            {GRADES.map(g => (
-              <button
-                key={g.grade}
-                className="sr-grade-btn"
-                style={{ '--grade-color': g.color } as React.CSSProperties}
-                onClick={e => { e.stopPropagation(); handleGrade(g.grade) }}
-              >
-                <span className="sr-grade-key">{g.grade}</span>
-                <span className="sr-grade-label">{g.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!flipped && (
-          <div className="cs-sr-actions">
-            <button className="cs-btn cs-btn-ghost" onClick={handleSkip}>
-              Skip (S)
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  function renderListMode() {
-    if (!isLoaded) return <div className="cs-empty-hint">Loading...</div>
-    if (workspaceCards.length === 0) {
-      return (
-        <div className="cs-sr-summary">
-          <Lightbulb size={40} style={{ color: 'var(--text-dim)', marginBottom: '0.75rem' }} />
-          <h2 style={{ margin: 0 }}>No Concept Cards</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            Extract concept cards by clicking the "Concepts" button on the document page to start spaced review.
-          </p>
-        </div>
-      )
-    }
-
-    if (filteredCards.length === 0) {
-      return (
-        <div className="cs-sr-summary">
-          <Search size={40} style={{ color: 'var(--text-dim)', marginBottom: '0.75rem' }} />
-          <h2 style={{ margin: 0 }}>No Matching Results</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            No concept cards matching "{searchQuery}"
-          </p>
-        </div>
-      )
-    }
-
+  // List mode
+  if (viewMode === 'list') {
     const now = Date.now()
-    const dueList = filteredCards.filter(c => c.nextReview <= now)
-    const familiarList = filteredCards.filter(c => c.nextReview > now)
+    const dueList = workspaceCards.filter(c => c.nextReview <= now)
+    const familiarList = workspaceCards.filter(c => c.nextReview > now)
     const allList = [...dueList, ...familiarList]
     const totalPages = Math.ceil(allList.length / PAGE_SIZE)
     const safePage = Math.min(page, totalPages) || 1
@@ -459,50 +199,353 @@ export function SpacedRepetitionPage() {
     const endIdx = Math.min(safePage * PAGE_SIZE, allList.length)
 
     return (
-      <>
-        {pagedDue.length > 0 && (
-          <div className="cs-sr-list-section">
-            <div className="cs-sr-list-title">
-              <Clock size={14} /> Due ({dueList.length})
-            </div>
-            <div className="cs-item-list">
-              {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+      <div className="cs-settings">
+        <div className="cs-settings-header">
+          <div className="cs-section-label">CONCEPT CARDS</div>
+          <h1>
+            {documents.get(filterDocId || '')?.title || 'Concept Cards'}
+          </h1>
+          <p className="cs-settings-subtitle">{workspaceCards.length} cards total</p>
+        </div>
+
+        {/* Stats */}
+        <div className="cs-card" style={{ marginBottom: '1rem' }}>
+          <div className="cs-card-body" style={{ padding: '0.75rem 1rem' }}>
+            <div className="cs-sr-stats">
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                  <Clock size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.due}</div>
+                <div className="cs-sr-stat-label">Due</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                  <Zap size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.new}</div>
+                <div className="cs-sr-stat-label">New</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+                  <AlertCircle size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.learning}</div>
+                <div className="cs-sr-stat-label">Learning</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
+                  <Star size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.mastered}</div>
+                <div className="cs-sr-stat-label">Mastered</div>
+              </div>
             </div>
           </div>
-        )}
-        {pagedFamiliar.length > 0 && (
-          <div className="cs-sr-list-section">
-            <div className="cs-sr-list-title">
-              <CheckCircle2 size={14} /> Familiar ({familiarList.length})
-            </div>
-            <div className="cs-item-list">
-              {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+        </div>
+
+        {/* Toolbar */}
+        <div className="cs-btn-group" style={{ marginBottom: '1.25rem' }}>
+          <button
+            className="cs-btn cs-btn-secondary"
+            onClick={() => setViewMode('review')}
+          >
+            <RotateCcw size={14} /> Review
+          </button>
+          <button
+            className="cs-btn cs-btn-primary"
+            onClick={() => setViewMode('list')}
+          >
+            <Lightbulb size={14} /> All Cards
+          </button>
+        </div>
+
+        {!isLoaded ? (
+          <div className="cs-card">
+            <div className="cs-card-body"><div className="cs-empty-hint">Loading...</div></div>
+          </div>
+        ) : workspaceCards.length === 0 ? (
+          <div className="cs-card">
+            <div className="cs-card-body">
+              <div className="cs-sr-summary">
+                <Lightbulb size={40} style={{ color: 'var(--text-dim)', marginBottom: '0.75rem' }} />
+                <h2 style={{ margin: 0 }}>No Concept Cards</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
+                  Extract concept cards from the document page to start spaced review.
+                </p>
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            {pagedDue.length > 0 && (
+              <div className="cs-sr-list-section">
+                <div className="cs-sr-list-title">
+                  <Clock size={14} /> Due ({dueList.length})
+                </div>
+                <div className="cs-item-list">
+                  {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+                </div>
+              </div>
+            )}
+            {pagedFamiliar.length > 0 && (
+              <div className="cs-sr-list-section">
+                <div className="cs-sr-list-title">
+                  <CheckCircle2 size={14} /> Familiar ({familiarList.length})
+                </div>
+                <div className="cs-item-list">
+                  {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+                </div>
+              </div>
+            )}
+            {totalPages > 1 && (
+              <div className="cs-pagination">
+                <span className="cs-pagination-info">{startIdx}–{endIdx} of {allList.length}</span>
+                <div className="cs-pagination-btns">
+                  <button className="cs-btn cs-btn-ghost" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+                    Prev
+                  </button>
+                  <span className="cs-pagination-page">{safePage} / {totalPages}</span>
+                  <button className="cs-btn cs-btn-ghost" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
-        {totalPages > 1 && (
-          <div className="cs-pagination">
-            <span className="cs-pagination-info">{startIdx}–{endIdx} of {allList.length}</span>
-            <div className="cs-pagination-btns">
-              <button className="cs-btn cs-btn-ghost" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
-                Prev
-              </button>
-              <span className="cs-pagination-page">{safePage} / {totalPages}</span>
-              <button className="cs-btn cs-btn-ghost" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
-                Next
-              </button>
-            </div>
-          </div>
-        )}
-      </>
+      </div>
     )
   }
 
-  function getDocTitle(docId?: string): string {
-    if (!docId) return ''
-    const doc = documents.get(docId)
-    return doc?.title || 'Unknown Document'
+  // Review mode — session done scoreboard
+  if (sessionDone) {
+    const accuracy = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
+    return (
+      <div className="cs-settings">
+        <div className="cs-settings-header">
+          <div className="cs-section-label">REVIEW RESULT</div>
+          <h1>{accuracy >= 60 ? 'Well Done!' : 'Keep Practicing'}</h1>
+          <p className="cs-settings-subtitle">{sessionCorrect} / {sessionTotal} correct ({accuracy}%)</p>
+        </div>
+
+        <div className="cs-card">
+          <div className="cs-card-header" style={{ justifyContent: 'center' }}>
+            <Star size={20} style={{ color: accuracy >= 60 ? 'var(--accent-yellow)' : 'var(--text-dim)' }} />
+            <span style={{ marginLeft: '0.5rem' }}>REVIEW COMPLETE</span>
+          </div>
+          <div className="cs-card-body">
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              {sessionResults.map((r, i) => {
+                const card = sessionQueue[i]
+                if (!card) return null
+                const gradeInfo = GRADES.find(g => g.grade === r.grade) || GRADES[0]
+                return (
+                  <div key={r.cardId} style={{
+                    padding: '1rem',
+                    background: 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    borderLeft: `3px solid ${gradeInfo.color}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span className={`cs-badge ${r.grade >= 3 ? 'cs-badge-green' : 'cs-badge-red'}`}>
+                        {i + 1}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, marginLeft: 'auto', color: gradeInfo.color }}>
+                        {gradeInfo.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>{card.conceptName}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{card.definition}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+              <button className="cs-btn cs-btn-primary" onClick={startNewSession}>
+                <RotateCcw size={14} /> Review Again
+              </button>
+              <Link to={filterDocId ? `/doc/${filterDocId}` : '/'} state={{ from: fromPath || undefined }} className="cs-btn cs-btn-secondary">
+                <ChevronLeft size={14} /> Back
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
+
+  // Review mode — no due cards
+  if (sessionQueue.length === 0) {
+    return (
+      <div className="cs-settings">
+        <div className="cs-settings-header">
+          <div className="cs-section-label">CONCEPT CARDS</div>
+          <h1>{documents.get(filterDocId || '')?.title || 'Concept Cards'}</h1>
+        </div>
+        <div className="cs-card">
+          <div className="cs-card-body" style={{ padding: '0.75rem 1rem' }}>
+            <div className="cs-sr-stats">
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                  <Clock size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.due}</div>
+                <div className="cs-sr-stat-label">Due</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                  <Zap size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.new}</div>
+                <div className="cs-sr-stat-label">New</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+                  <AlertCircle size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.learning}</div>
+                <div className="cs-sr-stat-label">Learning</div>
+              </div>
+              <div className="cs-sr-stat">
+                <div className="cs-sr-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>
+                  <Star size={18} />
+                </div>
+                <div className="cs-sr-stat-value">{stats.mastered}</div>
+                <div className="cs-sr-stat-label">Mastered</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="cs-btn-group" style={{ marginBottom: '1.25rem' }}>
+          <button className="cs-btn cs-btn-primary">
+            <RotateCcw size={14} /> Review
+          </button>
+          <button className="cs-btn cs-btn-secondary" onClick={() => setViewMode('list')}>
+            <Lightbulb size={14} /> All Cards
+          </button>
+        </div>
+        <div className="cs-card">
+          <div className="cs-card-body">
+            <div className="cs-sr-summary">
+              <CheckCircle2 size={40} style={{ color: 'var(--accent-green)', marginBottom: '0.75rem' }} />
+              <h2 style={{ margin: 0 }}>All Caught Up!</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0' }}>
+                No cards due for review right now.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Review mode — active review
+  return (
+    <div className="cs-settings">
+      <div className="cs-settings-header" style={{ marginBottom: '0.75rem' }}>
+        <div className="cs-section-label">CONCEPT CARDS</div>
+        <h1 style={{ fontSize: '1.25rem' }}>{documents.get(filterDocId || '')?.title || 'Concept Cards'}</h1>
+      </div>
+
+      {/* Progress bar */}
+      <div className="cs-card" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem' }}>
+          <Link
+            to={filterDocId ? `/doc/${filterDocId}` : '/'}
+            state={{ from: fromPath || undefined }}
+            className="cs-btn cs-btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+          >
+            <ChevronLeft size={14} /> Exit
+          </Link>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            {currentIdx + 1} / {sessionQueue.length}
+          </span>
+          <div style={{ flex: 1, height: '6px', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${((currentIdx + 1) / sessionQueue.length) * 100}%`, background: 'var(--accent-blue)', borderRadius: '3px', transition: 'width 0.3s' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Card navigation */}
+      <div className="cs-card" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
+          {sessionQueue.map((c, i) => (
+            <button
+              key={c.id}
+              className={`quiz-question-nav-item ${i === currentIdx ? 'current' : ''} ${i < currentIdx ? 'answered' : ''}`}
+              onClick={() => setCurrentIdx(i)}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Concept card */}
+      <div className="question-card slide-in-right" key={currentCard?.id} style={slidingOut ? { animation: 'slide-out-left 0.2s ease forwards' } : undefined}>
+        <div className="question-card-header">
+          <span className="question-type-badge">Concept Card</span>
+          <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+            {currentIdx + 1} / {sessionQueue.length}
+          </span>
+        </div>
+
+        <div className="question-text" style={{ cursor: 'pointer' }} onClick={handleFlip}>
+          <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{currentCard?.conceptName}</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            {flipped
+              ? (currentCard?.definition || 'No definition')
+              : 'Click to reveal the definition'}
+          </div>
+        </div>
+
+        {/* Source doc link */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.5rem 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+          <BookOpen size={12} />
+          <Link
+            to={`/doc/${currentCard?.sourceDocId}`}
+            onClick={e => e.stopPropagation()}
+            style={{ color: 'var(--text-dim)', textDecoration: 'none' }}
+          >
+            {currentCard?.sourceDocId ? (documents.get(currentCard.sourceDocId)?.title || 'Source Document') : 'Source Document'}
+          </Link>
+        </div>
+      </div>
+
+      {/* Grade / Skip buttons */}
+      <div className="question-actions">
+        <button className="cs-btn cs-btn-secondary" onClick={handleSkip}>
+          <AlertCircle size={14} /> Skip (S)
+        </button>
+        {!flipped ? (
+          <button className="cs-btn cs-btn-primary" onClick={handleFlip}>
+            <Sparkles size={14} /> Flip (Space)
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {GRADES.map(g => (
+              <button
+                key={g.grade}
+                className="cs-btn"
+                style={{
+                  background: `${g.color}20`,
+                  color: g.color,
+                  border: `1px solid ${g.color}40`,
+                  minWidth: '56px',
+                }}
+                onClick={() => handleGrade(g.grade)}
+              >
+                {g.grade} · {g.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard; onRemove: (id: string) => void }) {

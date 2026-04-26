@@ -1,13 +1,14 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Tag } from 'lucide-react'
+import { Tag } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { FileTree } from '@/components/Layout/FileTree'
+import { getGradientClass } from '@/utils/workspaceUtils'
 
 export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar, activeWorkspace, workspaces } = usePreferenceStore()
+  const { sidebarCollapsed, activeWorkspace, workspaces } = usePreferenceStore()
   const tags = useTagStore(s => s.tags)
   const documents = useDocumentStore(s => s.documents)
 
@@ -29,25 +30,16 @@ export function Sidebar() {
       <div className="sidebar-content">
         {/* File tree section */}
         <div className="sidebar-section">
-          <div className="sidebar-section-title">
-            {!sidebarCollapsed && (
-              <span className={activeWs?.id === 'mindinsight' ? 'gradient-text-warm' : activeWs?.id === 'leetcodeinsight' ? 'gradient-text-green' : 'gradient-text'}>
-                {activeWs?.label || activeWorkspace}
-              </span>
-            )}
-            <button
-              className="sidebar-collapse-btn"
-              onClick={toggleSidebar}
-              title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-            >
-              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-            </button>
-          </div>
-          {!sidebarCollapsed && <FileTree />}
+          <Link to="/" className="sidebar-section-title" style={{ textDecoration: 'none' }}>
+            <span className={getGradientClass(activeWorkspace, workspaces)}>
+              {activeWs?.label || activeWorkspace}
+            </span>
+          </Link>
+          <FileTree />
         </div>
 
         {/* Tags section */}
-        {workspaceTags.length > 0 && !sidebarCollapsed && (
+        {workspaceTags.length > 0 && (
           <div className="sidebar-section">
             <div className="sidebar-section-title">
               <Tag size={14} />

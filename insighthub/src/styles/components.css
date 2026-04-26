@@ -706,13 +706,6 @@
   line-height: 1.6;
 }
 
-.quiz-progress-bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
 .quiz-question-nav {
   display: flex;
   gap: 6px;
@@ -996,6 +989,8 @@
   transition: box-shadow 0.2s;
 }
 .cs-card-header {
+  display: flex;
+  align-items: center;
   padding: 0.875rem 1.5rem;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 0.8rem;

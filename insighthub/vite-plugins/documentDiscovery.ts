@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite'
 import * as fs from 'fs'
 import * as path from 'path'
-import { scanDocuments } from '../scripts/lib/scanDocuments'
+import { scanDocuments, scanWithManifest } from '../scripts/lib/scanDocuments'
 
 export interface DocumentDiscoveryOptions {
   mindInsightDir: string
@@ -113,16 +113,13 @@ function loadAppConfig(configPath: string, defaults: AppConfig): AppConfig {
       const saved = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       const cfg = migrateToProfiles(saved, defaults)
       // Sanitize: clear any masked API keys that got saved as real values
-      let dirty = false
       for (const p of cfg.profiles) {
         if (p.aiApiKey && p.aiApiKey.includes('●')) {
           p.aiApiKey = ''
-          dirty = true
         }
       }
       if (cfg.aiApiKey && cfg.aiApiKey.includes('●')) {
         cfg.aiApiKey = ''
-        dirty = true
       }
       // Persist (migrated or sanitized)
       fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8')
@@ -188,6 +185,9 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         return dirs
       }
 
+      // Known built-in workspace IDs (scanned by scanDocuments)
+      const builtinIds = new Set(['mindinsight', 'techinsight', 'leetcodeinsight'])
+
       // API endpoint: return document manifest
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
@@ -198,6 +198,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             dirs['techinsight'] || options.techInsightDir,
             dirs['leetcodeinsight'] || options.leetcodeInsightDir,
           )
+          // Scan dynamic workspaces (not covered by built-in scanDocuments)
+          try {
+            if (fs.existsSync(workspacesConfigPath)) {
+              const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
+              for (const ws of wsConfig) {
+                if (!builtinIds.has(ws.id) && ws.path && dirs[ws.id]) {
+                  manifest.push(...scanWithManifest(dirs[ws.id], ws.id, ws.prefix || ws.id.slice(0, 2), ws.label))
+                }
+              }
+            }
+          } catch {}
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(manifest))
         } catch (e) {
@@ -577,7 +588,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
             if (!isStream) {
               // Non-streaming: convert Ollama response → OpenAI format
-              const ollamaData = await aiRes.json()
+              const ollamaData: any = await aiRes.json()
               const openaiRes = {
                 id: `chatcmpl-${Date.now()}`,
                 object: 'chat.completion',

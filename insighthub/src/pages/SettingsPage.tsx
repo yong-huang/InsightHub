@@ -105,7 +105,7 @@ export function SettingsPage() {
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
         if (cfg.quizDifficulty) setLocalDifficulty(cfg.quizDifficulty as Difficulty)
-        if (cfg.quizQuestionCount) setLocalCount(cfg.quizQuestionCount)
+        if (cfg.quizQuestionCount) setLocalCount(String(cfg.quizQuestionCount))
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -203,7 +203,7 @@ export function SettingsPage() {
       })
       if (quizRes.ok) {
         setQuizDifficulty(localDifficulty)
-        setQuizQuestionCount(localCount)
+        setQuizQuestionCount(Number(localCount))
         setConceptMaxCount(Number(localConceptCount) || 10)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
@@ -320,11 +320,12 @@ export function SettingsPage() {
   }
 
   const openDirBrowser = async (currentPath: string) => {
-    // Send raw path to backend; the server will path.resolve it
+    // Default to project root if path is empty
+    const dirPath = currentPath || '.'
     setBrowseLoading(true)
     setBrowseOpen(true)
     try {
-      const res = await fetch(`/api/browse-directories?path=${encodeURIComponent(currentPath)}`)
+      const res = await fetch(`/api/browse-directories?path=${encodeURIComponent(dirPath)}`)
       const data = await res.json()
       setBrowsePath(data.currentPath)
       setBrowseEntries(data.entries || [])
@@ -799,7 +800,7 @@ export function SettingsPage() {
               )}
             </div>
             <div className="cs-dir-footer">
-              <button className="cs-btn cs-btn-ghost" onClick={() => { const i = browsePath.lastIndexOf('/'); if (i > 0) navigateDir(browsePath.slice(0, i)) }}>
+              <button className="cs-btn cs-btn-ghost" disabled={!browsePath || browsePath === '/'} onClick={() => { if (!browsePath) return; const i = browsePath.lastIndexOf('/'); if (i > 0) navigateDir(browsePath.slice(0, i)) }}>
                 <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
                 ..
               </button>

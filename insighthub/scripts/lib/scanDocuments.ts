@@ -1,6 +1,7 @@
 import * as path from 'path'
 import type { Source } from '../../src/types'
 import { scanWithManifest } from './manifestManager'
+export { scanWithManifest }
 
 export interface DocumentManifestEntry {
   id: string
@@ -43,7 +44,7 @@ export function generateId(
 export const SOURCE_NAMES: Record<string, string> = {
   mindinsight: 'MindInsight',
   techinsight: 'TechInsight',
-  leetcodeinsight: 'LeetcodeInsight',
+  leetcodeinsight: 'LeetCodeInsight',
 }
 
 export function scanDocuments(

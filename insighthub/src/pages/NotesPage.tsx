@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Search, FileText, MessageSquare, Highlighter, BookOpen, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -29,6 +29,7 @@ interface DocGroup {
 
 export function NotesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const annotations = useAnnotationStore(s => s.annotations)
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
@@ -150,10 +151,28 @@ export function NotesPage() {
   ]
 
   const goToAnnotation = (ann: Annotation) => {
+    sessionStorage.setItem('notes-scroll', String(window.scrollY))
     navigate(`/doc/${ann.documentId}`, {
       state: { from: '/notes', scrollToAnnotation: ann.id },
     })
   }
+
+  const goToDocument = (docId: string) => {
+    sessionStorage.setItem('notes-scroll', String(window.scrollY))
+    navigate(`/doc/${docId}`, { state: { from: '/notes' } })
+  }
+
+  // Restore scroll position when navigating back from a document
+  useEffect(() => {
+    const saved = sessionStorage.getItem('notes-scroll')
+    if (saved) {
+      const timer = setTimeout(() => {
+        window.scrollTo(0, Number(saved))
+        sessionStorage.removeItem('notes-scroll')
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [location])
 
   // Pagination info text
   const startIdx = baseAnnotations.length > 0 ? (safePage - 1) * PAGE_SIZE + 1 : 0
@@ -243,7 +262,7 @@ export function NotesPage() {
                   <div key={group.documentId} className="cs-notes-group">
                     <div
                       className="cs-notes-group-header"
-                      onClick={() => navigate(`/doc/${group.documentId}`)}
+                      onClick={() => goToDocument(group.documentId)}
                     >
                       <div className="cs-model-info">
                         <div className="cs-model-name">

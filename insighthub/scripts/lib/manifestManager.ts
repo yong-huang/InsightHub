@@ -51,6 +51,7 @@ export function scanWithManifest(
   sourceDir: string,
   source: Source,
   sourcePrefix: string,
+  sourceNameOverride?: string,
 ): DocumentManifestEntry[] {
   if (!fs.existsSync(sourceDir)) return []
 
@@ -80,7 +81,7 @@ export function scanWithManifest(
   let changed = false
   const newEntries: Record<string, ManifestEntry> = {}
   const results: DocumentManifestEntry[] = []
-  const sourceName = SOURCE_NAMES[source] || source
+  const sourceName = sourceNameOverride || SOURCE_NAMES[source] || source
 
   for (const [relativePath, fileName] of scannedFiles) {
     let id: string

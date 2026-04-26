@@ -7,26 +7,21 @@ import { useTagStore } from '@/stores/tagStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { StatCard } from '@/components/shared/StatCard'
 import { DocCard } from '@/components/shared/DocCard'
-import { getCategoriesBySource, WORKSPACE_META } from '@/utils/categoryMap'
-import { useReveal } from '@/hooks/useReveal'
+import { useDynamicCategories } from '@/hooks/useDynamicCategories'
+import { getWorkspaceConfig } from '@/utils/workspaceUtils'
 
 export function HomePage() {
   const documents = useDocumentStore(s => s.documents)
-  const categoryCounts = useDocumentStore(s => s.categoryCounts)
   const getRecentReads = useDocumentStore(s => s.getRecentReads)
   const tags = useTagStore(s => s.tags)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
-  const ref1 = useReveal()
-  const ref2 = useReveal()
-  const ref3 = useReveal()
-  const ref4 = useReveal()
+  const workspaces = usePreferenceStore(s => s.workspaces)
 
-  const meta = WORKSPACE_META[activeWorkspace]
+  const meta = getWorkspaceConfig(activeWorkspace, workspaces)
   const workspaceDocs = Array.from(documents.values()).filter(d => d.source === activeWorkspace)
-  const workspaceCategories = getCategoriesBySource(activeWorkspace)
+  const workspaceCategories = useDynamicCategories(activeWorkspace)
   const recentReads = getRecentReads().filter(d => d.source === activeWorkspace).slice(0, 10)
 
-  // Compute stats scoped to workspace
   const stats = {
     total: workspaceDocs.length,
     read: workspaceDocs.filter(d => d.isRead).length,
@@ -34,7 +29,6 @@ export function HomePage() {
     categories: new Set(workspaceDocs.map(d => d.category)).size,
   }
 
-  // Filter tags to only those with docs in current workspace
   const workspaceDocIds = new Set(workspaceDocs.map(d => d.id))
   const workspaceTags = tags
     .map(tag => ({
@@ -44,9 +38,15 @@ export function HomePage() {
     .filter(tag => tag.documentIds.length > 0)
 
   return (
-    <div className="page-home">
+    <div className="cs-settings">
+      <div className="cs-settings-header">
+        <div className="cs-section-label">{meta?.label?.toUpperCase() || 'DASHBOARD'}</div>
+        <h1>Dashboard</h1>
+        <p className="cs-settings-subtitle">Overview of your learning documents and progress</p>
+      </div>
+
       {/* Stats Row */}
-      <div className="home-stats reveal" ref={ref1}>
+      <div className="home-stats">
         <StatCard
           icon={<BookOpen size={22} />}
           label="Total Documents"
@@ -75,64 +75,74 @@ export function HomePage() {
 
       {/* Recent Reads */}
       {recentReads.length > 0 && (
-        <div className="section reveal reveal-delay-1" ref={ref2}>
-          <div className="section-header">
-            <h2><Clock size={20} /> Recent Reads</h2>
-            <Link to="/search" className="btn btn-ghost btn-sm">View All <ArrowRight size={14} /></Link>
+        <div className="cs-card">
+          <div className="cs-card-header">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Clock size={14} /> RECENT READS
+            </span>
+            <Link to="/search" className="cs-btn cs-btn-secondary" style={{ marginLeft: 'auto', padding: '4px 12px', fontSize: '0.75rem' }}>
+              View All <ArrowRight size={12} />
+            </Link>
           </div>
-          <div className="recent-reads-grid">
-            {recentReads.map(doc => (
-              <DocCard key={doc.id} doc={doc} />
-            ))}
+          <div className="cs-card-body">
+            <div className="recent-reads-grid">
+              {recentReads.map(doc => (
+                <DocCard key={doc.id} doc={doc} />
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* Workspace Categories */}
-      <div className="section reveal reveal-delay-2" ref={ref3}>
-        <div className="home-category-grid">
-          {workspaceCategories.map(cat => {
-            const docs = workspaceDocs
-              .filter(d => d.category === cat.key)
-              .slice(0, 3)
-            return (
-              <div key={cat.key} className="card">
-                <div className="section-header">
-                  <h2>{cat.label}</h2>
-                  <Link to={`${meta.basePath}/${cat.key}`} className="btn btn-ghost btn-sm">
-                    {categoryCounts[cat.key] || 0} docs <ArrowRight size={14} />
-                  </Link>
-                </div>
+      <div className="home-category-grid">
+        {workspaceCategories.map(cat => {
+          const docs = workspaceDocs
+            .filter(d => d.category === cat.key)
+            .slice(0, 3)
+          return (
+            <div key={cat.key} className="cs-card">
+              <div className="cs-card-header">
+                <span>{cat.label.toUpperCase()}</span>
+                <Link
+                  to={`/${activeWorkspace}/${cat.key}`}
+                  className="cs-btn cs-btn-secondary"
+                  style={{ marginLeft: 'auto', padding: '4px 12px', fontSize: '0.75rem' }}
+                >
+                  {cat.docCount} docs <ArrowRight size={12} />
+                </Link>
+              </div>
+              <div className="cs-card-body">
                 {docs.map(doc => (
                   <DocCard key={doc.id} doc={doc} />
                 ))}
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Hot Tags */}
       {workspaceTags.length > 0 && (
-        <div className="section reveal reveal-delay-4" ref={ref4}>
-          <div className="section-header">
-            <h2>Popular Tags</h2>
-          </div>
-          <div className="tag-list">
-            {workspaceTags
-              .sort((a, b) => b.documentIds.length - a.documentIds.length)
-              .slice(0, 15)
-              .map(tag => (
-                <Link
-                  key={tag.id}
-                  to={`/tag/${tag.id}`}
-                  className="tag-pill"
-                  style={{ background: `${tag.color}20`, color: tag.color }}
-                >
-                  {tag.name}
-                  <span style={{ opacity: 0.7 }}>{tag.documentIds.length}</span>
-                </Link>
-              ))}
+        <div className="cs-card">
+          <div className="cs-card-header">POPULAR TAGS</div>
+          <div className="cs-card-body">
+            <div className="tag-list">
+              {workspaceTags
+                .sort((a, b) => b.documentIds.length - a.documentIds.length)
+                .slice(0, 15)
+                .map(tag => (
+                  <Link
+                    key={tag.id}
+                    to={`/tag/${tag.id}`}
+                    className="tag-pill"
+                    style={{ background: `${tag.color}20`, color: tag.color }}
+                  >
+                    {tag.name}
+                    <span style={{ opacity: 0.7 }}>{tag.documentIds.length}</span>
+                  </Link>
+                ))}
+            </div>
           </div>
         </div>
       )}
