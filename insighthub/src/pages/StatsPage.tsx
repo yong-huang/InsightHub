@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import '@/styles/stats.css'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useQuizStore } from '@/stores/quizStore'
@@ -9,11 +10,18 @@ import { buildReportData, type ReportPeriod } from '@/utils/reportAggregator'
 import { ChartCard } from '@/components/stats/ChartCard'
 import { ReadingHeatmap } from '@/components/stats/ReadingHeatmap'
 import { ReportHero } from '@/components/visualization/ReportHero'
-import { CategoryRadar } from '@/components/visualization/CategoryRadar'
-import { QuizPerformancePanel } from '@/components/visualization/QuizPerformancePanel'
 import { TopEngagedDocuments } from '@/components/visualization/TopEngagedDocuments'
-import { ReadingHabits } from '@/components/visualization/ReadingHabits'
 import { TagCloud } from '@/components/visualization/TagCloud'
+
+const CategoryRadar = lazy(() =>
+  import('@/components/visualization/CategoryRadar').then(m => ({ default: m.CategoryRadar }))
+)
+const QuizPerformancePanel = lazy(() =>
+  import('@/components/visualization/QuizPerformancePanel').then(m => ({ default: m.QuizPerformancePanel }))
+)
+const ReadingHabits = lazy(() =>
+  import('@/components/visualization/ReadingHabits').then(m => ({ default: m.ReadingHabits }))
+)
 
 const PERIODS: { key: ReportPeriod; label: string }[] = [
   { key: 'month', label: 'This Month' },
@@ -69,10 +77,14 @@ export function StatsPage() {
       {/* Two-column: Category Radar + Quiz Performance */}
       <div className="cs-stats-grid-2">
         <ChartCard title="Category Exploration Radar">
-          <CategoryRadar data={report.categoryDistribution} />
+          <Suspense fallback={null}>
+            <CategoryRadar data={report.categoryDistribution} />
+          </Suspense>
         </ChartCard>
         <ChartCard title="Quiz Performance">
-          <QuizPerformancePanel data={report.quizPerformance} />
+          <Suspense fallback={null}>
+            <QuizPerformancePanel data={report.quizPerformance} />
+          </Suspense>
         </ChartCard>
       </div>
 
@@ -88,7 +100,9 @@ export function StatsPage() {
 
       {/* Reading habits */}
       <ChartCard title="Reading Habits">
-        <ReadingHabits data={report.readingHabits} />
+        <Suspense fallback={null}>
+          <ReadingHabits data={report.readingHabits} />
+        </Suspense>
       </ChartCard>
 
       {/* Tag cloud */}

@@ -5,6 +5,7 @@ import {
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { prefetchRoute } from '@/utils/prefetchRoute'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -156,6 +157,7 @@ export function Navbar() {
               to={btn.to}
               className="navbar-icon-btn"
               title={btn.label}
+              onMouseEnter={() => prefetchRoute(btn.to)}
             >
               <btn.icon size={18} />
               {btn.badge > 0 && <span className="navbar-icon-badge">{btn.badge}</span>}

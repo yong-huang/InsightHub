@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import '@/styles/visualizations.css'
+import { lazy, Suspense, useMemo, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Maximize, Minimize, Network, User } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -7,9 +8,14 @@ import { useTagStore } from '@/stores/tagStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { ChartCard } from '@/components/stats/ChartCard'
-import { KnowledgeGraph } from '@/components/visualization/KnowledgeGraph'
-import { PersonalMap } from '@/components/visualization/PersonalMap'
 import type { GraphOptions } from '@/utils/graphBuilder'
+
+const KnowledgeGraph = lazy(() =>
+  import('@/components/visualization/KnowledgeGraph').then(m => ({ default: m.KnowledgeGraph }))
+)
+const PersonalMap = lazy(() =>
+  import('@/components/visualization/PersonalMap').then(m => ({ default: m.PersonalMap }))
+)
 
 type ActiveTab = 'graph' | 'map'
 
@@ -140,7 +146,9 @@ export function KnowledgeGraphPage() {
             </div>
           }
         >
-          <KnowledgeGraph documents={documents} tags={tags} options={graphOptions} />
+          <Suspense fallback={null}>
+            <KnowledgeGraph documents={documents} tags={tags} options={graphOptions} />
+          </Suspense>
         </ChartCard>
       ) : (
         <ChartCard
@@ -165,14 +173,16 @@ export function KnowledgeGraphPage() {
             </div>
           }
         >
-          <PersonalMap
-            documents={filteredDocs}
-            tags={filteredTags}
-            quizHistory={filteredQuizHistory}
-            annotations={filteredAnnotations}
-            showDocuments={showDocuments}
-            showTags={showTags}
-          />
+          <Suspense fallback={null}>
+            <PersonalMap
+              documents={filteredDocs}
+              tags={filteredTags}
+              quizHistory={filteredQuizHistory}
+              annotations={filteredAnnotations}
+              showDocuments={showDocuments}
+              showTags={showTags}
+            />
+          </Suspense>
         </ChartCard>
       )}
     </div>

@@ -5,6 +5,7 @@ import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText } from '@/services/searchService'
 import { getShortLabel } from '@/utils/workspaceUtils'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { prefetchRoute } from '@/utils/prefetchRoute'
 import { useMemo, memo } from 'react'
 
 interface DocCardProps {
@@ -38,7 +39,7 @@ export const DocCard = memo(function DocCard({ doc, snippet, query }: DocCardPro
   const workspaces = usePreferenceStore(s => s.workspaces)
 
   return (
-    <Link to={`/doc/${doc.id}`} state={{ from: location.pathname }} className="doc-card card card-hover">
+    <Link to={`/doc/${doc.id}`} state={{ from: location.pathname }} className="doc-card card card-hover" onMouseEnter={() => prefetchRoute('/doc')}>
       <div className="doc-card-header">
         <span className={`badge badge-${doc.source}`}>
           {getShortLabel(doc.source, workspaces)}

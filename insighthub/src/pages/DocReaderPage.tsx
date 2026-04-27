@@ -1,3 +1,4 @@
+import '@/styles/doc-reader.css'
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
