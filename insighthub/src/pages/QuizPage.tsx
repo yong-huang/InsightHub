@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
-import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, Code2 } from 'lucide-react'
+import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, Code2, Trash2 } from 'lucide-react'
 import { useQuizStore } from '@/stores/quizStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { gradeQuiz } from '@/services/quizService'
@@ -36,6 +36,8 @@ export function QuizPage() {
     currentQuiz, currentAttempt, isGrading, error,
     setCurrentQuiz, setCurrentAttempt, setGrading, setError, reset,
   } = useQuizStore()
+
+  const removeSavedQuiz = useQuizStore(s => s.removeSavedQuiz)
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
   const doc = useDocumentStore(s => s.documents.get(docId || ''))
@@ -222,6 +224,18 @@ export function QuizPage() {
           >
             <ChevronLeft size={14} /> Exit
           </Link>
+          {docId && (
+            <button
+              className="cs-btn cs-btn-ghost"
+              style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
+              onClick={() => {
+                removeSavedQuiz(docId)
+                navigate(docId ? `/doc/${docId}` : '/', { state: { from: fromPath || undefined } })
+              }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
             {answeredCount} / {questions.length}
           </span>

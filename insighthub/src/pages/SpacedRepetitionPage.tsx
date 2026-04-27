@@ -258,6 +258,18 @@ export function SpacedRepetitionPage() {
           >
             <Lightbulb size={14} /> All Cards
           </button>
+          {filterDocId && workspaceCards.length > 0 && (
+            <button
+              className="cs-btn cs-btn-ghost"
+              style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
+              onClick={() => {
+                for (const c of workspaceCards) removeCard(c.id)
+                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
+              }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
         </div>
 
         {!isLoaded ? (
@@ -425,6 +437,18 @@ export function SpacedRepetitionPage() {
           <button className="cs-btn cs-btn-secondary" onClick={() => setViewMode('list')}>
             <Lightbulb size={14} /> All Cards
           </button>
+          {filterDocId && workspaceCards.length > 0 && (
+            <button
+              className="cs-btn cs-btn-ghost"
+              style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
+              onClick={() => {
+                for (const c of workspaceCards) removeCard(c.id)
+                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
+              }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
         </div>
         <div className="cs-card">
           <div className="cs-card-body">
@@ -460,6 +484,18 @@ export function SpacedRepetitionPage() {
           >
             <ChevronLeft size={14} /> Exit
           </Link>
+          {filterDocId && workspaceCards.length > 0 && (
+            <button
+              className="cs-btn cs-btn-ghost"
+              style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
+              onClick={() => {
+                for (const c of workspaceCards) removeCard(c.id)
+                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
+              }}
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
             {currentIdx + 1} / {sessionQueue.length}
           </span>
