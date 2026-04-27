@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, memo } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ChevronRight,
@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   Lightbulb,
   TreePine,
+  ChevronsUpDown,
+  ChevronsDownUp,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -17,20 +19,22 @@ import { useDynamicCategories } from '@/hooks/useDynamicCategories'
 import type { Document } from '@/types'
 
 interface TreeNodeProps {
+  nodeId: string
   label: string
   icon: React.ReactNode
   color: string
   count?: React.ReactNode
-  defaultOpen?: boolean
   children?: React.ReactNode
   onClick?: () => void
   tooltip?: string
+  openNodes: Set<string>
+  onToggle: (id: string) => void
 }
 
-const TreeNode = memo(function TreeNode({ label, icon, color, count, defaultOpen = false, children, onClick, tooltip }: TreeNodeProps) {
-  const [open, setOpen] = useState(defaultOpen)
+const TreeNode = memo(function TreeNode({ nodeId, label, icon, color, count, children, onClick, tooltip, openNodes, onToggle }: TreeNodeProps) {
+  const open = openNodes.has(nodeId)
   const hasChildren = Boolean(children)
-  const toggle = useCallback(() => setOpen(v => !v), [])
+  const toggle = useCallback((e: React.MouseEvent) => { e.stopPropagation(); onToggle(nodeId) }, [nodeId, onToggle])
 
   return (
     <div className="kt-group">
@@ -57,14 +61,24 @@ export function KnowledgeTree() {
   const fromPath = '/learning-path'
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
+  const isLoading = useDocumentStore(s => s.isLoading)
   const conceptCards = useConceptCardStore(s => s.cards)
   const quizHistory = useQuizStore(s => s.quizHistory)
+
+  const [openNodes, setOpenNodes] = useState<Set<string>>(new Set())
+
+  const toggleNode = useCallback((id: string) => {
+    setOpenNodes(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
 
   // Restore scroll position when navigating back from a document
   useEffect(() => {
     const saved = sessionStorage.getItem('kt-scroll')
     if (saved) {
-      // Wait for tree content to render before restoring scroll
       const timer = setTimeout(() => {
         window.scrollTo(0, Number(saved))
         sessionStorage.removeItem('kt-scroll')
@@ -75,8 +89,8 @@ export function KnowledgeTree() {
 
   const dynamicCategories = useDynamicCategories(activeWorkspace)
 
-  const { tree, conceptsByDoc, quizCountByDoc } = useMemo(() => {
-    // Group docs by category
+  const { tree, conceptsByDoc, quizCountByDoc, catAndDocIds } = useMemo(() => {
+    const allCatAndDocIds: string[] = []
     const docsByCategory = new Map<string, Document[]>()
     for (const doc of documents.values()) {
       if (doc.source !== activeWorkspace) continue
@@ -85,7 +99,6 @@ export function KnowledgeTree() {
       docsByCategory.set(doc.category, list)
     }
 
-    // Group concepts by docId
     const conceptsByDoc = new Map<string, typeof conceptCards>()
     for (const card of conceptCards) {
       const list = conceptsByDoc.get(card.sourceDocId) ?? []
@@ -93,7 +106,6 @@ export function KnowledgeTree() {
       conceptsByDoc.set(card.sourceDocId, list)
     }
 
-    // Count quiz attempts per doc
     const quizCountByDoc = new Map<string, number>()
     for (const attempt of quizHistory) {
       quizCountByDoc.set(attempt.documentId, (quizCountByDoc.get(attempt.documentId) ?? 0) + 1)
@@ -103,10 +115,14 @@ export function KnowledgeTree() {
       const docs = docsByCategory.get(cat.key) ?? []
       const totalConcepts = docs.reduce((sum, d) => sum + (conceptsByDoc.get(d.id)?.length ?? 0), 0)
       const totalQuizzes = docs.reduce((sum, d) => sum + (quizCountByDoc.get(d.id) ?? 0), 0)
+      allCatAndDocIds.push(`cat:${cat.key}`)
+      for (const doc of docs) {
+        allCatAndDocIds.push(`doc:${doc.id}`)
+      }
       return { cat, docs, totalConcepts, totalQuizzes }
     }).filter(g => g.docs.length > 0)
 
-    return { tree, conceptsByDoc, quizCountByDoc }
+    return { tree, conceptsByDoc, quizCountByDoc, catAndDocIds: allCatAndDocIds }
   }, [activeWorkspace, documents, conceptCards, quizHistory, dynamicCategories])
 
   const stats = useMemo(() => {
@@ -119,25 +135,56 @@ export function KnowledgeTree() {
     return { totalDocs, totalConcepts }
   }, [tree])
 
+  // Default-expand category nodes on first load
+  const initializedRef = useRef(false)
+  useEffect(() => {
+    if (initializedRef.current || tree.length === 0) return
+    initializedRef.current = true
+    setOpenNodes(new Set(catAndDocIds.filter(id => id.startsWith('cat:'))))
+  }, [tree, catAndDocIds])
+
+  const isAllExpanded = catAndDocIds.length > 0 && catAndDocIds.every(id => openNodes.has(id))
+
+  const toggleAll = useCallback(() => {
+    if (isAllExpanded) {
+      setOpenNodes(new Set())
+    } else {
+      setOpenNodes(new Set(catAndDocIds))
+    }
+  }, [isAllExpanded, catAndDocIds])
+
+  if (isLoading || tree.length === 0) return null
+
   return (
     <div className="kt-tree">
       <div className="kt-summary">
         <TreePine size={16} />
         <span>{tree.length} Categories · {stats.totalDocs} Documents · {stats.totalConcepts} Concepts</span>
-      </div>
-      {tree.map(({ cat, docs, totalConcepts, totalQuizzes }) => (
-        <TreeNode
-          key={cat.key}
-          label={cat.label}
-          icon={<FolderOpen size={15} />}
-          color="var(--accent-blue)"
-          count={`${docs.length} Docs / ${totalConcepts} Concepts / ${totalQuizzes} Quizzes`}
-          defaultOpen={true}
+        <button
+          className="navbar-icon-btn"
+          onClick={toggleAll}
+          title={isAllExpanded ? 'Collapse all' : 'Expand all'}
         >
-          {docs
-            .slice()
-            .sort((a, b) => a.title.localeCompare(b.title, 'zh'))
-            .map(doc => {
+          {isAllExpanded ? <ChevronsDownUp size={15} /> : <ChevronsUpDown size={15} />}
+        </button>
+      </div>
+      {tree.map(({ cat, docs, totalConcepts, totalQuizzes }) => {
+        const sortedDocs = docs
+          .slice()
+          .sort((a, b) => a.title.localeCompare(b.title, 'zh'))
+
+        return (
+          <TreeNode
+            key={cat.key}
+            nodeId={`cat:${cat.key}`}
+            label={cat.label}
+            icon={<FolderOpen size={15} />}
+            color="var(--accent-blue)"
+            count={`${docs.length} Docs / ${totalConcepts} Concepts / ${totalQuizzes} Quizzes`}
+            openNodes={openNodes}
+            onToggle={toggleNode}
+          >
+            {sortedDocs.map(doc => {
               const concepts = conceptsByDoc.get(doc.id) ?? []
               const quizCount = quizCountByDoc.get(doc.id) ?? 0
               const countParts: string[] = []
@@ -146,6 +193,7 @@ export function KnowledgeTree() {
               return (
                 <TreeNode
                   key={doc.id}
+                  nodeId={`doc:${doc.id}`}
                   label={doc.title}
                   icon={
                     doc.isRead
@@ -154,7 +202,8 @@ export function KnowledgeTree() {
                   }
                   color="var(--accent-green)"
                   count={countParts.length > 0 ? countParts.join(' / ') : undefined}
-                  defaultOpen={false}
+                  openNodes={openNodes}
+                  onToggle={toggleNode}
                   onClick={() => {
                     sessionStorage.setItem('kt-scroll', String(window.scrollY))
                     navigate(`/doc/${doc.id}`, { state: { from: fromPath } })
@@ -163,17 +212,21 @@ export function KnowledgeTree() {
                   {concepts.map(card => (
                     <TreeNode
                       key={card.id}
+                      nodeId={`concept:${card.id}`}
                       label={card.conceptName}
                       icon={<Lightbulb size={13} />}
                       color="var(--accent-purple, #8b5cf6)"
                       tooltip={card.definition}
+                      openNodes={openNodes}
+                      onToggle={toggleNode}
                     />
                   ))}
                 </TreeNode>
               )
             })}
-        </TreeNode>
-      ))}
+          </TreeNode>
+        )
+      })}
     </div>
   )
 }

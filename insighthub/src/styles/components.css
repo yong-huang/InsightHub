@@ -3677,4 +3677,26 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
   font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.challenge-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.challenge-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.challenge-suggestion-chip {
+  font-size: 0.78rem !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: var(--radius-sm) !important;
 }

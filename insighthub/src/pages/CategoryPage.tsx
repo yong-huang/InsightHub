@@ -99,21 +99,19 @@ export function CategoryPage() {
         <p className="cs-settings-subtitle">{filteredDocuments.length} documents</p>
       </div>
 
-      {/* Only show filter bar when browsing all docs or a tag, not for a specific category */}
-      {!category && (
-        <div className="cs-card">
-          <div className="cs-card-body" style={{ padding: '0.75rem 1rem' }}>
-            <FilterBar
-              filters={filters}
-              onFilterChange={setFilters}
-              showSourceFilter={false}
-              onTagClear={() => { resetFilters(); navigate('/') }}
-              onReset={() => { resetFilters(); navigate('/') }}
-              tags={filteredTags}
-            />
-          </div>
+      <div className="cs-card">
+        <div className="cs-card-body" style={{ padding: '0.75rem 1rem' }}>
+          <FilterBar
+            filters={filters}
+            onFilterChange={setFilters}
+            showSourceFilter={false}
+            showCategoryFilter={!category}
+            onTagClear={() => { resetFilters(); navigate('/') }}
+            onReset={() => { resetFilters(); navigate('/') }}
+            tags={filteredTags}
+          />
         </div>
-      )}
+      </div>
 
       <DocGrid documents={filteredDocuments} emptyMessage="No documents in this category" />
     </div>

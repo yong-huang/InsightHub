@@ -858,6 +858,7 @@ export function DocReaderPage() {
 
         {showChallengePanel && (
           <ChallengePanel
+            key={docId}
             documentId={docId || ''}
             documentContent={doc.contentText}
             selectedText={challengeSelectedText}

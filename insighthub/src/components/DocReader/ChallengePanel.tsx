@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { X, Send, Loader2, Swords, Trophy, ChevronRight } from 'lucide-react'
+import { X, Send, Loader2, Swords, Trophy, ChevronRight, Trash2 } from 'lucide-react'
 import type { ConceptChallenge, ChallengeRound } from '@/types'
 import {
   startChallenge, evaluateResponse, generateNextChallenge, createChallenge,
 } from '@/services/challengeService'
 import { storageService } from '@/services/storageService'
+import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 const MAX_ROUNDS = 5
 
@@ -66,6 +67,12 @@ export function ChallengePanel({
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const responseAreaRef = useRef<HTMLTextAreaElement>(null)
+  const isComposingRef = useRef(false)
+
+  const conceptCards = useConceptCardStore(s => s.cards)
+  const suggestions = conceptCards
+    .filter(c => c.sourceDocId === documentId)
+    .slice(0, 5)
 
   // Persist session to localStorage on every state change
   const sessionRef = useRef({ phase, concept, challenge, currentChallengeText, userResponse, currentScore, currentFeedback })
@@ -287,12 +294,30 @@ export function ChallengePanel({
             type="text"
             value={concept}
             onChange={e => setConcept(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleStart() }}
+            onKeyDown={e => { if (e.key === 'Enter' && !isComposingRef.current) handleStart() }}
+            onCompositionStart={() => { isComposingRef.current = true }}
+            onCompositionEnd={() => { isComposingRef.current = false }}
             placeholder="Enter a concept or topic..."
           />
           <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
             The AI will challenge your understanding with counter-arguments, edge cases, and probing questions. Up to {MAX_ROUNDS} rounds.
           </p>
+          {suggestions.length > 0 && (
+            <div className="challenge-suggestions">
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Suggestions:</span>
+              <div className="challenge-suggestion-chips">
+                {suggestions.map(c => (
+                  <button
+                    key={c.id}
+                    className="cs-btn cs-btn-ghost challenge-suggestion-chip"
+                    onClick={() => setConcept(c.conceptName)}
+                  >
+                    {c.conceptName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {error && <p style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>{error}</p>}
           <button
             className="cs-btn cs-btn-primary"
@@ -346,14 +371,24 @@ export function ChallengePanel({
               placeholder="Type your response..."
               rows={5}
             />
-            <button
-              className="cs-btn cs-btn-primary"
-              style={{ marginTop: '0.5rem', width: '100%' }}
-              onClick={handleSubmitResponse}
-              disabled={!userResponse.trim()}
-            >
-              <Send size={14} /> Submit Response
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button
+                className="cs-btn cs-btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSubmitResponse}
+                disabled={!userResponse.trim()}
+              >
+                <Send size={14} /> Submit Response
+              </button>
+              <button
+                className="cs-btn cs-btn-ghost"
+                onClick={handleReset}
+                title="Discard challenge"
+                style={{ color: 'var(--accent-red)' }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -389,6 +424,14 @@ export function ChallengePanel({
               onClick={handleEnd}
             >
               End
+            </button>
+            <button
+              className="cs-btn cs-btn-ghost"
+              onClick={handleReset}
+              title="Discard challenge"
+              style={{ color: 'var(--accent-red)' }}
+            >
+              <Trash2 size={14} />
             </button>
           </div>
         </>
@@ -429,9 +472,10 @@ export function ChallengePanel({
                   </span>
                 </div>
                 <div className="challenge-round-challenge">{round.challenge}</div>
-                <div className="challenge-round-response">
-                  Your response: {round.userResponse.length > 80 ? round.userResponse.slice(0, 80) + '...' : round.userResponse}
-                </div>
+                <div className="challenge-round-response">{round.userResponse}</div>
+                {round.feedback && (
+                  <div className="challenge-feedback">{round.feedback}</div>
+                )}
               </div>
             ))}
           </div>

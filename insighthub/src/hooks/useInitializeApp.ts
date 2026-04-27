@@ -6,6 +6,7 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
+import { storageService } from '@/services/storageService'
 import { extendCategoryMap } from '@/services/searchService'
 import { registerDynamicCategories, getCategoryInfo } from '@/utils/categoryMap'
 
@@ -23,6 +24,9 @@ export function useInitializeApp() {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
+
+    // Migrate legacy challenge storage (one-time)
+    storageService.migrateChallengeStorage()
 
     const initDocs = useDocumentStore.getState().initializeDocuments()
     // After documents load, register dynamic categories globally

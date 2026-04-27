@@ -23,6 +23,7 @@ export const storageKeys = {
   CHAT_HISTORY: `${PREFIX}chat-history`,
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
   CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
+  CHALLENGE_SESSIONS: `${PREFIX}challenge-sessions`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -265,20 +266,42 @@ export const storageService = {
     setItem(storageKeys.CHALLENGE_HISTORY, history.filter((c: any) => c.id !== challengeId))
   },
 
+  // Migrate legacy data: if CHALLENGE_HISTORY was corrupted by session writes,
+  // extract sessions to the new key and restore history as an empty array
+  migrateChallengeStorage: () => {
+    try {
+      const raw = localStorage.getItem(storageKeys.CHALLENGE_HISTORY)
+      if (!raw) return
+      const data = JSON.parse(raw)
+      if (Array.isArray(data)) return // already correct
+      if (typeof data === 'object' && data !== null) {
+        // Extract any __session_* keys to the new sessions key
+        const sessionKeys = Object.keys(data).filter(k => k.startsWith('__session_'))
+        if (sessionKeys.length > 0) {
+          const sessions = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
+          for (const k of sessionKeys) sessions[k] = data[k]
+          setItem(storageKeys.CHALLENGE_SESSIONS, sessions)
+        }
+        // Restore history as empty array
+        setItem(storageKeys.CHALLENGE_HISTORY, [])
+      }
+    } catch { /* ignore parse errors */ }
+  },
+
   // Active challenge session (per document) — survives panel toggle / page switch
   getChallengeSession: (docId: string) =>
-    getItem<Record<string, any> | null>(storageKeys.CHALLENGE_HISTORY, null)?.[`__session_${docId}`] ?? null,
+    getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})[`__session_${docId}`] ?? null,
 
   saveChallengeSession: (docId: string, session: any) => {
-    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_HISTORY, {})
+    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
     data[`__session_${docId}`] = session
-    setItem(storageKeys.CHALLENGE_HISTORY, data)
+    setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
 
   clearChallengeSession: (docId: string) => {
-    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_HISTORY, {})
+    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
     delete data[`__session_${docId}`]
-    setItem(storageKeys.CHALLENGE_HISTORY, data)
+    setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
 
 }
