@@ -1,33 +1,26 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
-import { scanDocuments, scanWithManifest } from './lib/scanDocuments'
+import { DEFAULT_WORKSPACES } from '../src/config/defaultWorkspaces'
+import type { WorkspaceEntry } from '../src/config/defaultWorkspaces'
+import { scanWorkspaces } from './lib/scanDocuments'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const BASE_DIR = path.resolve(__dirname, '..')
-const MINDINSIGHT_DIR = path.resolve(BASE_DIR, '../../MindInsight')
-const TECHINSIGHT_DIR = path.resolve(BASE_DIR, '../../TechInsight')
-const LEETCODEINSIGHT_DIR = path.resolve(BASE_DIR, '../../LeetCodeInsight')
 const OUTPUT_DIR = path.resolve(BASE_DIR, 'public/docs')
 const WORKSPACES_CONFIG = path.resolve(BASE_DIR, '.insighthub-workspaces.json')
 
-const SOURCE_BASES: Record<string, string> = {
-  mindinsight: MINDINSIGHT_DIR,
-  techinsight: TECHINSIGHT_DIR,
-  leetcodeinsight: LEETCODEINSIGHT_DIR,
+function loadWorkspaces(): WorkspaceEntry[] {
+  try {
+    if (fs.existsSync(WORKSPACES_CONFIG)) {
+      const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(WORKSPACES_CONFIG, 'utf-8'))
+      if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
+    }
+  } catch {}
+  return DEFAULT_WORKSPACES
 }
-
-interface WorkspaceEntry {
-  id: string
-  label: string
-  icon: string
-  path: string
-  prefix: string
-}
-
-const builtinIds = new Set(['mindinsight', 'techinsight', 'leetcodeinsight'])
 
 function main() {
   console.log('Copying documents to public/docs/...')
@@ -37,26 +30,19 @@ function main() {
     fs.rmSync(OUTPUT_DIR, { recursive: true })
   }
 
-  const manifest = scanDocuments(MINDINSIGHT_DIR, TECHINSIGHT_DIR, LEETCODEINSIGHT_DIR)
+  const workspaces = loadWorkspaces()
+  const manifest = scanWorkspaces(workspaces, BASE_DIR)
 
-  // Scan dynamic workspaces
-  try {
-    if (fs.existsSync(WORKSPACES_CONFIG)) {
-      const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(WORKSPACES_CONFIG, 'utf-8'))
-      for (const ws of wsConfig) {
-        if (!builtinIds.has(ws.id) && ws.path) {
-          const absPath = path.isAbsolute(ws.path) ? ws.path : path.resolve(BASE_DIR, ws.path)
-          SOURCE_BASES[ws.id] = absPath
-          manifest.push(...scanWithManifest(absPath, ws.id, ws.prefix || ws.id.slice(0, 2), ws.label))
-        }
-      }
-    }
-  } catch {}
+  // Build source base map for file copying
+  const sourceBases: Record<string, string> = {}
+  for (const ws of workspaces) {
+    sourceBases[ws.id] = path.isAbsolute(ws.path) ? ws.path : path.resolve(BASE_DIR, ws.path)
+  }
 
   let totalFiles = 0
 
   for (const entry of manifest) {
-    const sourceBase = SOURCE_BASES[entry.source]
+    const sourceBase = sourceBases[entry.source]
     if (!sourceBase) {
       console.warn(`  Warning: no source base for ${entry.source}`)
       continue

@@ -1,10 +1,19 @@
 const PREFIX = 'insighthub:'
 
-export const DEFAULT_WORKSPACES: import('@/types').WorkspaceConfig[] = [
-  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../MindInsight', prefix: 'mi', shortLabel: 'Mind', subtitle: 'Mind & Insight', gradientClass: 'gradient-text-warm', color: '#ff8c42', colorBg: 'rgba(255, 140, 66, 0.15)' },
-  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../TechInsight', prefix: 'ti', shortLabel: 'Tech', subtitle: 'Tech & Insight', gradientClass: 'gradient-text', color: '#326ce5', colorBg: 'rgba(50, 108, 229, 0.15)' },
-  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../LeetCodeInsight', prefix: 'li', shortLabel: 'LC', subtitle: 'Algorithm Mastery', gradientClass: 'gradient-text-green', color: '#4ecdc4', colorBg: 'rgba(78, 205, 196, 0.15)' },
-]
+import { DEFAULT_WORKSPACES as BASE_WORKSPACES } from '@/config/defaultWorkspaces'
+import type { WorkspaceConfig } from '@/types'
+
+/** UI-only display fields for default workspaces */
+const UI_FIELDS: Record<string, Partial<WorkspaceConfig>> = {
+  mindinsight: { shortLabel: 'Mind', subtitle: 'Mind & Insight', gradientClass: 'gradient-text-warm', color: '#ff8c42', colorBg: 'rgba(255, 140, 66, 0.15)' },
+  techinsight: { shortLabel: 'Tech', subtitle: 'Tech & Insight', gradientClass: 'gradient-text', color: '#326ce5', colorBg: 'rgba(50, 108, 229, 0.15)' },
+  leetcodeinsight: { shortLabel: 'LC', subtitle: 'Algorithm Mastery', gradientClass: 'gradient-text-green', color: '#4ecdc4', colorBg: 'rgba(78, 205, 196, 0.15)' },
+}
+
+export const DEFAULT_WORKSPACES: WorkspaceConfig[] = BASE_WORKSPACES.map(ws => ({
+  ...ws,
+  ...UI_FIELDS[ws.id],
+}))
 
 export const storageKeys = {
   PREFERENCES: `${PREFIX}preferences`,

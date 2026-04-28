@@ -1,12 +1,11 @@
 import type { Plugin } from 'vite'
 import * as fs from 'fs'
 import * as path from 'path'
-import { scanDocuments, scanWithManifest } from '../scripts/lib/scanDocuments'
+import { DEFAULT_WORKSPACES } from '../src/config/defaultWorkspaces'
+import type { WorkspaceEntry } from '../src/config/defaultWorkspaces'
+import { scanWorkspaces } from '../scripts/lib/scanDocuments'
 
 export interface DocumentDiscoveryOptions {
-  mindInsightDir: string
-  techInsightDir: string
-  leetcodeInsightDir?: string
   aiApiUrl?: string
   aiModel?: string
   aiApiKey?: string
@@ -150,65 +149,36 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Workspace config: read from .insighthub-workspaces.json
       const workspacesConfigPath = path.resolve(process.cwd(), options.workspacesPath || '.insighthub-workspaces.json')
 
-      interface WorkspaceEntry {
-        id: string
-        label: string
-        icon: string
-        path: string
-        prefix: string
-      }
-
       // Map from workspace ID to directory path (resolved relative to project root)
       function getWorkspaceDirs(): Record<string, string> {
-        // Start with hardcoded defaults from vite.config.ts
-        const dirs: Record<string, string> = {
-          mindinsight: options.mindInsightDir,
-          techinsight: options.techInsightDir,
-        }
-        if (options.leetcodeInsightDir) {
-          dirs.leetcodeinsight = options.leetcodeInsightDir
-        }
-        // Override/extend with workspaces config file
-        try {
-          if (fs.existsSync(workspacesConfigPath)) {
-            const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
-            for (const ws of wsConfig) {
-              if (ws.path) {
-                // Resolve relative paths from the project root
-                dirs[ws.id] = path.isAbsolute(ws.path)
-                  ? ws.path
-                  : path.resolve(process.cwd(), ws.path)
-              }
-            }
+        const dirs: Record<string, string> = {}
+        // Start from config file, falling back to defaults
+        const workspaces = loadWorkspaces()
+        for (const ws of workspaces) {
+          if (ws.path) {
+            dirs[ws.id] = path.isAbsolute(ws.path)
+              ? ws.path
+              : path.resolve(process.cwd(), ws.path)
           }
-        } catch {}
+        }
         return dirs
       }
 
-      // Known built-in workspace IDs (scanned by scanDocuments)
-      const builtinIds = new Set(['mindinsight', 'techinsight', 'leetcodeinsight'])
+      function loadWorkspaces(): WorkspaceEntry[] {
+        try {
+          if (fs.existsSync(workspacesConfigPath)) {
+            const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
+            if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
+          }
+        } catch {}
+        return DEFAULT_WORKSPACES
+      }
 
       // API endpoint: return document manifest
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
-          const dirs = getWorkspaceDirs()
-          // Map old option names to scanDocuments expected params
-          const manifest = scanDocuments(
-            dirs['mindinsight'] || options.mindInsightDir,
-            dirs['techinsight'] || options.techInsightDir,
-            dirs['leetcodeinsight'] || options.leetcodeInsightDir,
-          )
-          // Scan dynamic workspaces (not covered by built-in scanDocuments)
-          try {
-            if (fs.existsSync(workspacesConfigPath)) {
-              const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
-              for (const ws of wsConfig) {
-                if (!builtinIds.has(ws.id) && ws.path && dirs[ws.id]) {
-                  manifest.push(...scanWithManifest(dirs[ws.id], ws.id, ws.prefix || ws.id.slice(0, 2), ws.label))
-                }
-              }
-            }
-          } catch {}
+          const workspaces = loadWorkspaces()
+          const manifest = scanWorkspaces(workspaces, process.cwd())
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(manifest))
         } catch (e) {
@@ -286,6 +256,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             return
           }
           const entries = fs.readdirSync(resolved, { withFileTypes: true })
+            .filter(entry => !entry.name.startsWith('.'))
             .map(entry => ({
               name: entry.name,
               isDirectory: entry.isDirectory(),
@@ -1148,7 +1119,14 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               // Generate ID matching scanDocuments format: ti-<category>-<name>
               const nameWithoutExt = body.fileName.replace(/\.html$/, '')
               const id = `ti-${body.category}-${nameWithoutExt}`
-              const destDir = path.join(options.techInsightDir, body.category)
+              const dirs = getWorkspaceDirs()
+              const techDir = dirs['techinsight']
+              if (!techDir) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'TechInsight workspace not configured' }))
+                return
+              }
+              const destDir = path.join(techDir, body.category)
               const destPath = path.join(destDir, body.fileName)
 
               // Ensure category directory exists
@@ -1178,7 +1156,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           saveImportedDocsFile(filtered)
           // Remove the HTML file (try TechInsight dir first, then legacy imports dir)
           if (target) {
-            const techPath = path.join(options.techInsightDir, target.category, target.fileName)
+            const dirs = getWorkspaceDirs()
+            const techDir = dirs['techinsight']
+            const techPath = techDir
+              ? path.join(techDir, target.category, target.fileName)
+              : ''
             if (fs.existsSync(techPath)) {
               fs.unlinkSync(techPath)
             }
@@ -1235,7 +1217,12 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         const relativePath = segments.slice(1).join(path.sep)
 
         const dirs = getWorkspaceDirs()
-        const baseDir = dirs[source] || options.techInsightDir
+        const baseDir = dirs[source]
+        if (!baseDir) {
+          res.statusCode = 404
+          res.end('Not Found')
+          return
+        }
         const absPath = path.resolve(baseDir, relativePath)
 
         // Security: ensure the resolved path is within the allowed directory

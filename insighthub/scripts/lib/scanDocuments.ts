@@ -1,5 +1,6 @@
 import * as path from 'path'
 import type { Source } from '../../src/types'
+import type { WorkspaceEntry } from '../../src/config/defaultWorkspaces'
 import { scanWithManifest } from './manifestManager'
 export { scanWithManifest }
 
@@ -17,6 +18,10 @@ const EXCLUDE_FILES = ['index.html']
 
 export function isExcluded(filePath: string): boolean {
   const parts = filePath.split(path.sep)
+  // Exclude hidden directories (e.g. .claude, .git, .DS_Store)
+  for (const part of parts) {
+    if (part.startsWith('.')) return true
+  }
   for (const exclude of EXCLUDE_DIRS) {
     if (parts.includes(exclude)) return true
   }
@@ -41,23 +46,17 @@ export function generateId(
   return `${source}-${dirParts}-${nameWithoutExt}`
 }
 
-export const SOURCE_NAMES: Record<string, string> = {
-  mindinsight: 'MindInsight',
-  techinsight: 'TechInsight',
-  leetcodeinsight: 'LeetCodeInsight',
-}
-
-export function scanDocuments(
-  mindInsightDir: string,
-  techInsightDir: string,
-  leetcodeInsightDir?: string,
+/**
+ * Scan all workspaces at once, resolving relative paths against baseDir.
+ */
+export function scanWorkspaces(
+  workspaces: WorkspaceEntry[],
+  baseDir: string,
 ): DocumentManifestEntry[] {
-  const result = [
-    ...scanWithManifest(mindInsightDir, 'mindinsight', 'mi'),
-    ...scanWithManifest(techInsightDir, 'techinsight', 'ti'),
-  ]
-  if (leetcodeInsightDir) {
-    result.push(...scanWithManifest(leetcodeInsightDir, 'leetcodeinsight', 'li'))
+  const result: DocumentManifestEntry[] = []
+  for (const ws of workspaces) {
+    const absPath = path.isAbsolute(ws.path) ? ws.path : path.resolve(baseDir, ws.path)
+    result.push(...scanWithManifest(absPath, ws.id, ws.prefix, ws.label))
   }
   return result
 }

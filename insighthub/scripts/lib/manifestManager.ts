@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { Source } from '../../src/types'
 import type { DocumentManifestEntry } from './scanDocuments'
-import { generateId, isExcluded, SOURCE_NAMES } from './scanDocuments'
+import { generateId, isExcluded } from './scanDocuments'
 
 interface ManifestEntry {
   file: string // relative path from source root
@@ -81,7 +81,7 @@ export function scanWithManifest(
   let changed = false
   const newEntries: Record<string, ManifestEntry> = {}
   const results: DocumentManifestEntry[] = []
-  const sourceName = sourceNameOverride || SOURCE_NAMES[source] || source
+  const sourceName = sourceNameOverride || source
 
   for (const [relativePath, fileName] of scannedFiles) {
     let id: string
