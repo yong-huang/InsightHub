@@ -200,10 +200,14 @@ export function extractJSON(text: string): any {
   // If nothing left, the JSON might have been inside the think block — use original
   if (!cleaned) cleaned = text.trim()
 
-  // Strip markdown code fences
-  const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
-  if (fenceMatch) {
-    cleaned = fenceMatch[1].trim()
+  // Strip markdown code fences — find first opening and last closing fence
+  const firstFence = cleaned.indexOf('```')
+  if (firstFence !== -1) {
+    const afterFirst = cleaned.indexOf('\n', firstFence)
+    const lastFence = cleaned.lastIndexOf('```')
+    if (lastFence > firstFence && lastFence !== firstFence) {
+      cleaned = cleaned.slice(afterFirst + 1, lastFence).trim()
+    }
   }
 
   // Try direct parse first
@@ -264,22 +268,21 @@ export function extractJSON(text: string): any {
   let fixed = raw
   // Remove trailing commas before } or ]
   fixed = fixed.replace(/,\s*([}\]])/g, '$1')
-  // Replace Chinese colons/commas that leaked into JSON structure (NOT Chinese quotes — they break string values)
+  // Replace Chinese colons/commas that leaked into JSON structure
   fixed = fixed.replace(/：/g, ':').replace(/，/g, ',')
 
-  // String-aware pass: escape literal newlines/controls + count unclosed brackets
+  // String-aware pass: escape literal newlines/controls + track unclosed brackets via stack
   let out = ''
   let inStr = false
-  let bracketDepth = 0
-  let squareDepth = 0
   let quoteCount = 0
+  const openStack: string[] = []
   for (let i = 0; i < fixed.length; i++) {
     const ch = fixed[i]
     if (inStr) {
       if (ch === '\\') {
         out += ch + (fixed[i + 1] || '')
         i++
-      } else if (ch === '”') {
+      } else if (ch === '"') {
         inStr = false
         quoteCount++
         out += ch
@@ -291,29 +294,40 @@ export function extractJSON(text: string): any {
         out += ch
       }
     } else {
-      if (ch === '”') {
+      if (ch === '"') {
         inStr = true
         quoteCount++
         out += ch
-      } else if (ch === '{') { bracketDepth++; out += ch }
-      else if (ch === '}') { bracketDepth--; out += ch }
-      else if (ch === '[') { squareDepth++; out += ch }
-      else if (ch === ']') { squareDepth--; out += ch }
-      else {
+      } else if (ch === '\u201C' || ch === '\u201D') {
+        inStr = true
+        quoteCount++
+        out += '"'
+      } else if (ch === '{' || ch === '[') {
+        openStack.push(ch)
+        out += ch
+      } else if (ch === '}' || ch === ']') {
+        const expected = ch === '}' ? '{' : '['
+        if (openStack.length > 0 && openStack[openStack.length - 1] === expected) {
+          openStack.pop()
+        }
+        out += ch
+      } else {
         out += ch
       }
     }
   }
   fixed = out
 
-  // Close truncated JSON (missing closing brackets/braces)
-  const totalMissing = bracketDepth + squareDepth
-  if (totalMissing > 0) {
-    if (quoteCount % 2 !== 0) fixed += '”'
-    fixed += ']'.repeat(squareDepth) + '}'.repeat(bracketDepth)
+  // Close truncated JSON — pop from stack in LIFO order
+  if (openStack.length > 0) {
+    if (quoteCount % 2 !== 0) fixed += '"'
+    while (openStack.length > 0) {
+      const opener = openStack.pop()!
+      fixed += opener === '{' ? '}' : ']'
+    }
   }
 
-  // Insert missing commas between sibling objects/arrays (e.g. }{“id” → },{“id”)
+  // Insert missing commas between sibling objects/arrays (e.g. }{"id" → },{"id")
   fixed = fixed.replace(/\}\s*\{/g, '},{')
   fixed = fixed.replace(/\]\s*\[/g, '],[')
 

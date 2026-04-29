@@ -405,7 +405,7 @@ export function SettingsPage() {
                           Activate
                         </button>
                         <button
-                          className="cs-btn cs-btn-ghost"
+                          className="cs-btn cs-btn-secondary"
                           onClick={e => { e.stopPropagation(); handleDeleteProfile(p.id) }}
                           disabled={saving}
                         >
@@ -484,26 +484,24 @@ export function SettingsPage() {
                     />
                   )}
                 </div>
-                <div className="cs-form-group cs-form-actions">
-                  <div className="cs-btn-group">
-                    <button className="cs-btn cs-btn-primary" onClick={handleTestConnection} disabled={testing}>
-                      <Zap size={14} /> {testing ? 'Testing...' : 'Test Connection'}
-                    </button>
-                    <button className="cs-btn cs-btn-secondary" onClick={handleSave} disabled={saving}>
-                      {saving ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />} Save
-                    </button>
-                    <button className="cs-btn cs-btn-ghost" onClick={() => populateForm(undefined)}>
-                      Cancel
-                    </button>
-                  </div>
-                  {testResult && (
-                    <div className={`cs-test-result ${testResult.ok ? 'success' : 'error'}`}>
-                      {testResult.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                      {testResult.msg}
-                    </div>
-                  )}
-                </div>
               </div>
+              <div className="cs-btn-group" style={{ marginTop: '0.5rem' }}>
+                <button className="cs-btn cs-btn-primary" onClick={handleTestConnection} disabled={testing}>
+                  <Zap size={14} /> {testing ? 'Testing...' : 'Test Connection'}
+                </button>
+                <button className="cs-btn cs-btn-secondary" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />} Save
+                </button>
+                <button className="cs-btn cs-btn-secondary" onClick={() => populateForm(undefined)}>
+                  Cancel
+                </button>
+              </div>
+              {testResult && (
+                <div className={`cs-test-result ${testResult.ok ? 'success' : 'error'}`}>
+                  {testResult.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                  {testResult.msg}
+                </div>
+              )}
             </>
           ) : (
             <div className="cs-add-trigger" onClick={handleNewProfile}>
@@ -546,7 +544,7 @@ export function SettingsPage() {
                 <div className="cs-model-actions">
                   {ws.id !== activeWorkspace && (
                     <button
-                      className="cs-btn cs-btn-ghost"
+                      className="cs-btn cs-btn-secondary"
                       onClick={e => { e.stopPropagation(); handleDeleteWorkspace(ws.id) }}
                     >
                       <Trash2 size={14} />
@@ -620,7 +618,7 @@ export function SettingsPage() {
                 <button className="cs-btn cs-btn-primary" onClick={handleSaveWorkspace}>
                   <CheckCircle2 size={14} /> Save
                 </button>
-                <button className="cs-btn cs-btn-ghost" onClick={() => { setEditingWs(null); setIsNewWs(false) }}>
+                <button className="cs-btn cs-btn-secondary" onClick={() => { setEditingWs(null); setIsNewWs(false) }}>
                   Cancel
                 </button>
               </div>
@@ -831,7 +829,7 @@ export function SettingsPage() {
               )}
             </div>
             <div className="cs-dir-footer">
-              <button className="cs-btn cs-btn-ghost" disabled={!browsePath || browsePath === '/'} onClick={() => { if (!browsePath) return; const i = browsePath.lastIndexOf('/'); if (i > 0) navigateDir(browsePath.slice(0, i)) }}>
+              <button className="cs-btn cs-btn-secondary" disabled={!browsePath || browsePath === '/'} onClick={() => { if (!browsePath) return; const i = browsePath.lastIndexOf('/'); if (i > 0) navigateDir(browsePath.slice(0, i)) }}>
                 <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
                 ..
               </button>

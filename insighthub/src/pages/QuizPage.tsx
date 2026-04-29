@@ -143,7 +143,7 @@ export function QuizPage() {
             <div style={{ display: 'grid', gap: '1rem' }}>
               {questions.map((q, i) => {
                 const score = currentAttempt.scores[q.id]
-                const isCorrect = score && score.score >= 60
+                const isCorrect = score && score.score >= score.maxScore * 0.5
                 return (
                   <div key={q.id} className="cs-quiz-result-item" style={{
                     padding: '1rem',
@@ -226,7 +226,7 @@ export function QuizPage() {
           </Link>
           {docId && (
             <button
-              className="cs-btn cs-btn-ghost"
+              className="cs-btn cs-btn-secondary"
               style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
               onClick={() => {
                 removeSavedQuiz(docId)
@@ -275,7 +275,9 @@ export function QuizPage() {
           </span>
         </div>
 
-        <div className="question-text">{currentQuestion.text}</div>
+        {!['fill_blank', 'code_completion'].includes(currentQuestion.type) && (
+          <div className="question-text">{currentQuestion.text}</div>
+        )}
 
         {(currentQuestion.type === 'choice' || currentQuestion.type === 'truefalse') && (
           <div className="question-options">
@@ -314,7 +316,7 @@ export function QuizPage() {
 
         {currentQuestion.type === 'fill_blank' && (
           <div className="question-fill-blank">
-            <div className="question-fill-text">
+            <div className="question-text">
               {renderTextWithBlank(currentQuestion.text)}
             </div>
             <input
@@ -329,12 +331,15 @@ export function QuizPage() {
 
         {currentQuestion.type === 'code_completion' && (
           <div className="question-code-block">
+            {currentQuestion.text && (
+              <div className="question-text">{currentQuestion.text}</div>
+            )}
             <div className="question-code-header">
               <Code2 size={14} />
               <span>Complete the code</span>
             </div>
             <pre className="question-code-snippet">
-              <code>{renderTextWithBlank(currentQuestion.codeSnippet || currentQuestion.text)}</code>
+              <code>{renderTextWithBlank(currentQuestion.codeSnippet || '')}</code>
             </pre>
             <textarea
               className="question-code-input"

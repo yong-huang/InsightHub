@@ -260,7 +260,7 @@ export function SpacedRepetitionPage() {
           </button>
           {filterDocId && workspaceCards.length > 0 && (
             <button
-              className="cs-btn cs-btn-ghost"
+              className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
               onClick={() => {
                 for (const c of workspaceCards) removeCard(c.id)
@@ -431,6 +431,13 @@ export function SpacedRepetitionPage() {
           </div>
         </div>
         <div className="cs-btn-group" style={{ marginBottom: '1.25rem' }}>
+          <Link
+            to={filterDocId ? `/doc/${filterDocId}` : '/'}
+            state={{ from: fromPath || undefined }}
+            className="cs-btn cs-btn-secondary"
+          >
+            <ChevronLeft size={14} /> Back
+          </Link>
           <button className="cs-btn cs-btn-primary">
             <RotateCcw size={14} /> Review
           </button>
@@ -439,7 +446,7 @@ export function SpacedRepetitionPage() {
           </button>
           {filterDocId && workspaceCards.length > 0 && (
             <button
-              className="cs-btn cs-btn-ghost"
+              className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
               onClick={() => {
                 for (const c of workspaceCards) removeCard(c.id)
@@ -486,7 +493,7 @@ export function SpacedRepetitionPage() {
           </Link>
           {filterDocId && workspaceCards.length > 0 && (
             <button
-              className="cs-btn cs-btn-ghost"
+              className="cs-btn cs-btn-secondary"
               style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
               onClick={() => {
                 for (const c of workspaceCards) removeCard(c.id)
