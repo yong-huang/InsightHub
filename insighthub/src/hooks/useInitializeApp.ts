@@ -25,34 +25,37 @@ export function useInitializeApp() {
     if (initialized.current) return
     initialized.current = true
 
-    // Migrate legacy challenge storage (one-time)
-    storageService.migrateChallengeStorage()
+    // Sync localStorage from server first so all stores read the latest data
+    storageService.syncFromServer().then(() => {
+      // Migrate legacy challenge storage (one-time)
+      storageService.migrateChallengeStorage()
 
-    const initDocs = useDocumentStore.getState().initializeDocuments()
-    // After documents load, register dynamic categories globally
-    initDocs.then(() => {
-      const docs = useDocumentStore.getState().documents
-      const catEntries: { key: string; source: string }[] = []
-      for (const doc of docs.values()) {
-        if (doc.category && !catEntries.some(e => e.key === doc.category)) {
-          catEntries.push({ key: doc.category, source: doc.source })
+      const initDocs = useDocumentStore.getState().initializeDocuments()
+      // After documents load, register dynamic categories globally
+      initDocs.then(() => {
+        const docs = useDocumentStore.getState().documents
+        const catEntries: { key: string; source: string }[] = []
+        for (const doc of docs.values()) {
+          if (doc.category && !catEntries.some(e => e.key === doc.category)) {
+            catEntries.push({ key: doc.category, source: doc.source })
+          }
         }
-      }
-      registerDynamicCategories(catEntries)
+        registerDynamicCategories(catEntries)
 
-      // Also extend search service's label→key map
-      extendCategoryMap(catEntries.map(e => ({
-        key: e.key,
-        label: getCategoryInfo(e.key).label,
-      })))
+        // Also extend search service's label→key map
+        extendCategoryMap(catEntries.map(e => ({
+          key: e.key,
+          label: getCategoryInfo(e.key).label,
+        })))
+      })
+
+      useTagStore.getState().loadTags()
+      useSearchStore.getState().loadHistory()
+      useQuizStore.getState().loadHistory()
+      useQuizStore.getState().loadSavedQuizzes()
+      usePreferenceStore.getState().loadQuizSettingsFromServer()
+      useAnnotationStore.getState().loadAnnotations()
+      useConceptCardStore.getState().loadCards()
     })
-
-    useTagStore.getState().loadTags()
-    useSearchStore.getState().loadHistory()
-    useQuizStore.getState().loadHistory()
-    useQuizStore.getState().loadSavedQuizzes()
-    usePreferenceStore.getState().loadQuizSettingsFromServer()
-    useAnnotationStore.getState().loadAnnotations()
-    useConceptCardStore.getState().loadCards()
   }, [])
 }

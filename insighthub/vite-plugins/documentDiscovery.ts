@@ -1059,7 +1059,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       interface ImportedDocRecord {
         id: string
         fileName: string
-        source: 'mindinsight' | 'techinsight'
+        source: string
         category: string
         importedAt: number
         encrypted?: boolean
@@ -1088,7 +1088,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
 
       // GET /api/imported-documents — list imported docs metadata
-      // POST /api/imported-documents — save new imported doc directly to TechInsight
+      // POST /api/imported-documents — save new imported doc to the target workspace
       // DELETE /api/imported-documents?id=xxx — delete imported doc
       server.middlewares.use('/api/imported-documents', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
@@ -1116,22 +1116,25 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
 
-              // Generate ID matching scanDocuments format: ti-<category>-<name>
+              // Generate ID matching scanDocuments format: <prefix>-<category>-<name>
               const nameWithoutExt = body.fileName.replace(/\.html$/, '')
-              const id = `ti-${body.category}-${nameWithoutExt}`
+              const workspaces = loadWorkspaces()
+              const ws = workspaces.find(w => w.id === body.source) || workspaces[0]
+              const prefix = ws.prefix || ws.id
+              const id = `${prefix}-${body.category}-${nameWithoutExt}`
               const dirs = getWorkspaceDirs()
-              const techDir = dirs['techinsight']
-              if (!techDir) {
+              const wsDir = dirs[ws.id]
+              if (!wsDir) {
                 res.statusCode = 400
-                res.end(JSON.stringify({ error: 'TechInsight workspace not configured' }))
+                res.end(JSON.stringify({ error: `Workspace "${ws.label}" not configured` }))
                 return
               }
-              const destDir = path.join(techDir, body.category)
+              const destDir = path.join(wsDir, body.category)
               const destPath = path.join(destDir, body.fileName)
 
               // Ensure category directory exists
               fs.mkdirSync(destDir, { recursive: true })
-              // Write HTML directly to TechInsight
+              // Write HTML directly to the target workspace
               fs.writeFileSync(destPath, body.htmlContent, 'utf-8')
 
               res.end(JSON.stringify({ ok: true, id }))
@@ -1154,15 +1157,15 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const target = docs.find(d => d.id === id)
           const filtered = docs.filter(d => d.id !== id)
           saveImportedDocsFile(filtered)
-          // Remove the HTML file (try TechInsight dir first, then legacy imports dir)
+          // Remove the HTML file from the correct workspace dir, then legacy imports dir
           if (target) {
             const dirs = getWorkspaceDirs()
-            const techDir = dirs['techinsight']
-            const techPath = techDir
-              ? path.join(techDir, target.category, target.fileName)
+            const wsDir = target.source ? dirs[target.source] : undefined
+            const wsPath = wsDir
+              ? path.join(wsDir, target.category, target.fileName)
               : ''
-            if (fs.existsSync(techPath)) {
-              fs.unlinkSync(techPath)
+            if (wsPath && fs.existsSync(wsPath)) {
+              fs.unlinkSync(wsPath)
             }
           }
           const legacyFile = legacyImportedDocHtmlPath(id)
@@ -1170,6 +1173,58 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             fs.unlinkSync(legacyFile)
           }
           res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // Generic client storage sync: shared across all LAN clients via .insighthub-client-storage.json
+      // Keys that already have dedicated sync endpoints are excluded on the client side.
+      const clientStoragePath = path.resolve(process.cwd(), '.insighthub-client-storage.json')
+
+      function loadClientStorageFile(): Record<string, any> {
+        try {
+          if (fs.existsSync(clientStoragePath)) {
+            return JSON.parse(fs.readFileSync(clientStoragePath, 'utf-8'))
+          }
+        } catch {}
+        return {}
+      }
+
+      function saveClientStorageFile(data: Record<string, any>): void {
+        fs.writeFileSync(clientStoragePath, JSON.stringify(data, null, 2), 'utf-8')
+      }
+
+      server.middlewares.use('/api/client-storage', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          res.end(JSON.stringify(loadClientStorageFile()))
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const { key, value } = JSON.parse(Buffer.concat(chunks).toString())
+              if (!key) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing key' }))
+                return
+              }
+              const data = loadClientStorageFile()
+              data[key] = value
+              saveClientStorageFile(data)
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
           return
         }
 

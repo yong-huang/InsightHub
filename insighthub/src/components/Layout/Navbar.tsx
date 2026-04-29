@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3,
@@ -43,17 +43,29 @@ export function Navbar() {
     }).length
   }, [allAnnotations, documents, activeWorkspace])
 
+  // Refresh badge counts when localStorage changes (bookmarks, achievements, etc.)
+  const [storageVersion, setStorageVersion] = useState(0)
+  useEffect(() => {
+    const handler = () => setStorageVersion(v => v + 1)
+    window.addEventListener('storage', handler)
+    window.addEventListener('achievement-unlock', handler)
+    return () => {
+      window.removeEventListener('storage', handler)
+      window.removeEventListener('achievement-unlock', handler)
+    }
+  }, [])
+
   const readLaterCount = useMemo(() => {
     const readLaterList = storageService.getReadLaterList()
     return readLaterList.filter(item => {
       const doc = documents.get(item.documentId)
       return doc?.source === activeWorkspace
     }).length
-  }, [documents, activeWorkspace])
+  }, [documents, activeWorkspace, storageVersion])
 
   const achievementCount = useMemo(() => {
     return storageService.getAchievementState().unlockedIds.length
-  }, [])
+  }, [storageVersion])
 
   const handleSwitch = (wsId: string) => {
     if (wsId === activeWorkspace) {

@@ -45,9 +45,27 @@ function getItem<T>(key: string, fallback: T): T {
   }
 }
 
+/** Keys that already have dedicated server-side sync endpoints — skip in generic sync */
+const DEDICATED_SYNC_KEYS = new Set([
+  `${PREFIX}document-meta`,
+  `${PREFIX}read-history`,
+  `${PREFIX}annotations`,
+  `${PREFIX}tags`,
+  `${PREFIX}quiz-history`,
+  `${PREFIX}concept-cards`,
+])
+
 function setItem<T>(key: string, value: T): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value))
+    // Fire-and-forget sync to server for keys without dedicated endpoints
+    if (key.startsWith(PREFIX) && !DEDICATED_SYNC_KEYS.has(key)) {
+      fetch('/api/client-storage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      }).catch(() => { /* ignore sync failures */ })
+    }
     return true
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
@@ -75,6 +93,22 @@ export interface ReadHistoryEntry {
 }
 
 export const storageService = {
+  /** Fetch all client storage from server and merge into localStorage (server wins) */
+  syncFromServer: async () => {
+    try {
+      const res = await fetch('/api/client-storage')
+      if (!res.ok) return
+      const serverData: Record<string, any> = await res.json()
+      for (const [key, value] of Object.entries(serverData)) {
+        if (key.startsWith(PREFIX) && !DEDICATED_SYNC_KEYS.has(key)) {
+          localStorage.setItem(key, JSON.stringify(value))
+        }
+      }
+    } catch {
+      // Server unavailable — use localStorage only
+    }
+  },
+
   getPreferences: () => {
     const stored = getItem<Record<string, any>>(storageKeys.PREFERENCES, {})
     return {

@@ -147,7 +147,7 @@ CSS files:
 - `src/services/spacedRepetition.ts` — SM-2 algorithm, card creation, HTML stripping
 - `src/services/achievementService.ts` — Achievement definitions and unlock logic
 - `scripts/copy-docs.ts` — Build-time script that copies document directories
-- `scripts/migrate-leetcode.ts` — One-time migration script (LeetCode files from TechInsight → LeetcodeInsight)
+- `src/config/defaultWorkspaces.ts` — Default workspace definitions (sources, prefixes, categories)
 
 ### Document Source Prefixes
 
