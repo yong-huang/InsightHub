@@ -1,4 +1,3 @@
-import '@/styles/doc-reader.css'
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
@@ -17,7 +16,8 @@ import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
-import { generateDocumentSummary, evaluateDocumentAccuracy } from '@/services/aiService'
+import { SpeechPanel } from '@/components/DocReader/SpeechPanel'
+import { generateDocumentSummary, evaluateDocumentAccuracy, generateSpeakerNotes } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
 import { getShortLabel } from '@/utils/workspaceUtils'
@@ -126,6 +126,13 @@ export function DocReaderPage() {
   const [evalResult, setEvalResult] = useState<string | null>(null)
   const [isEvalGenerating, setIsEvalGenerating] = useState(false)
   const [evalError, setEvalError] = useState<string | null>(null)
+  const [showSpeechPanel, setShowSpeechPanel] = useState(false)
+  const [speechText, setSpeechText] = useState<string | null>(null)
+  const [isSpeechGenerating, setIsSpeechGenerating] = useState(false)
+  const [speechError, setSpeechError] = useState<string | null>(null)
+  const [summaryPoppedOut, setSummaryPoppedOut] = useState(false)
+  const [evalPoppedOut, setEvalPoppedOut] = useState(false)
+  const [speechPoppedOut, setSpeechPoppedOut] = useState(false)
   const [showChatPanel, setShowChatPanel] = useState(false)
   const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
@@ -252,9 +259,13 @@ export function DocReaderPage() {
     setShowSummaryPanel(false)
     setIsSummaryGenerating(false)
     setSummaryError(null)
+    setSummaryPoppedOut(false)
     setShowEvalPanel(false)
     setIsEvalGenerating(false)
     setEvalError(null)
+    setEvalPoppedOut(false)
+    setShowSpeechPanel(false)
+    setSpeechPoppedOut(false)
     setShowChatPanel(false)
     setChatSelectedText(undefined)
     setShowChallengePanel(false)
@@ -266,10 +277,13 @@ export function DocReaderPage() {
       setSummaryText(cached || null)
       const evalCached = storageService.getSummaries()[`eval-${docId}`]
       setEvalResult(evalCached || null)
+      const speechCached = storageService.getSummaries()[`speech-${docId}`]
+      setSpeechText(speechCached || null)
       setIsBookmarked(storageService.isReadLater(docId))
     } else {
       setSummaryText(null)
       setEvalResult(null)
+      setSpeechText(null)
       setIsBookmarked(false)
     }
   }, [docId])
@@ -384,6 +398,28 @@ export function DocReaderPage() {
     } else if (result.data && docId) {
       setEvalResult(result.data)
       storageService.saveSummary(`eval-${docId}`, result.data)
+    }
+  }, [doc, docId])
+
+  const handleGenerateSpeech = useCallback(async () => {
+    if (!doc) return
+    setSpeechText(null)
+    setSpeechError(null)
+    setIsSpeechGenerating(true)
+
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    const result = await generateSpeakerNotes(
+      doc.title,
+      docWithContent?.contentText || doc.contentText,
+      (text) => setSpeechText(text),
+    )
+
+    setIsSpeechGenerating(false)
+    if (!result.success) {
+      setSpeechError(result.error || 'Generation failed')
+    } else if (result.data && docId) {
+      setSpeechText(result.data)
+      storageService.saveSummary(`speech-${docId}`, result.data)
     }
   }, [doc, docId])
 
@@ -690,6 +726,7 @@ export function DocReaderPage() {
           <button
             className={`dr-action-btn ${showSummaryPanel || summaryText ? 'active' : ''}`}
             onClick={() => {
+              setSummaryPoppedOut(false)
               setShowSummaryPanel(v => {
                 if (!v && !summaryText && !isSummaryGenerating && !summaryError) {
                   handleGenerateSummary()
@@ -707,6 +744,7 @@ export function DocReaderPage() {
             className={`dr-action-btn ${showEvalPanel || evalResult ? 'active' : ''}`}
             onClick={() => {
               if (isEvalGenerating) return
+              setEvalPoppedOut(false)
               setShowEvalPanel(v => {
                 if (!v && !evalResult && !isEvalGenerating && !evalError) {
                   handleEvaluate()
@@ -718,6 +756,25 @@ export function DocReaderPage() {
           >
             {isEvalGenerating ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />}
             <span className="dr-action-label">Evaluate</span>
+          </button>
+
+          {/* Presentation script button */}
+          <button
+            className={`dr-action-btn ${showSpeechPanel || speechText ? 'active' : ''}`}
+            onClick={() => {
+              if (isSpeechGenerating) return
+              setSpeechPoppedOut(false)
+              setShowSpeechPanel(v => {
+                if (!v && !speechText && !isSpeechGenerating && !speechError) {
+                  handleGenerateSpeech()
+                }
+                return !v
+              })
+            }}
+            style={isSpeechGenerating ? { opacity: 0.7, cursor: 'wait' } : undefined}
+          >
+            {isSpeechGenerating ? <Loader2 size={16} className="spin" /> : <Languages size={16} />}
+            <span className="dr-action-label">Script</span>
           </button>
 
           {/* Extract concepts button */}
@@ -830,7 +887,9 @@ export function DocReaderPage() {
             isGenerating={isSummaryGenerating}
             error={summaryError}
             onGenerate={handleGenerateSummary}
-            onClose={() => setShowSummaryPanel(false)}
+            onClose={() => { setShowSummaryPanel(false); setSummaryPoppedOut(false) }}
+            poppedOut={summaryPoppedOut}
+            onTogglePopup={() => setSummaryPoppedOut(v => !v)}
           />
         )}
 
@@ -840,7 +899,21 @@ export function DocReaderPage() {
             isGenerating={isEvalGenerating}
             error={evalError}
             onGenerate={handleEvaluate}
-            onClose={() => setShowEvalPanel(false)}
+            onClose={() => { setShowEvalPanel(false); setEvalPoppedOut(false) }}
+            poppedOut={evalPoppedOut}
+            onTogglePopup={() => setEvalPoppedOut(v => !v)}
+          />
+        )}
+
+        {showSpeechPanel && (
+          <SpeechPanel
+            scriptText={speechText}
+            isGenerating={isSpeechGenerating}
+            error={speechError}
+            onGenerate={handleGenerateSpeech}
+            onClose={() => { setShowSpeechPanel(false); setSpeechPoppedOut(false) }}
+            poppedOut={speechPoppedOut}
+            onTogglePopup={() => setSpeechPoppedOut(v => !v)}
           />
         )}
 

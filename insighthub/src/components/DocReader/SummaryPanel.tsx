@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { FileText, RefreshCw, X, Loader2 } from 'lucide-react'
+import { FileText, RefreshCw, X, Loader2, Maximize, Minimize } from 'lucide-react'
 import { renderMarkdown } from '@/utils/markdownRenderer'
 
 interface SummaryPanelProps {
@@ -8,9 +8,11 @@ interface SummaryPanelProps {
   error: string | null
   onGenerate: () => void
   onClose: () => void
+  poppedOut?: boolean
+  onTogglePopup?: () => void
 }
 
-export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onClose }: SummaryPanelProps) {
+export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onClose, poppedOut, onTogglePopup }: SummaryPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom during generation
@@ -20,13 +22,18 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
     }
   }, [summaryText, isGenerating])
 
-  return (
-    <div className="summary-panel">
+  const panelContent = (
+    <>
       <div className="summary-panel-header">
         <h3>AI Summary</h3>
-        <button className="summary-panel-close" onClick={onClose} title="Close">
-          <X size={16} />
-        </button>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <button className="summary-panel-close" onClick={onTogglePopup} title={poppedOut ? 'Minimize' : 'Expand'}>
+            {poppedOut ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
+          <button className="summary-panel-close" onClick={onClose} title="Close">
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {isGenerating && (
@@ -77,6 +84,20 @@ export function SummaryPanel({ summaryText, isGenerating, error, onGenerate, onC
           </button>
         </div>
       )}
-    </div>
+    </>
   )
+
+  if (poppedOut) {
+    return (
+      <div className="summary-panel-overlay" onClick={(e) => { if (e.target === e.currentTarget) onTogglePopup?.() }}>
+        <div className="summary-panel-popup">
+          <div className="summary-panel">
+            {panelContent}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return <div className="summary-panel">{panelContent}</div>
 }

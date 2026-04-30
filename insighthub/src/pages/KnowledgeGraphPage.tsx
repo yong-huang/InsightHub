@@ -1,4 +1,3 @@
-import '@/styles/visualizations.css'
 import { lazy, Suspense, useMemo, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Maximize, Minimize, Network, User } from 'lucide-react'

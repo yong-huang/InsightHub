@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { ShieldCheck, RefreshCw, X, Loader2, Maximize, Minimize } from 'lucide-react'
+import { Languages, RefreshCw, X, Loader2, Maximize, Minimize } from 'lucide-react'
 import { renderMarkdown } from '@/utils/markdownRenderer'
 
-interface EvaluationPanelProps {
-  resultText: string | null
+interface SpeechPanelProps {
+  scriptText: string | null
   isGenerating: boolean
   error: string | null
   onGenerate: () => void
@@ -12,20 +12,19 @@ interface EvaluationPanelProps {
   onTogglePopup?: () => void
 }
 
-export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, onClose, poppedOut, onTogglePopup }: EvaluationPanelProps) {
+export function SpeechPanel({ scriptText, isGenerating, error, onGenerate, onClose, poppedOut, onTogglePopup }: SpeechPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom during generation
   useEffect(() => {
     if (isGenerating && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [resultText, isGenerating])
+  }, [scriptText, isGenerating])
 
   const panelContent = (
     <>
       <div className="summary-panel-header">
-        <h3>AI Evaluation</h3>
+        <h3>Presentation Script</h3>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <button className="summary-panel-close" onClick={onTogglePopup} title={poppedOut ? 'Minimize' : 'Expand'}>
             {poppedOut ? <Minimize size={16} /> : <Maximize size={16} />}
@@ -39,18 +38,18 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
       {isGenerating && (
         <div className="summary-panel-progress">
           <Loader2 size={14} className="spin" />
-          <span>Evaluating document...</span>
+          <span>Writing script...</span>
         </div>
       )}
 
       <div className="summary-panel-body" ref={scrollRef}>
-        {!resultText && !isGenerating && !error && (
+        {!scriptText && !isGenerating && !error && (
           <div className="summary-panel-empty">
-            <ShieldCheck size={32} />
-            <p>AI Evaluation</p>
-            <p className="summary-panel-empty-hint">Evaluate accuracy based on document content and identify potential issues</p>
+            <Languages size={32} />
+            <p>Presentation Script</p>
+            <p className="summary-panel-empty-hint">Generate a conversational script based on the document content, ready for speaking or presenting</p>
             <button className="btn btn-primary btn-sm" onClick={onGenerate}>
-              Start Evaluation
+              Generate Script
             </button>
           </div>
         )}
@@ -64,23 +63,23 @@ export function EvaluationPanel({ resultText, isGenerating, error, onGenerate, o
           </div>
         )}
 
-        {isGenerating && resultText && (
+        {isGenerating && scriptText && (
           <div className="summary-panel-text summary-panel-streaming"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(resultText) }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(scriptText) }}
           />
         )}
 
-        {!isGenerating && resultText && !error && (
+        {!isGenerating && scriptText && !error && (
           <div className="summary-panel-text summary-panel-rendered"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(resultText) }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(scriptText) }}
           />
         )}
       </div>
 
-      {!isGenerating && resultText && !error && (
+      {!isGenerating && scriptText && !error && (
         <div className="summary-panel-footer">
           <button className="btn btn-secondary btn-sm" onClick={onGenerate}>
-            <RefreshCw size={14} /> Re-evaluate
+            <RefreshCw size={14} /> Regenerate
           </button>
         </div>
       )}

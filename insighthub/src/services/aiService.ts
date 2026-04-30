@@ -493,76 +493,35 @@ Requirements: Keep the content concise and accurate. Output only Markdown text, 
 
 export async function generateSpeakerNotes(
   documentTitle: string,
-  sections: { title: string; contentHtml: string }[],
-  onProgress?: (done: number, total: number) => void,
-  externalSignal?: AbortSignal,
-): Promise<Record<number, string>> {
-  // Strip HTML for each section, truncate to 800 chars
-  const stripHtml = (html: string) =>
-    html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-  const sectionTexts = sections.map(s => ({
-    title: s.title,
-    text: stripHtml(s.contentHtml).slice(0, 800),
-  }))
-
-  // Build the sections list for the prompt
-  const sectionsList = sectionTexts.map((s, i) => `Slide ${i + 1}: ${s.title}\n${s.text}`).join('\n\n---\n\n')
+  documentContent: string,
+  onChunk?: (text: string) => void,
+): Promise<AIResponse> {
+  const truncatedContent = documentContent.slice(0, 6000)
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `You are a professional speech writer responsible for creating conversational speaker notes for presentation slides.
+      content: `You are a professional speech writer. Based on the document content, write a complete presentation script that can be read aloud directly.
 
 Requirements:
-1. Conversational style, as if talking face-to-face with the audience. Do not simply read the document or titles aloud.
-2. Each slide's notes should correspond to 2-3 minutes of speaking time (approximately 300-500 words in English).
-3. Open with a guiding question or scenario description. Do not directly read the title.
-4. Include conversational transitions like "as you can see", "here's a key point", "let's take a look at this".
-5. Explain code blocks and technical details in plain language. Do not read code line by line.
-6. End with a brief transition sentence to introduce the next slide.
-7. Write in English.
+1. Write in the same language as the document content.
+2. Conversational and engaging tone — speak as if presenting to a live audience. Avoid dry recitation.
+3. Structure the script with natural sections corresponding to the document's main topics, using Markdown headings (##).
+4. Open with an attention-grabbing hook (a question, anecdote, or bold statement).
+5. Explain technical concepts in plain language the audience can follow. Do not read code verbatim — describe what it does and why.
+6. Include transitions between sections to maintain flow.
+7. End with a clear takeaway or call-to-action.
+8. Keep the overall length proportional to the document's depth — concise for short docs, thorough for long ones.
 
-Output format (strictly follow this format, separate each slide with a divider):
---- Slide 1: Title ---
-Speaker notes content
-
---- Slide 2: Title ---
-Speaker notes content
-
-(And so on, write speaker notes for every slide)
-
-Output only the speaker notes content, no other explanatory text.`,
+Output only the presentation script in Markdown, nothing else.`,
     },
     {
       role: 'user',
-      content: `Document title: ${documentTitle}\n\nBelow are the titles and content summaries for each slide:\n\n${sectionsList}`,
+      content: `Title: ${documentTitle}\n\nDocument content:\n${truncatedContent}`,
     },
   ]
 
-  const result = await callAIStream(messages, undefined, externalSignal)
-
-  if (!result.success || !result.data) {
-    throw new Error(result.error || 'AI service returned no content')
-  }
-
-  // Parse the response into Record<number, string>
-  const notes: Record<number, string> = {}
-  const parts = result.data.split(/---\s*Slide\s+(\d+)\s*[:：]\s*/)
-
-  // parts[0] is any text before the first marker (ignore)
-  // Then alternating: title (index 1), content (index 2), title (index 3), content (index 4), ...
-  for (let i = 1; i < parts.length; i += 2) {
-    const slideNum = parseInt(parts[i], 10)
-    const content = (parts[i + 1] || '').trim()
-    if (!isNaN(slideNum) && content) {
-      notes[slideNum - 1] = content // 0-indexed
-    }
-  }
-
-  // Report progress as complete
-  onProgress?.(sections.length, sections.length)
-
-  return notes
+  return callAIStream(messages, onChunk)
 }
 
 export async function evaluateDocumentAccuracy(

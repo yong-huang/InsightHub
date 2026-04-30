@@ -13,7 +13,6 @@ import { getWorkspaceConfig } from '@/utils/workspaceUtils'
 import { buildTimeline, groupByDate, type TimelineTypeFilter, type TimelineEntry } from '@/utils/timelineBuilder'
 import { LearningPath } from '@/components/visualization/LearningPath'
 import { KnowledgeTree } from '@/components/visualization/KnowledgeTree'
-import '@/styles/visualizations.css'
 
 type ActiveTab = 'tree' | 'path' | 'timeline'
 

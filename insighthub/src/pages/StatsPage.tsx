@@ -1,4 +1,3 @@
-import '@/styles/stats.css'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
