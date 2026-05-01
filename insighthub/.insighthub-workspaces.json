@@ -3,21 +3,43 @@
     "id": "mindinsight",
     "label": "MindInsight",
     "icon": "Brain",
-    "path": "/Users/hyhit/Desktop/workspace/projects/MindInsight",
-    "prefix": "mi"
+    "path": "../../MindInsight",
+    "prefix": "mi",
+    "shortLabel": "Mind",
+    "subtitle": "Mind & Insight",
+    "gradientClass": "gradient-text-warm",
+    "color": "#ff8c42",
+    "colorBg": "rgba(255, 140, 66, 0.15)"
   },
   {
     "id": "techinsight",
     "label": "TechInsight",
     "icon": "Cpu",
-    "path": "/Users/hyhit/Desktop/workspace/projects/TechInsight",
-    "prefix": "ti"
+    "path": "../../TechInsight",
+    "prefix": "ti",
+    "shortLabel": "Tech",
+    "subtitle": "Tech & Insight",
+    "gradientClass": "gradient-text",
+    "color": "#326ce5",
+    "colorBg": "rgba(50, 108, 229, 0.15)"
   },
   {
     "id": "leetcodeinsight",
-    "label": "LeetCodeInsight",
+    "label": "LeetcodeInsight",
     "icon": "Code2",
-    "path": "/Users/hyhit/Desktop/workspace/projects/LeetCodeInsight",
-    "prefix": "li"
+    "path": "../../LeetCodeInsight",
+    "prefix": "li",
+    "shortLabel": "LC",
+    "subtitle": "Algorithm Mastery",
+    "gradientClass": "gradient-text-green",
+    "color": "#4ecdc4",
+    "colorBg": "rgba(78, 205, 196, 0.15)"
+  },
+  {
+    "id": "workspace-1777568237583",
+    "label": "ProjectInsight",
+    "icon": "FolderOpen",
+    "path": "/Users/hyhit/Desktop/workspace/projects/ProjectInsight",
+    "prefix": "pi"
   }
 ]

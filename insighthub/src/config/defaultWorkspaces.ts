@@ -17,7 +17,7 @@ export interface WorkspaceEntry {
 }
 
 export const DEFAULT_WORKSPACES: WorkspaceEntry[] = [
-  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../MindInsight', prefix: 'mi' },
-  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../TechInsight', prefix: 'ti' },
-  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../LeetCodeInsight', prefix: 'li' },
+  { id: 'mindinsight', label: 'MindInsight', icon: 'Brain', path: '../../MindInsight', prefix: 'mi' },
+  { id: 'techinsight', label: 'TechInsight', icon: 'Cpu', path: '../../TechInsight', prefix: 'ti' },
+  { id: 'leetcodeinsight', label: 'LeetcodeInsight', icon: 'Code2', path: '../../LeetCodeInsight', prefix: 'li' },
 ]

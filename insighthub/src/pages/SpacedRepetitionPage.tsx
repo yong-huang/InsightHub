@@ -353,7 +353,7 @@ export function SpacedRepetitionPage() {
                 if (!card) return null
                 const gradeInfo = GRADES.find(g => g.grade === r.grade) || GRADES[0]
                 return (
-                  <div key={r.cardId} style={{
+                  <div key={`${r.cardId}-${i}`} style={{
                     padding: '1rem',
                     background: 'var(--bg-input)',
                     borderRadius: 'var(--radius-md)',

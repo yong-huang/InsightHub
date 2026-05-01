@@ -56,7 +56,9 @@ export function scanWorkspaces(
   const result: DocumentManifestEntry[] = []
   for (const ws of workspaces) {
     const absPath = path.isAbsolute(ws.path) ? ws.path : path.resolve(baseDir, ws.path)
-    result.push(...scanWithManifest(absPath, ws.id, ws.prefix, ws.label))
+    // Use actual directory name (not label) for filePath to ensure case-sensitive match
+    const dirName = path.basename(absPath)
+    result.push(...scanWithManifest(absPath, ws.id, ws.prefix, dirName))
   }
   return result
 }

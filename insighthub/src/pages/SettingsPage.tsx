@@ -199,7 +199,7 @@ export function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizDifficulty: localDifficulty,
-          quizQuestionCount: Number(localCount) || 5,
+          quizQuestionCount: Number(localCount) || 10,
         }),
       })
       if (quizRes.ok) {
@@ -656,7 +656,7 @@ export function SettingsPage() {
                 inputMode="numeric"
                 value={localCount}
                 onChange={e => setLocalCount(e.target.value.replace(/[^0-9]/g, ''))}
-                onBlur={() => setLocalCount(String(Math.max(1, Math.min(20, Number(localCount) || 5))))}
+                onBlur={() => setLocalCount(String(Math.max(1, Math.min(20, Number(localCount) || 10))))}
               />
             </div>
             <div className="cs-form-group">

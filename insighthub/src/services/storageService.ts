@@ -47,6 +47,7 @@ function getItem<T>(key: string, fallback: T): T {
 
 /** Keys that already have dedicated server-side sync endpoints — skip in generic sync */
 const DEDICATED_SYNC_KEYS = new Set([
+  `${PREFIX}preferences`,
   `${PREFIX}document-meta`,
   `${PREFIX}read-history`,
   `${PREFIX}annotations`,
@@ -104,6 +105,8 @@ export const storageService = {
           localStorage.setItem(key, JSON.stringify(value))
         }
       }
+      // Preferences are device-specific — remove any previously synced stale value
+      localStorage.removeItem(storageKeys.PREFERENCES)
     } catch {
       // Server unavailable — use localStorage only
     }
@@ -114,7 +117,7 @@ export const storageService = {
     return {
       theme: 'light',
       quizDifficulty: 'medium',
-      quizQuestionCount: 5,
+      quizQuestionCount: 10,
       sidebarCollapsed: false,
       aiApiUrl: 'http://127.0.0.1:7001/v1',
       aiModel: 'default',

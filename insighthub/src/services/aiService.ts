@@ -21,7 +21,7 @@ export interface AIResponse {
   error?: string
 }
 
-export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Promise<AIResponse> {
+export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS, maxTokens = 8000): Promise<AIResponse> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
@@ -29,7 +29,7 @@ export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Pro
     const reqBody = {
       messages,
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       ...NO_THINK_KWARGS,
     }
     const response = await fetch(PROXY_URL, {
@@ -50,6 +50,11 @@ export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS): Pro
     const data = await response.json()
     const choice = data.choices?.[0]
     let content = choice?.message?.content
+
+    // Warn if output was truncated due to max_tokens limit
+    if (choice?.finish_reason === 'length') {
+      console.warn('[callAI] output truncated (finish_reason=length). Consider increasing max_tokens.')
+    }
 
     // Fallback: if model used thinking mode and content is empty but reasoning has output,
     // extract any JSON-like content from reasoning as last resort
@@ -344,7 +349,7 @@ export async function generateQuizQuestions(
   enabledTypes?: string[]
 ): Promise<AIResponse> {
   const difficultyMap = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
-  const truncatedContent = documentContent.slice(0, 4000)
+  const truncatedContent = documentContent.slice(0, 6000)
 
   // Default distribution if no types specified
   const types = enabledTypes && enabledTypes.length > 0 ? enabledTypes : ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']
@@ -400,10 +405,29 @@ Format:
       ...q,
       id: `q${i + 1}`,
     }))
+    if (questions.length === 0) throw new Error('No questions found in parsed JSON')
     return { success: true, data: { questions } }
   } catch (e: any) {
     console.warn(`[generateQuizQuestions] JSON parse failed:`, e.message)
     console.warn(`[generateQuizQuestions] raw content (first 500):`, String(result.data).slice(0, 500))
+
+    // Fallback: try to extract individual complete question objects from the text
+    const text = String(result.data)
+    const questionPattern = /\{\s*"id"\s*:\s*"[^"]*"\s*,\s*"type"\s*:\s*"(?:choice|truefalse|fill_blank|short_answer|code_completion)"[^}]*"correctAnswer"\s*:\s*"[^"]*"[^}]*\}/g
+    const matches = text.match(questionPattern)
+    if (matches && matches.length > 0) {
+      const fallbackQuestions: any[] = []
+      for (const m of matches) {
+        try {
+          const q = JSON.parse(m)
+          fallbackQuestions.push(q)
+        } catch {}
+      }
+      if (fallbackQuestions.length > 0) {
+        console.warn(`[generateQuizQuestions] fallback: extracted ${fallbackQuestions.length} questions via regex`)
+        return { success: true, data: { questions: fallbackQuestions } }
+      }
+    }
     return { success: false, error: e.message }
   }
 }

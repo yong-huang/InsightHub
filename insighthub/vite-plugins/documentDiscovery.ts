@@ -146,8 +146,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
   return {
     name: 'document-discovery',
     configureServer(server) {
+      // Base directory: resolve workspace paths relative to the insighthub project root
+      const BASE_DIR = path.resolve(__dirname, '..')
+
       // Workspace config: read from .insighthub-workspaces.json
-      const workspacesConfigPath = path.resolve(process.cwd(), options.workspacesPath || '.insighthub-workspaces.json')
+      const workspacesConfigPath = path.resolve(BASE_DIR, options.workspacesPath || '.insighthub-workspaces.json')
 
       // Map from workspace ID to directory path (resolved relative to project root)
       function getWorkspaceDirs(): Record<string, string> {
@@ -158,7 +161,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           if (ws.path) {
             dirs[ws.id] = path.isAbsolute(ws.path)
               ? ws.path
-              : path.resolve(process.cwd(), ws.path)
+              : path.resolve(BASE_DIR, ws.path)
           }
         }
         return dirs
@@ -178,7 +181,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
           const workspaces = loadWorkspaces()
-          const manifest = scanWorkspaces(workspaces, process.cwd())
+          const manifest = scanWorkspaces(workspaces, BASE_DIR)
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(manifest))
         } catch (e) {
