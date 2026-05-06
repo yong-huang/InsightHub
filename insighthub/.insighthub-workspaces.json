@@ -36,9 +36,9 @@
     "colorBg": "rgba(78, 205, 196, 0.15)"
   },
   {
-    "id": "workspace-1777568237583",
+    "id": "workspace-1777734296969",
     "label": "ProjectInsight",
-    "icon": "FolderOpen",
+    "icon": "FileText",
     "path": "/Users/hyhit/Desktop/workspace/projects/ProjectInsight",
     "prefix": "pi"
   }

@@ -35,6 +35,8 @@ export function KnowledgeGraphPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(tabFromUrl === 'map' ? tabFromUrl : 'graph')
   const [showDocuments, setShowDocuments] = useState(true)
   const [showTags, setShowTags] = useState(true)
+  const [showSimilarityEdges, setShowSimilarityEdges] = useState(false)
+  const [showReadingPatternEdges, setShowReadingPatternEdges] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
@@ -71,7 +73,9 @@ export function KnowledgeGraphPage() {
     filterSource: activeWorkspace,
     showDocuments,
     annotations,
-  }), [activeWorkspace, showDocuments, annotations])
+    showSimilarityEdges,
+    showReadingPatternEdges,
+  }), [activeWorkspace, showDocuments, annotations, showSimilarityEdges, showReadingPatternEdges])
 
   // PersonalMap filtered data
   const filteredDocs = useMemo(() => {
@@ -138,6 +142,18 @@ export function KnowledgeGraphPage() {
                 onClick={() => setShowDocuments(v => !v)}
               >
                 Document Nodes
+              </button>
+              <button
+                className={`cs-btn ${showSimilarityEdges ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+                onClick={() => setShowSimilarityEdges(v => !v)}
+              >
+                Similarity
+              </button>
+              <button
+                className={`cs-btn ${showReadingPatternEdges ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+                onClick={() => setShowReadingPatternEdges(v => !v)}
+              >
+                Reading Pattern
               </button>
               <button className="cs-btn cs-btn-secondary" onClick={toggleFullscreen} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
                 {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}

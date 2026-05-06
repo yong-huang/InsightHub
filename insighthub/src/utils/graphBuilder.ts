@@ -2,6 +2,8 @@ import type { Document, Tag, Annotation, Source, WorkspaceConfig } from '@/types
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { parseWikiLinks } from '@/utils/bidirectionalLinks'
 import { getSourceColor, getWorkspaceConfig } from '@/utils/workspaceUtils'
+import { getSimilarDocuments } from '@/services/similarityService'
+import { storageService } from '@/services/storageService'
 
 /** Derive unique categories from documents */
 function deriveCategories(docs: Document[]): { key: string; label: string; source: string }[] {
@@ -44,6 +46,9 @@ export interface GraphOptions {
   showDocuments?: boolean
   annotations?: Annotation[]
   workspaces?: WorkspaceConfig[]
+  showSimilarityEdges?: boolean
+  showReadingPatternEdges?: boolean
+  similarityMinScore?: number
 }
 
 const CATEGORY_COLORS = [
@@ -219,6 +224,91 @@ export function buildGraphData(
         const targetDocId = titleToDocId.get(title)
         if (targetDocId && targetDocId !== srcDocId && nodeIds.has(`doc:${targetDocId}`)) {
           addLink(`doc:${srcDocId}`, `doc:${targetDocId}`, 'references')
+        }
+      }
+    }
+  }
+
+  // Similarity edges
+  if (showDocuments && options.showSimilarityEdges) {
+    const minScore = options.similarityMinScore ?? 0.15
+    const docIdsInGraph = new Set<string>()
+    for (const id of nodeIds) {
+      if (id.startsWith('doc:')) docIdsInGraph.add(id.slice(4))
+    }
+    for (const docId of docIdsInGraph) {
+      const similar = getSimilarDocuments(docId, 10)
+      for (const item of similar) {
+        if (item.score >= minScore && docIdsInGraph.has(item.docId)) {
+          addLink(`doc:${docId}`, `doc:${item.docId}`, 'similarity')
+        }
+      }
+    }
+  }
+
+  // Shared-tags edges (doc→doc, shared ≥ 2 tags)
+  if (showDocuments) {
+    for (let i = 0; i < relevantTags.length; i++) {
+      for (let j = i + 1; j < relevantTags.length; j++) {
+        const tagA = relevantTags[i]
+        const tagB = relevantTags[j]
+        // Find docs that have both tags
+        const setA = new Set(tagA.documentIds.filter(id => nodeIds.has(`doc:${id}`)))
+        const setB = new Set(tagB.documentIds.filter(id => nodeIds.has(`doc:${id}`)))
+        for (const docId of setA) {
+          if (setB.has(docId) && nodeIds.has(`doc:${tagA.id}`) && nodeIds.has(`doc:${tagB.id}`)) {
+            // doc-tag edges already exist, add shared-tags between docs sharing this pair
+          }
+        }
+      }
+    }
+    // Direct doc→doc shared-tags edges
+    const docTagsMap = new Map<string, Set<string>>()
+    for (const tag of relevantTags) {
+      for (const docId of tag.documentIds) {
+        if (nodeIds.has(`doc:${docId}`)) {
+          if (!docTagsMap.has(docId)) docTagsMap.set(docId, new Set())
+          docTagsMap.get(docId)!.add(tag.id)
+        }
+      }
+    }
+    const docIdsArr = Array.from(docTagsMap.keys())
+    for (let i = 0; i < docIdsArr.length; i++) {
+      for (let j = i + 1; j < docIdsArr.length; j++) {
+        let shared = 0
+        for (const t of docTagsMap.get(docIdsArr[i])!) {
+          if (docTagsMap.get(docIdsArr[j])!.has(t)) shared++
+        }
+        if (shared >= 2) {
+          addLink(`doc:${docIdsArr[i]}`, `doc:${docIdsArr[j]}`, 'shared-tags')
+        }
+      }
+    }
+  }
+
+  // Reading pattern edges (docs read within 24h of each other)
+  if (showDocuments && options.showReadingPatternEdges) {
+    const history = storageService.getReadHistory()
+    // Group by day
+    const byDay = new Map<string, string[]>()
+    for (const entry of history) {
+      const day = new Date(entry.readAt).toISOString().slice(0, 10)
+      if (!byDay.has(day)) byDay.set(day, [])
+      byDay.get(day)!.push(entry.documentId)
+    }
+    for (const [, docIds] of byDay) {
+      if (docIds.length < 2) continue
+      // Connect consecutive reads in the same day
+      const seen = new Set<string>()
+      for (let i = 0; i < docIds.length - 1; i++) {
+        const a = docIds[i]
+        const b = docIds[i + 1]
+        if (a === b) continue
+        const key = [a, b].sort().join('|')
+        if (seen.has(key)) continue
+        seen.add(key)
+        if (nodeIds.has(`doc:${a}`) && nodeIds.has(`doc:${b}`)) {
+          addLink(`doc:${a}`, `doc:${b}`, 'reading-pattern')
         }
       }
     }

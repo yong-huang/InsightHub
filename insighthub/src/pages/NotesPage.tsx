@@ -52,7 +52,7 @@ export function NotesPage() {
   const isWorkspaceMatch = (docId: string) => {
     const doc = documents.get(docId)
     if (doc) return doc.source === activeWorkspace
-    const wsPrefix = getPrefix(activeWorkspace, workspaces) || 'ti-'
+    const wsPrefix = getPrefix(activeWorkspace, workspaces) || ''
     return docId.startsWith(wsPrefix)
   }
 

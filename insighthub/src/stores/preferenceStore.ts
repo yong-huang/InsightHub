@@ -20,6 +20,7 @@ interface PreferenceState extends UserPreferences {
   updateWorkspace: (ws: WorkspaceConfig) => void
   removeWorkspace: (id: string) => void
   loadQuizSettingsFromServer: () => Promise<void>
+  loadWorkspacesFromServer: () => Promise<void>
 }
 
 function savePrefs(partial: Record<string, any>) {
@@ -131,5 +132,37 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
         set({ quizQuestionCount: cfg.quizQuestionCount })
       }
     } catch {}
+  },
+
+  /** Load workspaces from server and merge into local state (server wins) */
+  loadWorkspacesFromServer: async () => {
+    try {
+      const res = await fetch('/api/workspaces')
+      if (!res.ok) return
+      const serverWorkspaces: WorkspaceConfig[] = await res.json()
+      if (!Array.isArray(serverWorkspaces) || serverWorkspaces.length === 0) return
+
+      const localWorkspaces = get().workspaces
+      const localIds = new Set(localWorkspaces.map(w => w.id))
+      const serverIds = new Set(serverWorkspaces.map(w => w.id))
+
+      // Only merge if server has workspaces not in local
+      const hasNew = serverWorkspaces.some(w => !localIds.has(w.id))
+      if (!hasNew) return
+
+      // Merge: local workspace data for existing IDs takes precedence (has shortLabel/subtitle),
+      // but add any server-only workspaces
+      const merged = [...localWorkspaces]
+      for (const sw of serverWorkspaces) {
+        if (!localIds.has(sw.id)) {
+          merged.push(sw)
+        }
+      }
+
+      savePrefs({ workspaces: merged })
+      set({ workspaces: merged })
+    } catch {
+      // Server unavailable — keep local workspaces
+    }
   },
 }))

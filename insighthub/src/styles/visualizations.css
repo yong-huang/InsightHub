@@ -104,6 +104,41 @@
   opacity: 0.1;
 }
 
+.kg-link-similarity {
+  stroke: #a78bfa;
+  stroke-dasharray: 6 3;
+  stroke-width: 1.2;
+}
+
+.kg-link-similarity.highlighted {
+  stroke: #a78bfa;
+  stroke-width: 2;
+  opacity: 0.8;
+}
+
+.kg-link-shared-tags {
+  stroke: #22d3ee;
+  stroke-width: 1;
+}
+
+.kg-link-shared-tags.highlighted {
+  stroke: #22d3ee;
+  stroke-width: 2;
+  opacity: 0.7;
+}
+
+.kg-link-reading-pattern {
+  stroke: #fb923c;
+  stroke-dasharray: 2 4;
+  stroke-width: 1;
+}
+
+.kg-link-reading-pattern.highlighted {
+  stroke: #fb923c;
+  stroke-width: 2;
+  opacity: 0.7;
+}
+
 .kg-node {
   cursor: pointer;
   transition: opacity 0.2s;
@@ -185,6 +220,12 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kg-legend-line {
+  width: 16px;
+  border-top-style: solid;
   flex-shrink: 0;
 }
 

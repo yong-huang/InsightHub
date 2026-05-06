@@ -33,6 +33,7 @@ export const storageKeys = {
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
   CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
   CHALLENGE_SESSIONS: `${PREFIX}challenge-sessions`,
+  TTS_PREFERENCES: `${PREFIX}tts-preferences`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -91,6 +92,11 @@ export interface DocumentMeta {
 export interface ReadHistoryEntry {
   documentId: string
   readAt: number
+}
+
+/** Low-level raw string getter (bypasses JSON parse, used by similarity cache) */
+function getRaw(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
 }
 
 export const storageService = {
@@ -349,5 +355,14 @@ export const storageService = {
     delete data[`__session_${docId}`]
     setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
+
+  // TTS preferences
+  getTTSPreferences: () => getItem<{ rate: number; voiceURI: string }>(storageKeys.TTS_PREFERENCES, { rate: 1, voiceURI: '' }),
+
+  saveTTSPreferences: (prefs: { rate: number; voiceURI: string }) =>
+    setItem(storageKeys.TTS_PREFERENCES, prefs),
+
+  /** Low-level raw string getter for similarity cache */
+  _getRaw: getRaw,
 
 }

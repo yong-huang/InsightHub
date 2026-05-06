@@ -145,7 +145,7 @@ export async function search(
               id,
               title: doc?.title || id,
               category: doc?.category || '',
-              source: doc?.source || 'techinsight',
+              source: doc?.source || '',
               score: 10,
               snippet: generateSnippet(content, query),
             })
@@ -171,7 +171,7 @@ export async function search(
               id,
               title: doc?.title || id,
               category: doc?.category || '',
-              source: doc?.source || 'techinsight',
+              source: doc?.source || '',
               score: 5,
               snippet: generateSnippet(content, query),
             })

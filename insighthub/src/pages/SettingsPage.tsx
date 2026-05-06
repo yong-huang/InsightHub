@@ -23,6 +23,11 @@ interface AIConfig {
   activeProfileId: string
   quizDifficulty: string
   quizQuestionCount: number
+  tts: {
+    ttsApiUrl: string
+    ttsModel: string
+    ttsVoice: string
+  }
 }
 
 const AVAILABLE_ICONS = [
@@ -75,6 +80,14 @@ export function SettingsPage() {
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [availableModels, setAvailableModels] = useState<string[]>([])
 
+  // TTS config state
+  const [ttsApiUrl, setTtsApiUrl] = useState('')
+  const [ttsModel, setTtsModel] = useState('')
+  const [ttsVoice, setTtsVoice] = useState('')
+  const [ttsTesting, setTtsTesting] = useState(false)
+  const [ttsTestResult, setTtsTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [ttsAvailableVoices, setTtsAvailableVoices] = useState<string[]>([])
+
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [dataMsg, setDataMsg] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -107,6 +120,11 @@ export function SettingsPage() {
         populateForm(active, active?.aiApiKey)
         if (cfg.quizDifficulty) setLocalDifficulty(cfg.quizDifficulty as Difficulty)
         if (cfg.quizQuestionCount) setLocalCount(String(cfg.quizQuestionCount))
+        if (cfg.tts) {
+          setTtsApiUrl(cfg.tts.ttsApiUrl || '')
+          setTtsModel(cfg.tts.ttsModel || '')
+          setTtsVoice(cfg.tts.ttsVoice || '')
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -277,6 +295,89 @@ export function SettingsPage() {
     populateForm(p, p.aiApiKey)
     setTestResult(null)
     setAvailableModels([])
+  }
+
+  const handleSaveTtsConfig = async () => {
+    setTtsTesting(true)
+    setTtsTestResult(null)
+    try {
+      const res = await fetch('/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tts: { ttsApiUrl, ttsModel, ttsVoice } }),
+      })
+      if (res.ok) {
+        setTtsTestResult({ ok: true, msg: 'TTS settings saved.' })
+        setTimeout(() => setTtsTestResult(null), 2000)
+      }
+    } catch {
+      setTtsTestResult({ ok: false, msg: 'Failed to save TTS settings.' })
+    }
+    setTtsTesting(false)
+  }
+
+  const handleTestTts = async () => {
+    setTtsTesting(true)
+    setTtsTestResult(null)
+    try {
+      // Save first, then test
+      await fetch('/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tts: { ttsApiUrl, ttsModel, ttsVoice } }),
+      })
+
+      // Send a test TTS request with a short sentence
+      const base = ttsApiUrl.replace(/\/+$/, '')
+      const targetUrl = base.endsWith('/v1') ? `${base}/audio/speech` : `${base}/v1/audio/speech`
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const active = profiles.find(p => p.id === activeProfileId)
+      if (active?.aiApiKey) headers['Authorization'] = `Bearer ${active.aiApiKey}`
+
+      const res = await fetch(targetUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          input: 'Hello, this is a test.',
+          model: ttsModel || undefined,
+          voice: ttsVoice || undefined,
+          response_format: 'mp3',
+        }),
+      })
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        let errMsg = `HTTP ${res.status}`
+        try { const e = JSON.parse(errText); errMsg = e.error || errMsg } catch {}
+        setTtsTestResult({ ok: false, msg: `Connection failed: ${errMsg}` })
+        setTtsTesting(false)
+        return
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('audio') || contentType.includes('octet-stream')) {
+        setTtsTestResult({ ok: true, msg: 'Connected! TTS API is working.' })
+      } else {
+        // Try to parse as JSON — might contain voices list
+        const body = await res.text().catch(() => '')
+        try {
+          const data = JSON.parse(body)
+          const voices = data.voices || data.data || []
+          if (Array.isArray(voices) && voices.length > 0) {
+            setTtsAvailableVoices(voices.map((v: any) => v.voice_id || v.id || v.name || String(v)).filter((v: any) => typeof v === 'string'))
+            setTtsTestResult({ ok: true, msg: `Connected! Found ${voices.length} voices.` })
+          } else {
+            setTtsTestResult({ ok: true, msg: 'Connected, but no voices found. Enter model/voice manually.' })
+          }
+        } catch {
+          setTtsTestResult({ ok: true, msg: 'Connected! Response received.' })
+        }
+      }
+    } catch (e: any) {
+      setTtsTestResult({ ok: false, msg: e.name === 'AbortError' ? 'Connection timed out' : `Connection failed: ${e.message}` })
+    }
+    setTtsTesting(false)
   }
 
   // Workspace CRUD
@@ -511,7 +612,89 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Card 2: Workspace Management */}
+      {/* Card 2: TTS Settings */}
+      <div className="cs-card">
+        <div className="cs-card-header">TEXT-TO-SPEECH (TTS)</div>
+        <div className="cs-card-body">
+          <div className="cs-card-desc">
+            Configure a local or remote TTS API for high-quality document reading aloud. Uses the OpenAI-compatible /v1/audio/speech endpoint. If no TTS API is configured, the browser's built-in speech synthesis will be used as fallback.
+          </div>
+
+          <div className="cs-form-row">
+            <div className="cs-form-group" style={{ flex: '2' }}>
+              <label>TTS API URL</label>
+              <input
+                type="text"
+                value={ttsApiUrl}
+                onChange={e => setTtsApiUrl(e.target.value)}
+                placeholder="e.g. http://127.0.0.1:8080/v1"
+              />
+            </div>
+            <div className="cs-form-group" style={{ flex: '1' }}>
+              <label>MODEL</label>
+              {ttsAvailableVoices.length > 0 ? (
+                <select value={ttsModel} onChange={e => setTtsModel(e.target.value)}>
+                  <option value="">Select Model</option>
+                  {ttsAvailableVoices.map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={ttsModel}
+                  onChange={e => setTtsModel(e.target.value)}
+                  placeholder="e.g. tts-1, edge-tts"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="cs-form-row">
+            <div className="cs-form-group" style={{ flex: '1' }}>
+              <label>VOICE</label>
+              {ttsAvailableVoices.length > 0 ? (
+                <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}>
+                  <option value="">Default</option>
+                  {ttsAvailableVoices.map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={ttsVoice}
+                  onChange={e => setTtsVoice(e.target.value)}
+                  placeholder="e.g. alloy, coral, echo"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="cs-btn-group" style={{ marginTop: '0.5rem' }}>
+            <button className="cs-btn cs-btn-primary" onClick={handleTestTts} disabled={ttsTesting || !ttsApiUrl}>
+              <Zap size={14} /> {ttsTesting ? 'Testing...' : 'Test Connection'}
+            </button>
+            <button className="cs-btn cs-btn-secondary" onClick={handleSaveTtsConfig} disabled={ttsTesting}>
+              {ttsTesting ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />} Save
+            </button>
+          </div>
+
+          {ttsTestResult && (
+            <div className={`cs-test-result ${ttsTestResult.ok ? 'success' : 'error'}`}>
+              {ttsTestResult.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+              {ttsTestResult.msg}
+            </div>
+          )}
+
+          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
+            <strong>Local TTS servers:</strong> edge-tts (pip install edge-tts + edge-playground), ChatTTS, Fish Speech, etc.<br />
+            The API key from the active AI config above will be forwarded automatically.
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Workspace Management */}
       <div className="cs-card">
         <div className="cs-card-header">WORKSPACE MANAGEMENT</div>
         <div className="cs-card-body">
@@ -633,7 +816,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Card 3: Quiz & Concept Settings */}
+      {/* Card 4: Quiz & Concept Settings */}
       <div className="cs-card">
         <div className="cs-card-header">QUIZ & CONCEPT SETTINGS</div>
         <div className="cs-card-body">
@@ -713,7 +896,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Card 4: Data Management */}
+      {/* Card 5: Data Management */}
       <div className="cs-card">
         <div className="cs-card-header">DATA MANAGEMENT</div>
         <div className="cs-card-body">

@@ -1,4 +1,4 @@
-import type { Source, WorkspaceConfig } from '@/types'
+import type { Source } from '@/types'
 
 export interface CategoryEntry {
   key: string
@@ -8,16 +8,6 @@ export interface CategoryEntry {
 }
 
 export type Workspace = Source
-
-/** @deprecated Use workspaceUtils.getWorkspaceConfig() instead */
-export const DEFAULT_WORKSPACE_META: Record<string, { label: string; subtitle: string; icon: string; gradientClass: string; basePath: string }> = {
-  mindinsight: { label: 'MindInsight', subtitle: 'Mind & Insight', icon: 'Brain', gradientClass: 'gradient-text-warm', basePath: '/mindinsight' },
-  techinsight: { label: 'TechInsight', subtitle: 'Tech & Insight', icon: 'Cpu', gradientClass: 'gradient-text', basePath: '/techinsight' },
-  leetcodeinsight: { label: 'LeetcodeInsight', subtitle: 'Algorithm Mastery', icon: 'Code2', gradientClass: 'gradient-text-green', basePath: '/leetcodeinsight' },
-}
-
-/** @deprecated Use workspaceUtils.getWorkspaceConfig() instead */
-export const WORKSPACE_META = DEFAULT_WORKSPACE_META
 
 /** Runtime category registry — populated from documents on init */
 const dynamicCategoryMap = new Map<string, CategoryEntry>()
@@ -48,24 +38,12 @@ export function getRegisteredCategories(): CategoryEntry[] {
 export function getCategoryInfo(key: string): CategoryEntry {
   const dynamic = dynamicCategoryMap.get(key)
   if (dynamic) return dynamic
-  return { key, label: titleCase(key), source: 'techinsight' as Source, icon: 'Folder' }
+  return { key, label: titleCase(key), source: '' as Source, icon: 'Folder' }
 }
 
 /** @deprecated Use useDynamicCategories hook instead */
 export function getCategoriesBySource(source: Source): CategoryEntry[] {
   return getRegisteredCategories().filter(c => c.source === source)
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  mindinsight: 'MindInsight · Mind & Insight',
-  techinsight: 'TechInsight · Tech & Insight',
-  leetcodeinsight: 'LeetcodeInsight · Algorithm Mastery',
-}
-
-export function getSourceLabel(source: Source): string {
-  const entry = SOURCE_LABELS[source]
-  if (entry) return entry
-  return source.charAt(0).toUpperCase() + source.slice(1)
 }
 
 export function getSourceFromCategory(category: string, documents?: Map<string, { source: Source; category: string }>): Source {

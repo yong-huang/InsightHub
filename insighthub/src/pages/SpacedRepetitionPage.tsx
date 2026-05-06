@@ -48,7 +48,7 @@ export function SpacedRepetitionPage() {
       if (!c.conceptName || !c.definition) return false
       if (filterDocId && c.sourceDocId !== filterDocId) return false
       const doc = documents.get(c.sourceDocId)
-      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(getPrefix(activeWorkspace, workspaces) || 'ti-')
+      return doc?.source === activeWorkspace || c.sourceDocId.startsWith(getPrefix(activeWorkspace, workspaces) || '')
     }),
     [cards, documents, activeWorkspace, filterDocId]
   )

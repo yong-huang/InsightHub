@@ -20,6 +20,12 @@ interface AIProfile {
   aiApiKey: string
 }
 
+interface TTSConfig {
+  ttsApiUrl: string
+  ttsModel: string
+  ttsVoice: string
+}
+
 interface AppConfig {
   profiles: AIProfile[]
   activeProfileId: string
@@ -29,6 +35,7 @@ interface AppConfig {
   aiApiKey: string
   quizDifficulty: string
   quizQuestionCount: number
+  tts: TTSConfig
 }
 
 function generateProfileId(): string {
@@ -292,6 +299,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         aiApiKey: options.aiApiKey || '',
         quizDifficulty: 'medium',
         quizQuestionCount: 5,
+        tts: { ttsApiUrl: '', ttsModel: '', ttsVoice: '' },
       }
       let appConfig = loadAppConfig(configPath, defaultConfig)
 
@@ -308,6 +316,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           activeProfileId: appConfig.activeProfileId,
           quizDifficulty: appConfig.quizDifficulty,
           quizQuestionCount: appConfig.quizQuestionCount,
+          tts: appConfig.tts || { ttsApiUrl: '', ttsModel: '', ttsVoice: '' },
         }
       }
 
@@ -395,6 +404,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               if (typeof update.aiApiKey === 'string') appConfig.aiApiKey = update.aiApiKey
               if (typeof update.quizDifficulty === 'string') appConfig.quizDifficulty = update.quizDifficulty
               if (typeof update.quizQuestionCount === 'number') appConfig.quizQuestionCount = update.quizQuestionCount
+              if (update.tts && typeof update.tts === 'object') appConfig.tts = update.tts
               // Sync active profile with updated legacy fields
               const active = getActiveProfile(appConfig)
               if (active) {
@@ -653,6 +663,92 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             res.writeHead(502, { 'Content-Type': 'application/json' })
           }
           res.end(JSON.stringify({ error: `AI proxy error: ${e.message}` }))
+        }
+      })
+
+      // TTS proxy: forward OpenAI-compatible /v1/audio/speech requests
+      // Reads base URL from X-TTS-Base-URL header or falls back to server-side tts config.
+      server.middlewares.use('/api/ai/tts', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        const ttsBaseUrl = (req.headers['x-tts-base-url'] as string) || appConfig.tts?.ttsApiUrl || ''
+        if (!ttsBaseUrl) {
+          res.statusCode = 400
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'TTS not configured. Set TTS API URL in Settings.' }))
+          return
+        }
+
+        // Read request body
+        const reqChunks: Buffer[] = []
+        for await (const chunk of req) reqChunks.push(chunk as Buffer)
+        const rawBody = Buffer.concat(reqChunks)
+
+        let parsed: any
+        try { parsed = JSON.parse(rawBody.toString()) } catch {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: 'Invalid JSON' }))
+          return
+        }
+
+        // Build the target URL — normalize to avoid double /v1/v1
+        const base = ttsBaseUrl.replace(/\/+$/, '')
+        const targetUrl = base.endsWith('/v1') ? `${base}/audio/speech` : `${base}/v1/audio/speech`
+
+        // Inject server-side TTS model/voice if client didn't provide them
+        if (!parsed.model && appConfig.tts?.ttsModel) parsed.model = appConfig.tts.ttsModel
+        if (!parsed.voice && appConfig.tts?.ttsVoice) parsed.voice = appConfig.tts.ttsVoice
+
+        const proxyHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        // Forward API key if available in AI config
+        const active = getActiveProfile(appConfig)
+        const apiKey = active?.aiApiKey ?? appConfig.aiApiKey
+        if (apiKey) proxyHeaders['Authorization'] = `Bearer ${apiKey}`
+
+        try {
+          const aiRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers: proxyHeaders,
+            body: Buffer.from(JSON.stringify(parsed)),
+          })
+
+          if (!aiRes.ok) {
+            const errBody = await aiRes.text().catch(() => '')
+            res.writeHead(aiRes.status, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: `TTS upstream error: ${aiRes.status}`, detail: errBody.slice(0, 200) }))
+            return
+          }
+
+          const contentType = aiRes.headers.get('content-type') || 'audio/mpeg'
+          res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-cache',
+          })
+
+          if (aiRes.body) {
+            const reader = aiRes.body.getReader()
+            try {
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                res.write(value)
+              }
+            } finally {
+              reader.releaseLock()
+            }
+          }
+          res.end()
+        } catch (e: any) {
+          if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json' })
+          }
+          res.end(JSON.stringify({ error: `TTS proxy error: ${e.message}` }))
         }
       })
 

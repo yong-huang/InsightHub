@@ -27,6 +27,8 @@ export function useInitializeApp() {
 
     // Sync localStorage from server first so all stores read the latest data
     storageService.syncFromServer().then(() => {
+      // Restore workspaces from server (handles localStorage loss)
+      usePreferenceStore.getState().loadWorkspacesFromServer()
       // Migrate legacy challenge storage (one-time)
       storageService.migrateChallengeStorage()
 

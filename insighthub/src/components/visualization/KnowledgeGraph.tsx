@@ -310,6 +310,11 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
             if (!sn || !tn) return null
 
             let className = 'kg-link'
+            // Apply edge type styling
+            if (link.type === 'similarity') className += ' kg-link-similarity'
+            else if (link.type === 'shared-tags') className += ' kg-link-shared-tags'
+            else if (link.type === 'reading-pattern') className += ' kg-link-reading-pattern'
+
             if (highlightedSet) {
               className += highlightedSet.has(sid) && highlightedSet.has(tid) ? ' highlighted' : ' dimmed'
             }
@@ -399,8 +404,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
           ))
         ) : (
           <div className="kg-legend-item">
-            <span className="kg-legend-dot" style={{ background: getSourceColor(externalOptions?.filterSource || 'techinsight', workspaces) }} />
-            <span>{getWorkspaceConfig(externalOptions?.filterSource || 'techinsight', workspaces)?.label || 'TechInsight'}</span>
+            <span className="kg-legend-dot" style={{ background: getSourceColor(externalOptions?.filterSource || '', workspaces) }} />
+            <span>{getWorkspaceConfig(externalOptions?.filterSource || '', workspaces)?.label || externalOptions?.filterSource}</span>
           </div>
         )}
         <div className="kg-legend-item">
@@ -415,6 +420,24 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
           <div className="kg-legend-item">
             <span className="kg-legend-dot" style={{ background: 'rgba(50,108,229,0.6)', width: '6px', height: '6px', borderRadius: '50%' }} />
             <span>Document</span>
+          </div>
+        )}
+        {externalOptions?.showSimilarityEdges && (
+          <div className="kg-legend-item">
+            <span className="kg-legend-line" style={{ borderTop: '2px dashed #a78bfa' }} />
+            <span>Similarity</span>
+          </div>
+        )}
+        {graphData.links.some(l => l.type === 'shared-tags') && (
+          <div className="kg-legend-item">
+            <span className="kg-legend-line" style={{ borderTop: '2px solid #22d3ee' }} />
+            <span>Shared Tags</span>
+          </div>
+        )}
+        {externalOptions?.showReadingPatternEdges && (
+          <div className="kg-legend-item">
+            <span className="kg-legend-line" style={{ borderTop: '2px dotted #fb923c' }} />
+            <span>Reading Pattern</span>
           </div>
         )}
       </div>

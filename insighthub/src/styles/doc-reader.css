@@ -238,3 +238,228 @@
   background: rgba(50, 108, 229, 0.1);
   border-color: var(--accent-blue);
 }
+
+/* ========== TTS Panel ========== */
+.tts-engine-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.tts-engine-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+
+.tts-engine-btn:hover {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.tts-engine-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.tts-api-config-hint {
+  font-size: 0.65rem;
+  color: var(--accent-blue);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.tts-api-config-hint:hover {
+  text-decoration: underline;
+}
+
+.tts-transport {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tts-speed-row {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tts-speed-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-right: 0.25rem;
+  min-width: 32px;
+}
+
+.tts-speed-btn {
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+
+.tts-speed-btn:hover {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.tts-speed-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.tts-voice-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tts-voice-select {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.tts-voice-select:focus {
+  border-color: var(--accent-blue);
+}
+
+.tts-progress-bar {
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tts-progress-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.tts-progress-text {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 2px;
+}
+
+.tts-current-text {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.tts-sentence-active {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tts-sentence-context {
+  color: var(--text-dim);
+}
+
+/* ========== Similar Docs Panel ========== */
+.similar-doc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.6rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.similar-doc-item:hover {
+  background: var(--bg-input);
+  border-color: var(--accent-blue);
+}
+
+.similar-doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.similar-doc-title {
+  flex: 1;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.similar-doc-link-icon {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.similar-doc-meta {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.similar-doc-reason {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  background: var(--bg-input);
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.similar-doc-bar-track {
+  height: 3px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.similar-doc-bar-fill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}

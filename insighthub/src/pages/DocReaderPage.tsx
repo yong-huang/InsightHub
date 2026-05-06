@@ -5,7 +5,7 @@ import {
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages,
-  ShieldCheck, Swords,
+  ShieldCheck, Swords, Volume2, GitBranch,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -29,6 +29,8 @@ import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
 import { EvaluationPanel } from '@/components/DocReader/EvaluationPanel'
 import { ChatPanel } from '@/components/DocReader/ChatPanel'
 import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
+import { TTSPanel } from '@/components/DocReader/TTSPanel'
+import { SimilarDocsPanel } from '@/components/DocReader/SimilarDocsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { explainConcept, translateText } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
@@ -133,6 +135,10 @@ export function DocReaderPage() {
   const [summaryPoppedOut, setSummaryPoppedOut] = useState(false)
   const [evalPoppedOut, setEvalPoppedOut] = useState(false)
   const [speechPoppedOut, setSpeechPoppedOut] = useState(false)
+  const [showTTSPanel, setShowTTSPanel] = useState(false)
+  const [ttsPoppedOut, setTtsPoppedOut] = useState(false)
+  const [showSimilarPanel, setShowSimilarPanel] = useState(false)
+  const [similarPoppedOut, setSimilarPoppedOut] = useState(false)
   const [showChatPanel, setShowChatPanel] = useState(false)
   const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
@@ -266,6 +272,10 @@ export function DocReaderPage() {
     setEvalPoppedOut(false)
     setShowSpeechPanel(false)
     setSpeechPoppedOut(false)
+    setShowTTSPanel(false)
+    setTtsPoppedOut(false)
+    setShowSimilarPanel(false)
+    setSimilarPoppedOut(false)
     setShowChatPanel(false)
     setChatSelectedText(undefined)
     setShowChallengePanel(false)
@@ -554,10 +564,11 @@ export function DocReaderPage() {
     () => allTags.filter(t => {
       if (t.documentIds.includes(docId || '')) return false
       // Workspace isolation: only show tags that have documents from the same source
-      const prefix = (docId || '').slice(0, 3) // e.g. 'mi-', 'ti-', 'li-'
-      return t.documentIds.some(id => id.startsWith(prefix))
+      const doc = allDocuments.get(docId || '')
+      if (!doc) return true
+      return t.documentIds.some(id => allDocuments.get(id)?.source === doc.source)
     }),
-    [allTags, docId]
+    [allTags, docId, allDocuments, workspaces]
   )
 
   const handleGenerate = async (mode: 'new' | 'regenerate' | 'append') => {
@@ -777,6 +788,19 @@ export function DocReaderPage() {
             <span className="dr-action-label">Script</span>
           </button>
 
+          {/* Read Aloud (TTS) button */}
+          <button
+            className={`dr-action-btn ${showTTSPanel ? 'active' : ''}`}
+            onClick={() => {
+              setTtsPoppedOut(false)
+              if (doc) useDocumentStore.getState().ensureContentText(doc.id)
+              setShowTTSPanel(v => !v)
+            }}
+          >
+            <Volume2 size={16} />
+            <span className="dr-action-label">Read Aloud</span>
+          </button>
+
           {/* Extract concepts button */}
           <button
             className={`dr-action-btn ${docConceptCount > 0 ? 'active' : ''}`}
@@ -813,6 +837,18 @@ export function DocReaderPage() {
             {isGenerating ? <Loader2 size={16} className="spin" /> : generatingError ? <RefreshCw size={16} /> : <Sparkles size={16} />}
             <span className="dr-action-label">{isGenerating ? 'Generating...' : generatingError ? 'Retry' : existingQuiz ? `Quiz (${existingQuiz.questions.length})` : 'Quiz'}</span>
             {existingQuiz && <span className="dr-action-badge">{existingQuiz.questions.length}</span>}
+          </button>
+
+          {/* Similar documents button */}
+          <button
+            className={`dr-action-btn ${showSimilarPanel ? 'active' : ''}`}
+            onClick={() => {
+              setSimilarPoppedOut(false)
+              setShowSimilarPanel(v => !v)
+            }}
+          >
+            <GitBranch size={16} />
+            <span className="dr-action-label">Similar</span>
           </button>
 
           {/* Bookmark toggle */}
@@ -937,6 +973,25 @@ export function DocReaderPage() {
             selectedText={challengeSelectedText}
             onClose={() => { setShowChallengePanel(false); setChallengeSelectedText(undefined) }}
             onSelectionUsed={() => setChallengeSelectedText(undefined)}
+          />
+        )}
+
+        {showTTSPanel && (
+          <TTSPanel
+            docId={docId || ''}
+            docLanguage={doc.language}
+            onClose={() => { setShowTTSPanel(false); setTtsPoppedOut(false) }}
+            poppedOut={ttsPoppedOut}
+            onTogglePopup={() => setTtsPoppedOut(v => !v)}
+          />
+        )}
+
+        {showSimilarPanel && (
+          <SimilarDocsPanel
+            docId={docId || ''}
+            onClose={() => { setShowSimilarPanel(false); setSimilarPoppedOut(false) }}
+            poppedOut={similarPoppedOut}
+            onTogglePopup={() => setSimilarPoppedOut(v => !v)}
           />
         )}
       </div>
