@@ -3,6 +3,30 @@ import type { Quiz, QuizAttempt, Difficulty, QuestionType } from '@/types'
 import { storageService } from '@/services/storageService'
 import { createQuiz } from '@/services/quizService'
 
+function syncQuizToServer(quiz: Quiz): Promise<void> {
+  return fetch('/api/quizzes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(quiz),
+  }).then(() => {}).catch(() => {})
+}
+
+function deleteQuizOnServer(docId: string): Promise<void> {
+  return fetch('/api/quizzes', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentId: docId }),
+  }).then(() => {}).catch(() => {})
+}
+
+function syncHistoryToServer(attempt: QuizAttempt): Promise<void> {
+  return fetch('/api/quiz-history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(attempt),
+  }).then(() => {}).catch(() => {})
+}
+
 interface QuizState {
   currentQuiz: Quiz | null
   currentAttempt: QuizAttempt | null
@@ -36,7 +60,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   error: null,
   quizHistory: [],
   savedQuizzes: {},
-  generatingDocIds: new Set<string>(),
+  generatingDocIds: new Set(),
   generatingErrors: {},
 
   setCurrentQuiz: (quiz) => set({ currentQuiz: quiz, error: null }),
@@ -77,8 +101,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     storageService.addQuizAttempt(attempt)
     const history = storageService.getQuizHistory()
     set({ quizHistory: history })
-    // Sync to server
-    fetch('/api/quiz-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(attempt) }).catch(() => {})
+    syncHistoryToServer(attempt)
   },
 
   reset: () => set({
@@ -148,17 +171,16 @@ export const useQuizStore = create<QuizState>((set, get) => ({
           }
           storageService.saveQuiz(merged)
           set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
-          // Sync to server
-          fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(merged) }).catch(() => {})
+          syncQuizToServer(merged)
         } else {
           storageService.saveQuiz(quiz)
           set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
-          fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
+          syncQuizToServer(quiz)
         }
       } else {
         storageService.saveQuiz(quiz)
         set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
-        fetch('/api/quizzes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(quiz) }).catch(() => {})
+        syncQuizToServer(quiz)
       }
     } catch (e: any) {
       set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: e.message || 'Generation failed' } }))
@@ -177,18 +199,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     return { generatingErrors: errors }
   }),
 
-  removeSavedQuiz: (docId) => {
+  removeSavedQuiz: async (docId) => {
     storageService.removeQuiz(docId)
     set(s => {
       const updated = { ...s.savedQuizzes }
       delete updated[docId]
       return { savedQuizzes: updated }
     })
-    // Sync deletion to server
-    fetch('/api/quizzes', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: docId }),
-    }).catch(() => {})
+    await deleteQuizOnServer(docId)
   },
 }))

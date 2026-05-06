@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ConceptCard } from '@/types'
 import { storageService } from '@/services/storageService'
+import { usePreferenceStore } from '@/stores/preferenceStore'
 
 interface ConceptCardState {
   cards: ConceptCard[]
@@ -10,7 +11,7 @@ interface ConceptCardState {
 
   loadCards: () => void
   addCards: (newCards: ConceptCard[]) => void
-  removeCard: (id: string) => void
+  removeCard: (id: string) => Promise<void>
   setExtractingDocId: (docId: string, extracting: boolean) => void
   setExtractingError: (docId: string, error: string | null) => void
   reviewCard: (cardId: string, grade: number) => void
@@ -58,12 +59,12 @@ function getDueCards(cards: ConceptCard[]): ConceptCard[] {
     .sort((a, b) => a.nextReview - b.nextReview)
 }
 
-function syncCardsToServer(cards: ConceptCard[]): void {
-  fetch('/api/concept-cards', {
+function syncCardsToServer(cards: ConceptCard[]): Promise<void> {
+  return fetch('/api/concept-cards', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cards),
-  }).catch(() => {})
+  }).then(() => {}).catch(() => {})
 }
 
 /**
@@ -116,23 +117,38 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
 
   addCards: (newCards: ConceptCard[]) => {
     const { cards } = get()
+    const maxCount = usePreferenceStore.getState().conceptMaxCount || 10
     const existingKeys = new Set(
       cards.map(c => `${c.sourceDocId}::${c.conceptName}`)
     )
     const unique = newCards.filter(c => !existingKeys.has(`${c.sourceDocId}::${c.conceptName}`))
     if (unique.length === 0) return
 
-    const updated = [...cards, ...unique]
+    // Enforce per-document limit: count existing cards per doc, only add up to maxCount
+    const docCounts = new Map<string, number>()
+    for (const c of cards) {
+      docCounts.set(c.sourceDocId, (docCounts.get(c.sourceDocId) || 0) + 1)
+    }
+    const limited = unique.filter(c => {
+      const current = docCounts.get(c.sourceDocId) || 0
+      if (current < maxCount) {
+        docCounts.set(c.sourceDocId, current + 1)
+        return true
+      }
+      return false
+    })
+
+    const updated = [...cards, ...limited]
     set({ cards: updated })
     storageService.setConceptCards(updated)
     syncCardsToServer(updated)
   },
 
-  removeCard: (id: string) => {
+  removeCard: async (id: string) => {
     const updated = get().cards.filter(c => c.id !== id)
     set({ cards: updated })
     storageService.setConceptCards(updated)
-    syncCardsToServer(updated)
+    await syncCardsToServer(updated)
   },
 
   setExtractingDocId: (docId: string, extracting: boolean) => {

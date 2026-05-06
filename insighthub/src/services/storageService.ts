@@ -28,7 +28,6 @@ export const storageKeys = {
   READ_POSITIONS: `${PREFIX}reading-positions`,
   READ_LATER: `${PREFIX}read-later`,
   ACHIEVEMENTS: `${PREFIX}achievements`,
-  FLASHCARDS: `${PREFIX}flashcards`,
   CHAT_HISTORY: `${PREFIX}chat-history`,
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
   CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
@@ -270,11 +269,6 @@ export const storageService = {
 
   saveAchievementState: (state: { unlockedIds: string[]; unlockedAt: Record<string, number> }) =>
     setItem(storageKeys.ACHIEVEMENTS, state),
-
-  // Flashcards
-  getFlashcards: () => getItem<any[]>(storageKeys.FLASHCARDS, []),
-
-  setFlashcards: (cards: any[]) => setItem(storageKeys.FLASHCARDS, cards),
 
   // Chat history per document
   getChatHistory: (docId: string) => {

@@ -5,7 +5,7 @@ import {
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages,
-  ShieldCheck, Swords, Volume2, GitBranch,
+  ShieldCheck, Swords, GitBranch,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -29,7 +29,7 @@ import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
 import { EvaluationPanel } from '@/components/DocReader/EvaluationPanel'
 import { ChatPanel } from '@/components/DocReader/ChatPanel'
 import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
-import { TTSPanel } from '@/components/DocReader/TTSPanel'
+
 import { SimilarDocsPanel } from '@/components/DocReader/SimilarDocsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { explainConcept, translateText } from '@/services/readerAiService'
@@ -135,8 +135,6 @@ export function DocReaderPage() {
   const [summaryPoppedOut, setSummaryPoppedOut] = useState(false)
   const [evalPoppedOut, setEvalPoppedOut] = useState(false)
   const [speechPoppedOut, setSpeechPoppedOut] = useState(false)
-  const [showTTSPanel, setShowTTSPanel] = useState(false)
-  const [ttsPoppedOut, setTtsPoppedOut] = useState(false)
   const [showSimilarPanel, setShowSimilarPanel] = useState(false)
   const [similarPoppedOut, setSimilarPoppedOut] = useState(false)
   const [showChatPanel, setShowChatPanel] = useState(false)
@@ -272,8 +270,6 @@ export function DocReaderPage() {
     setEvalPoppedOut(false)
     setShowSpeechPanel(false)
     setSpeechPoppedOut(false)
-    setShowTTSPanel(false)
-    setTtsPoppedOut(false)
     setShowSimilarPanel(false)
     setSimilarPoppedOut(false)
     setShowChatPanel(false)
@@ -788,19 +784,6 @@ export function DocReaderPage() {
             <span className="dr-action-label">Script</span>
           </button>
 
-          {/* Read Aloud (TTS) button */}
-          <button
-            className={`dr-action-btn ${showTTSPanel ? 'active' : ''}`}
-            onClick={() => {
-              setTtsPoppedOut(false)
-              if (doc) useDocumentStore.getState().ensureContentText(doc.id)
-              setShowTTSPanel(v => !v)
-            }}
-          >
-            <Volume2 size={16} />
-            <span className="dr-action-label">Read Aloud</span>
-          </button>
-
           {/* Extract concepts button */}
           <button
             className={`dr-action-btn ${docConceptCount > 0 ? 'active' : ''}`}
@@ -973,16 +956,6 @@ export function DocReaderPage() {
             selectedText={challengeSelectedText}
             onClose={() => { setShowChallengePanel(false); setChallengeSelectedText(undefined) }}
             onSelectionUsed={() => setChallengeSelectedText(undefined)}
-          />
-        )}
-
-        {showTTSPanel && (
-          <TTSPanel
-            docId={docId || ''}
-            docLanguage={doc.language}
-            onClose={() => { setShowTTSPanel(false); setTtsPoppedOut(false) }}
-            poppedOut={ttsPoppedOut}
-            onTogglePopup={() => setTtsPoppedOut(v => !v)}
           />
         )}
 

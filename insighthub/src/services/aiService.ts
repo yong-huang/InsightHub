@@ -349,26 +349,52 @@ export async function generateQuizQuestions(
   enabledTypes?: string[]
 ): Promise<AIResponse> {
   const difficultyMap = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
-  const truncatedContent = documentContent.slice(0, 6000)
+
+  // Smart truncation: take beginning + evenly spaced samples from the rest to cover whole document
+  const MAX_CHARS = 8000
+  let truncatedContent: string
+  if (documentContent.length <= MAX_CHARS) {
+    truncatedContent = documentContent
+  } else {
+    const headSize = Math.round(MAX_CHARS * 0.5)
+    const tailBudget = MAX_CHARS - headSize
+    const remaining = documentContent.slice(headSize)
+    const sampleCount = 3
+    const chunkSize = Math.floor(remaining.length / sampleCount)
+    const samples: string[] = []
+    for (let i = 0; i < sampleCount; i++) {
+      const offset = i * chunkSize + Math.floor(chunkSize * 0.3)
+      const end = Math.min(offset + Math.floor(tailBudget / sampleCount), documentContent.length)
+      samples.push(documentContent.slice(offset, end))
+    }
+    truncatedContent = documentContent.slice(0, headSize) + '\n\n...\n\n' + samples.join('\n\n...\n\n')
+  }
 
   // Default distribution if no types specified
   const types = enabledTypes && enabledTypes.length > 0 ? enabledTypes : ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']
-  const choiceCount = Math.max(1, Math.round(count * 0.4))
-  const tfCount = Math.round(count * 0.2)
-  const fillCount = Math.round(count * 0.2)
-  const shortCount = Math.round(count * 0.1)
-  const codeCount = count - choiceCount - tfCount - fillCount - shortCount
+
+  // Distribute count proportionally across enabled types
+  const TYPE_WEIGHTS: Record<string, number> = { choice: 0.4, truefalse: 0.2, fill_blank: 0.2, short_answer: 0.1, code_completion: 0.1 }
+  const enabledWeight = types.reduce((sum, t) => sum + (TYPE_WEIGHTS[t] || 0), 0)
+  const typeCounts: Record<string, number> = {}
+  let allocated = 0
+  for (let i = 0; i < types.length; i++) {
+    const t = types[i]
+    const raw = count * (TYPE_WEIGHTS[t] || 0) / enabledWeight
+    const rounded = i < types.length - 1 ? Math.round(raw) : count - allocated
+    typeCounts[t] = Math.max(types.length === 1 ? count : 1, rounded)
+    allocated += typeCounts[t]
+  }
 
   const typeDescriptions: string[] = []
-  if (types.includes('choice')) typeDescriptions.push(`${choiceCount} multiple-choice (type: "choice", with options A-D)`)
-  if (types.includes('truefalse')) typeDescriptions.push(`${tfCount} true/false (type: "truefalse", correctAnswer: "true"/"false")`)
-  if (types.includes('fill_blank')) typeDescriptions.push(`${fillCount} fill-in-the-blank (type: "fill_blank", use ___ in text, correctAnswer is the exact word(s) to fill in, include placeholder hint)`)
-  if (types.includes('short_answer')) typeDescriptions.push(`${shortCount} short answer (type: "short_answer", correctAnswer is a concise reference answer)`)
-  if (types.includes('code_completion')) typeDescriptions.push(`${codeCount} code completion (type: "code_completion", codeSnippet is code with ___ blank, correctAnswer is the code to fill in)`)
+  if (types.includes('choice')) typeDescriptions.push(`${typeCounts.choice} multiple-choice (type: "choice", with options A-D)`)
+  if (types.includes('truefalse')) typeDescriptions.push(`${typeCounts.truefalse} true/false (type: "truefalse", correctAnswer: "true"/"false")`)
+  if (types.includes('fill_blank')) typeDescriptions.push(`${typeCounts.fill_blank} fill-in-the-blank (type: "fill_blank", use ___ in text, correctAnswer is the exact word(s) to fill in, include placeholder hint)`)
+  if (types.includes('short_answer')) typeDescriptions.push(`${typeCounts.short_answer} short answer (type: "short_answer", correctAnswer is a concise reference answer)`)
+  if (types.includes('code_completion')) typeDescriptions.push(`${typeCounts.code_completion} code completion (type: "code_completion", codeSnippet is code with ___ blank, correctAnswer is the code to fill in)`)
 
   const questionDescription = typeDescriptions.join(', ')
-  const enabledCount = typeDescriptions.length
-  const actualCount = enabledCount > 0 ? count : count
+  const actualCount = typeDescriptions.length > 0 ? count : count
 
   const messages: ChatMessage[] = [
     {

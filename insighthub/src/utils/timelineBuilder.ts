@@ -1,6 +1,6 @@
 import { storageService } from '@/services/storageService'
 import { ACHIEVEMENTS } from '@/services/achievementService'
-import type { Document, Annotation, QuizAttempt, Flashcard } from '@/types'
+import type { Document, Annotation, QuizAttempt } from '@/types'
 
 export interface TimelineEntry {
   id: string
@@ -12,13 +12,12 @@ export interface TimelineEntry {
   color: string
 }
 
-export type TimelineTypeFilter = 'all' | 'read' | 'annotation' | 'quiz' | 'review' | 'achievement'
+export type TimelineTypeFilter = 'all' | 'read' | 'annotation' | 'quiz' | 'achievement'
 
 const TYPE_COLORS: Record<string, string> = {
   read: '#326ce5',
   annotation: '#fbbf24',
   quiz: '#4ecdc4',
-  review: '#a78bfa',
   achievement: '#ef4444',
 }
 
@@ -72,20 +71,6 @@ function buildQuizEntries(quizHistory: QuizAttempt[], documents: Map<string, Doc
   })
 }
 
-function buildReviewEntries(flashcards: Flashcard[]): TimelineEntry[] {
-  return flashcards
-    .filter(c => c.lastReview > 0)
-    .map(c => ({
-      id: `review-${c.id}-${c.lastReview}`,
-      type: 'review' as const,
-      timestamp: c.lastReview,
-      documentId: c.documentId,
-      summary: `Reviewed flashcard for "${c.documentTitle}"`,
-      detail: c.front.length > 60 ? c.front.slice(0, 60) + '...' : c.front,
-      color: TYPE_COLORS.review,
-    }))
-}
-
 function buildAchievementEntries(): TimelineEntry[] {
   const state = storageService.getAchievementState()
   return state.unlockedIds.map((id: string) => {
@@ -111,7 +96,6 @@ export function buildTimeline(
   documents: Map<string, Document>,
   annotations: Annotation[],
   quizHistory: QuizAttempt[],
-  flashcards: Flashcard[],
   options: TimelineOptions = {},
 ): TimelineEntry[] {
   const { source = 'all', typeFilter = 'all', limit = 200 } = options
@@ -126,9 +110,6 @@ export function buildTimeline(
   }
   if (typeFilter === 'all' || typeFilter === 'quiz') {
     entries.push(...buildQuizEntries(quizHistory, documents))
-  }
-  if (typeFilter === 'all' || typeFilter === 'review') {
-    entries.push(...buildReviewEntries(flashcards))
   }
   if (typeFilter === 'all' || typeFilter === 'achievement') {
     entries.push(...buildAchievementEntries())

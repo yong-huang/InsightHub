@@ -7,7 +7,6 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useQuizStore } from '@/stores/quizStore'
-import { useFlashcardStore } from '@/stores/flashcardStore'
 import { buildPathData } from '@/utils/pathBuilder'
 import { getWorkspaceConfig } from '@/utils/workspaceUtils'
 import { buildTimeline, groupByDate, type TimelineTypeFilter, type TimelineEntry } from '@/utils/timelineBuilder'
@@ -37,7 +36,6 @@ const FILTER_OPTIONS: { key: TimelineTypeFilter; label: string }[] = [
   { key: 'read', label: 'Reading' },
   { key: 'annotation', label: 'Annotation' },
   { key: 'quiz', label: 'Quiz' },
-  { key: 'review', label: 'Review' },
   { key: 'achievement', label: 'Achievement' },
 ]
 
@@ -55,18 +53,17 @@ export function LearningPathPage() {
   const documents = useDocumentStore(s => s.documents)
   const annotations = useAnnotationStore(s => s.annotations)
   const quizHistory = useQuizStore(s => s.quizHistory)
-  const flashcards = useFlashcardStore(s => s.cards)
   const [activeTab, setActiveTab] = useState<ActiveTab>('tree')
   const [typeFilter, setTypeFilter] = useState<TimelineTypeFilter>('all')
 
   const pathData = useMemo(() => buildPathData(documents, activeWorkspace), [documents, activeWorkspace])
 
   const entries = useMemo(
-    () => buildTimeline(documents, annotations, quizHistory, flashcards, {
+    () => buildTimeline(documents, annotations, quizHistory, {
       source: activeWorkspace,
       typeFilter,
     }),
-    [documents, annotations, quizHistory, flashcards, activeWorkspace, typeFilter],
+    [documents, annotations, quizHistory, activeWorkspace, typeFilter],
   )
 
   const dateGroups = useMemo(() => groupByDate(entries), [entries])

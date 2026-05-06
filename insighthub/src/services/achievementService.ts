@@ -3,7 +3,6 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useTagStore } from '@/stores/tagStore'
-import { useFlashcardStore } from '@/stores/flashcardStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 export interface Achievement {
@@ -51,9 +50,7 @@ export interface Metrics {
   // Extras
   readLaterCount: number
   summaryCount: number
-  // Flashcards & Concept Cards
-  flashcardCount: number
-  reviewedFlashcardCount: number
+  // Concept Cards
   conceptCardCount: number
   conceptDocSet: Set<string>
   // Spaced Repetition
@@ -115,9 +112,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'weekend-reader', name: 'Weekend Learner', description: 'Read on a weekend', icon: 'Calendar', color: '--accent-blue', category: 'special' },
   { id: 'speed-reader', name: 'Speed Reader', description: 'Read 5 documents in a single day', icon: 'Timer', color: '--accent-orange', category: 'special' },
   { id: 'ai-summary', name: 'AI Assistant', description: 'Generate your first AI summary', icon: 'Bot', color: '--accent-green', category: 'special' },
-  { id: 'flashcard-creator', name: 'Card Creator', description: 'Create 10 flashcards', icon: 'Bookmark', color: '--accent-blue', category: 'special' },
-  { id: 'flashcard-50', name: 'Card Collector', description: 'Create 50 flashcards', icon: 'Bookmark', color: '--accent-purple', category: 'special' },
-  { id: 'sr-reviewer', name: 'Spaced Reviewer', description: 'Review 20 flashcards via spaced repetition', icon: 'Clock', color: '--accent-green', category: 'special' },
+  { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concepts from 5 different documents', icon: 'Lightbulb', color: '--accent-blue', category: 'special' },
   { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concept cards from 5 different documents', icon: 'Sparkles', color: '--accent-blue', category: 'special' },
   { id: 'summary-10', name: 'AI Scholar', description: 'Generate 10 AI summaries', icon: 'Bot', color: '--accent-purple', category: 'special' },
   { id: 'speed-reader-10', name: 'Speed Demon', description: 'Read 10 documents in a single day', icon: 'Timer', color: '--accent-red', category: 'special' },
@@ -233,16 +228,14 @@ export function collectMetrics(): Metrics {
   const readLaterCount = storageService.getReadLaterList().length
   const summaryCount = Object.keys(storageService.getSummaries()).length
 
-  // Flashcards & Concept Cards
-  const flashcardState = useFlashcardStore.getState()
-  const flashcardCount = flashcardState.cards.length
-  const reviewedFlashcardCount = flashcardState.cards.filter(c => c.repetition > 0).length
+  // Concept Cards
   const conceptCards = useConceptCardStore.getState().cards
   const conceptCardCount = conceptCards.length
   const conceptDocSet = new Set(conceptCards.map(c => c.sourceDocId))
 
-  // Spaced Repetition sessions
-  const spacedRepetitionSessions = reviewedFlashcardCount
+  // Spaced Repetition sessions (based on concept cards reviewed)
+  const reviewedConceptCount = conceptCards.filter(c => c.repetition > 0).length
+  const spacedRepetitionSessions = reviewedConceptCount
 
   return {
     readCount, totalWords, readCategoryKeys, readSources,
@@ -252,7 +245,7 @@ export function collectMetrics(): Metrics {
     currentStreak, readHourSet, readDaySet,
     readLaterCount, summaryCount,
     longDocCount,
-    flashcardCount, reviewedFlashcardCount, conceptCardCount,
+    conceptCardCount,
     spacedRepetitionSessions, conceptDocSet,
   }
 }
@@ -352,9 +345,6 @@ function checkCondition(achievement: Achievement, metrics: Metrics): boolean {
       return todayCount >= 5
     }
     case 'ai-summary': return metrics.summaryCount >= 1
-    case 'flashcard-creator': return metrics.flashcardCount >= 10
-    case 'flashcard-50': return metrics.flashcardCount >= 50
-    case 'sr-reviewer': return metrics.reviewedFlashcardCount >= 20
     case 'concept-explorer': return metrics.conceptDocSet.size >= 5
     case 'summary-10': return metrics.summaryCount >= 10
     case 'speed-reader-10': {
@@ -410,9 +400,6 @@ export function getAchievementProgress(achievement: Achievement, metrics: Metric
     case 'streak-14': return { current: Math.min(metrics.currentStreak, 14), target: 14 }
     case 'searcher-50': return { current: Math.min(metrics.searchCount, 50), target: 50 }
     case 'ai-summary': return { current: Math.min(metrics.summaryCount, 1), target: 1 }
-    case 'flashcard-creator': return { current: Math.min(metrics.flashcardCount, 10), target: 10 }
-    case 'flashcard-50': return { current: Math.min(metrics.flashcardCount, 50), target: 50 }
-    case 'sr-reviewer': return { current: Math.min(metrics.reviewedFlashcardCount, 20), target: 20 }
     case 'concept-explorer': return { current: metrics.conceptDocSet.size, target: 5 }
     case 'summary-10': return { current: Math.min(metrics.summaryCount, 10), target: 10 }
     case 'speed-reader-10': return { current: Math.min(storageService.getReadHistory().filter(e => {

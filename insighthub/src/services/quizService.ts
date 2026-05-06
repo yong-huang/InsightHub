@@ -48,15 +48,24 @@ export async function createQuiz(
   return { quiz }
 }
 
+/** Score per question that always sums to exactly 100 across all questions */
+function perQuestionScore(totalQuestions: number) {
+  const base = Math.floor(100 / totalQuestions)
+  const remainder = 100 - base * totalQuestions
+  return (idx: number) => base + (idx < remainder ? 1 : 0)
+}
+
 export function gradeObjectiveQuestions(
   quiz: Quiz,
   answers: Record<string, string>
 ): Record<string, { score: number; maxScore: number; feedback?: string }> {
   const scores: Record<string, { score: number; maxScore: number; feedback?: string }> = {}
-  const perQuestion = Math.round(100 / quiz.questions.length)
+  const getPerQuestion = perQuestionScore(quiz.questions.length)
 
-  for (const q of quiz.questions) {
+  for (let i = 0; i < quiz.questions.length; i++) {
+    const q = quiz.questions[i]
     if (q.type === 'short_answer' || q.type === 'code_completion') continue
+    const pq = getPerQuestion(i)
 
     const userAnswer = (answers[q.id] || '').trim().toLowerCase()
     const correctAnswer = q.correctAnswer.trim().toLowerCase()
@@ -66,8 +75,8 @@ export function gradeObjectiveQuestions(
       const normalizedCorrect = correctAnswer === '1' ? 'true' : correctAnswer === '0' ? 'false' : correctAnswer
       const isCorrect = normalizedUser === normalizedCorrect
       scores[q.id] = {
-        score: isCorrect ? perQuestion : 0,
-        maxScore: perQuestion,
+        score: isCorrect ? pq : 0,
+        maxScore: pq,
         feedback: isCorrect ? 'Correct!' : `Incorrect. ${q.explanation}`,
       }
     } else if (q.type === 'choice') {
@@ -75,16 +84,16 @@ export function gradeObjectiveQuestions(
         userAnswer === q.correctAnswer.trim() ||
         (correctAnswer.length === 1 && userAnswer.startsWith(correctAnswer))
       scores[q.id] = {
-        score: isCorrect ? perQuestion : 0,
-        maxScore: perQuestion,
+        score: isCorrect ? pq : 0,
+        maxScore: pq,
         feedback: isCorrect ? 'Correct!' : `The correct answer is ${q.correctAnswer}. ${q.explanation}`,
       }
     } else if (q.type === 'fill_blank') {
       // Case-insensitive exact match for fill-in-the-blank
       const isCorrect = userAnswer === correctAnswer
       scores[q.id] = {
-        score: isCorrect ? perQuestion : 0,
-        maxScore: perQuestion,
+        score: isCorrect ? pq : 0,
+        maxScore: pq,
         feedback: isCorrect ? 'Correct!' : `The correct answer is "${q.correctAnswer}". ${q.explanation}`,
       }
     }
@@ -99,6 +108,7 @@ export async function gradeQuiz(
 ): Promise<QuizAttempt> {
   // Grade objective questions locally
   const objectiveScores = gradeObjectiveQuestions(quiz, answers)
+  const getPerQuestion = perQuestionScore(quiz.questions.length)
 
   // Get short answer and code completion questions (need AI grading)
   const aiGradeQuestions = quiz.questions.filter(q => q.type === 'short_answer' || q.type === 'code_completion')
@@ -115,19 +125,21 @@ export async function gradeQuiz(
       answers
     )
     if (result.success && result.data?.scores) {
-      const perQuestion = Math.round(100 / quiz.questions.length)
       for (const [qId, s] of Object.entries(result.data.scores)) {
+        const idx = quiz.questions.findIndex(q => q.id === qId)
+        const pq = idx >= 0 ? getPerQuestion(idx) : Math.round(100 / quiz.questions.length)
         const raw = (s as any).score ?? 0
         aiScores[qId] = {
-          score: Math.round(raw / 100 * perQuestion),
-          maxScore: perQuestion,
+          score: Math.round(raw / 100 * pq),
+          maxScore: pq,
           feedback: (s as any).feedback,
         }
       }
     } else {
       for (const q of aiGradeQuestions) {
-        const perQuestion = Math.round(100 / quiz.questions.length)
-        aiScores[q.id] = { score: 0, maxScore: perQuestion, feedback: 'AI grading unavailable' }
+        const idx = quiz.questions.findIndex(qq => qq.id === q.id)
+        const pq = idx >= 0 ? getPerQuestion(idx) : Math.round(100 / quiz.questions.length)
+        aiScores[q.id] = { score: 0, maxScore: pq, feedback: 'AI grading unavailable' }
       }
     }
   }
