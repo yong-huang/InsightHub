@@ -84,11 +84,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         const seen = new Set<string>()
         const merged: any[] = []
         for (const entry of serverHistory) {
-          const key = entry.id || `${entry.documentId}-${entry.date}`
+          const key = entry.id || `${entry.documentId}-${entry.completedAt}`
           if (!seen.has(key)) { seen.add(key); merged.push(entry) }
         }
         for (const entry of localHistory) {
-          const key = entry.id || `${entry.documentId}-${entry.date}`
+          const key = entry.id || `${entry.documentId}-${entry.completedAt}`
           if (!seen.has(key)) { seen.add(key); merged.push(entry) }
         }
         set({ quizHistory: merged.slice(0, 100) })
@@ -98,6 +98,12 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   },
 
   saveAttempt: (attempt) => {
+    // Dedup: skip if an entry with the same id already exists
+    const existing = storageService.getQuizHistory()
+    if (attempt.id && existing.some(e => e.id === attempt.id)) {
+      set({ quizHistory: existing })
+      return
+    }
     storageService.addQuizAttempt(attempt)
     const history = storageService.getQuizHistory()
     set({ quizHistory: history })

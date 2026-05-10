@@ -994,6 +994,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
               const history = loadQuizHistoryFile()
+              // Dedup: skip if an entry with the same id already exists
+              if (attempt.id && history.some((h: any) => h.id === attempt.id)) {
+                res.end(JSON.stringify({ ok: true }))
+                return
+              }
               history.unshift(attempt)
               saveQuizHistoryFile(history)
               res.end(JSON.stringify({ ok: true }))

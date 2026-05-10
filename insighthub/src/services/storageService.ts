@@ -110,8 +110,6 @@ export const storageService = {
           localStorage.setItem(key, JSON.stringify(value))
         }
       }
-      // Preferences are device-specific — remove any previously synced stale value
-      localStorage.removeItem(storageKeys.PREFERENCES)
     } catch {
       // Server unavailable — use localStorage only
     }

@@ -367,7 +367,7 @@ export async function generateQuizQuestions(
       const end = Math.min(offset + Math.floor(tailBudget / sampleCount), documentContent.length)
       samples.push(documentContent.slice(offset, end))
     }
-    truncatedContent = documentContent.slice(0, headSize) + '\n\n...\n\n' + samples.join('\n\n...\n\n')
+    truncatedContent = documentContent.slice(0, headSize) + '\n\n---\n\n' + samples.join('\n\n---\n\n')
   }
 
   // Default distribution if no types specified
@@ -420,42 +420,54 @@ Format:
     },
   ]
 
-  const result = await callAI(messages)
-  if (!result.success || !result.data) {
-    return result
-  }
-
-  try {
-    const parsed = extractJSON(result.data)
-    const questions: any[] = (parsed.questions || []).map((q: any, i: number) => ({
-      ...q,
-      id: `q${i + 1}`,
-    }))
-    if (questions.length === 0) throw new Error('No questions found in parsed JSON')
-    return { success: true, data: { questions } }
-  } catch (e: any) {
-    console.warn(`[generateQuizQuestions] JSON parse failed:`, e.message)
-    console.warn(`[generateQuizQuestions] raw content (first 500):`, String(result.data).slice(0, 500))
-
-    // Fallback: try to extract individual complete question objects from the text
-    const text = String(result.data)
-    const questionPattern = /\{\s*"id"\s*:\s*"[^"]*"\s*,\s*"type"\s*:\s*"(?:choice|truefalse|fill_blank|short_answer|code_completion)"[^}]*"correctAnswer"\s*:\s*"[^"]*"[^}]*\}/g
-    const matches = text.match(questionPattern)
-    if (matches && matches.length > 0) {
-      const fallbackQuestions: any[] = []
-      for (const m of matches) {
-        try {
-          const q = JSON.parse(m)
-          fallbackQuestions.push(q)
-        } catch {}
-      }
-      if (fallbackQuestions.length > 0) {
-        console.warn(`[generateQuizQuestions] fallback: extracted ${fallbackQuestions.length} questions via regex`)
-        return { success: true, data: { questions: fallbackQuestions } }
-      }
+  // Try up to 2 attempts (1 retry on parse failure)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      console.warn('[generateQuizQuestions] retrying AI call after parse failure...')
     }
-    return { success: false, error: e.message }
+    const result = attempt === 0
+      ? await callAI(messages)
+      : await callAI(messages)
+    if (!result.success || !result.data) {
+      return result
+    }
+
+    try {
+      const parsed = extractJSON(result.data)
+      const questions: any[] = (parsed.questions || []).map((q: any, i: number) => ({
+        ...q,
+        id: `q${i + 1}`,
+      }))
+      if (questions.length === 0) throw new Error('No questions found in parsed JSON')
+      return { success: true, data: { questions } }
+    } catch (e: any) {
+      console.warn(`[generateQuizQuestions] JSON parse failed (attempt ${attempt + 1}):`, e.message)
+      console.warn(`[generateQuizQuestions] raw content (first 500):`, String(result.data).slice(0, 500))
+
+      // On second attempt failure, try regex fallback before giving up
+      if (attempt === 1) {
+        const text = String(result.data)
+        const questionPattern = /\{\s*"id"\s*:\s*"[^"]*"\s*,\s*"type"\s*:\s*"(?:choice|truefalse|fill_blank|short_answer|code_completion)"[\s\S]*?"correctAnswer"[\s\S]*?\}/g
+        const matches = text.match(questionPattern)
+        if (matches && matches.length > 0) {
+          const fallbackQuestions: any[] = []
+          for (const m of matches) {
+            try {
+              const q = JSON.parse(m)
+              fallbackQuestions.push(q)
+            } catch {}
+          }
+          if (fallbackQuestions.length > 0) {
+            console.warn(`[generateQuizQuestions] fallback: extracted ${fallbackQuestions.length} questions via regex`)
+            return { success: true, data: { questions: fallbackQuestions } }
+          }
+        }
+        return { success: false, error: e.message }
+      }
+      // First attempt failed — retry
+    }
   }
+  return { success: false, error: 'Failed to generate quiz after retries' }
 }
 
 export async function gradeShortAnswers(
