@@ -2,6 +2,7 @@ const PREFIX = 'insighthub:'
 
 import { DEFAULT_WORKSPACES as BASE_WORKSPACES } from '@/config/defaultWorkspaces'
 import type { WorkspaceConfig } from '@/types'
+import type { StudyPlanResult } from '@/services/studyPlanService'
 
 /** UI-only display fields for default workspaces */
 const UI_FIELDS: Record<string, Partial<WorkspaceConfig>> = {
@@ -33,6 +34,8 @@ export const storageKeys = {
   CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
   CHALLENGE_SESSIONS: `${PREFIX}challenge-sessions`,
   TTS_PREFERENCES: `${PREFIX}tts-preferences`,
+  INCEPTION: `${PREFIX}inception`,
+  STUDY_PLANS: `${PREFIX}study-plans`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -353,6 +356,29 @@ export const storageService = {
 
   saveTTSPreferences: (prefs: { rate: number; voiceURI: string }) =>
     setItem(storageKeys.TTS_PREFERENCES, prefs),
+
+  // Inception (multi-level progressive summary)
+  getInception: () => getItem<Record<string, string>>(storageKeys.INCEPTION, {}),
+
+  saveInception: (docId: string, text: string) => {
+    const data = storageService.getInception()
+    data[docId] = text
+    return setItem(storageKeys.INCEPTION, data)
+  },
+
+  // Study plans
+  getStudyPlans: () => getItem<StudyPlanResult[]>(storageKeys.STUDY_PLANS, []),
+
+  saveStudyPlan: (plan: StudyPlanResult) => {
+    const plans = storageService.getStudyPlans()
+    const idx = plans.findIndex((p: StudyPlanResult) => p.id === plan.id)
+    if (idx >= 0) {
+      plans[idx] = plan
+    } else {
+      plans.unshift(plan)
+    }
+    setItem(storageKeys.STUDY_PLANS, plans.slice(0, 10))
+  },
 
   /** Low-level raw string getter for similarity cache */
   _getRaw: getRaw,

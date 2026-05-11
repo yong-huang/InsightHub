@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy, TreePine,
+  Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy, TreePine, GraduationCap,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -12,8 +12,9 @@ import { getWorkspaceConfig } from '@/utils/workspaceUtils'
 import { buildTimeline, groupByDate, type TimelineTypeFilter, type TimelineEntry } from '@/utils/timelineBuilder'
 import { LearningPath } from '@/components/visualization/LearningPath'
 import { KnowledgeTree } from '@/components/visualization/KnowledgeTree'
+import { StudyPlanTree } from '@/components/visualization/StudyPlanTree'
 
-type ActiveTab = 'tree' | 'path' | 'timeline'
+type ActiveTab = 'tree' | 'path' | 'timeline' | 'study-plan'
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   read: <BookOpen size={14} />,
@@ -102,6 +103,12 @@ export function LearningPathPage() {
         >
           <Clock size={14} /> Activity Timeline
         </button>
+        <button
+          className={`cs-btn ${activeTab === 'study-plan' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+          onClick={() => setActiveTab('study-plan')}
+        >
+          <GraduationCap size={14} /> Study Plan
+        </button>
       </div>
 
       {activeTab === 'tree' ? (
@@ -116,6 +123,13 @@ export function LearningPathPage() {
           <div className="cs-card-header">{workspaceLabel.toUpperCase()} LEARNING PATH</div>
           <div className="cs-card-body">
             <LearningPath data={pathData} source={activeWorkspace} />
+          </div>
+        </div>
+      ) : activeTab === 'study-plan' ? (
+        <div className="cs-card">
+          <div className="cs-card-header">STUDY PLAN</div>
+          <div className="cs-card-body">
+            <StudyPlanTree />
           </div>
         </div>
       ) : (

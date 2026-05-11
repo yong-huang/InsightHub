@@ -1,8 +1,6 @@
-import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ChevronRight,
-  ChevronDown,
   FolderOpen,
   FileText,
   CheckCircle2,
@@ -16,44 +14,8 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useQuizStore } from '@/stores/quizStore'
 import { useDynamicCategories } from '@/hooks/useDynamicCategories'
+import { TreeNode } from './TreeNode'
 import type { Document } from '@/types'
-
-interface TreeNodeProps {
-  nodeId: string
-  label: string
-  icon: React.ReactNode
-  color: string
-  count?: React.ReactNode
-  children?: React.ReactNode
-  onClick?: () => void
-  tooltip?: string
-  openNodes: Set<string>
-  onToggle: (id: string) => void
-}
-
-const TreeNode = memo(function TreeNode({ nodeId, label, icon, color, count, children, onClick, tooltip, openNodes, onToggle }: TreeNodeProps) {
-  const open = openNodes.has(nodeId)
-  const hasChildren = Boolean(children)
-  const toggle = useCallback((e: React.MouseEvent) => { e.stopPropagation(); onToggle(nodeId) }, [nodeId, onToggle])
-
-  return (
-    <div className="kt-group">
-      <div className={`kt-node ${onClick ? 'kt-clickable' : ''}`} onClick={onClick ?? (hasChildren ? toggle : undefined)}>
-        <span className="kt-toggle" onClick={hasChildren ? toggle : undefined}>
-          {hasChildren ? (
-            open ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-          ) : (
-            <span style={{ width: 14, display: 'inline-block' }} />
-          )}
-        </span>
-        <span className="kt-icon" style={{ color }}>{icon}</span>
-        <span className="kt-label" title={tooltip}>{label}</span>
-        {count !== undefined && <span className="kt-count">{count}</span>}
-      </div>
-      {hasChildren && open && <div className="kt-children">{children}</div>}
-    </div>
-  )
-})
 
 export function KnowledgeTree() {
   const navigate = useNavigate()

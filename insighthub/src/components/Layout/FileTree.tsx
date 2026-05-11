@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChevronRight, Folder, FolderOpen, FileText } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 
@@ -11,14 +11,23 @@ interface TreeNode {
   children: TreeNode[]
   docId?: string
   docCount?: number
+  isRead?: boolean
 }
 
-function buildTree(filePaths: { filePath: string; docId: string }[]): TreeNode[] {
+/** Cached uppercase for directory labels */
+const upperCache = new Map<string, string>()
+function toUpperCached(s: string): string {
+  let v = upperCache.get(s)
+  if (v === undefined) { v = s.toUpperCase(); upperCache.set(s, v) }
+  return v
+}
+
+function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean }[]): TreeNode[] {
   const root: TreeNode[] = []
 
   const sorted = [...filePaths].sort((a, b) => a.filePath.localeCompare(b.filePath))
 
-  for (const { filePath, docId } of sorted) {
+  for (const { filePath, docId, isRead } of sorted) {
     // filePath like: academic/article.html or algorithms/binary-search/doc.html
     const parts = filePath.split('/').filter(Boolean)
 
@@ -36,6 +45,7 @@ function buildTree(filePaths: { filePath: string; docId: string }[]): TreeNode[]
           isDir: false,
           children: [],
           docId,
+          isRead,
         })
       } else {
         let existing = currentLevel.find(n => n.isDir && n.name === part)
@@ -76,6 +86,8 @@ function TreeNodeView({
   toggleExpand,
   activeDocId,
   onDocClick,
+  activeWorkspace,
+  navigate,
 }: {
   node: TreeNode
   depth: number
@@ -83,23 +95,30 @@ function TreeNodeView({
   toggleExpand: (path: string) => void
   activeDocId: string | undefined
   onDocClick: (docId: string) => void
+  activeWorkspace: string
+  navigate: ReturnType<typeof useNavigate>
 }) {
   const isExpanded = expandedPaths.has(node.path)
 
   if (node.isDir) {
+    // Top-level directory = category → uppercase label + click navigates to category page
+    const isTopLevel = depth === 0
     return (
       <div className="file-tree-node">
         <div
           className={`file-tree-row is-dir${isExpanded ? ' expanded' : ''}`}
-          onClick={() => toggleExpand(node.path)}
+          onClick={isTopLevel ? () => navigate(`/${activeWorkspace}/${node.path}`) : undefined}
         >
-          <span className={`file-tree-chevron${isExpanded ? ' expanded' : ''}`}>
+          <span
+            className={`file-tree-chevron${isExpanded ? ' expanded' : ''}`}
+            onClick={e => { e.stopPropagation(); toggleExpand(node.path) }}
+          >
             <ChevronRight size={14} />
           </span>
           <span className="file-tree-icon">
             {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
           </span>
-          <span className="file-tree-label">{node.name}</span>
+          <span className="file-tree-label">{isTopLevel ? toUpperCached(node.name) : node.name}</span>
           {node.docCount !== undefined && (
             <span className="file-tree-count">{node.docCount}</span>
           )}
@@ -115,6 +134,8 @@ function TreeNodeView({
                 toggleExpand={toggleExpand}
                 activeDocId={activeDocId}
                 onDocClick={onDocClick}
+                activeWorkspace={activeWorkspace}
+                navigate={navigate}
               />
             ))}
           </div>
@@ -123,7 +144,7 @@ function TreeNodeView({
     )
   }
 
-  // File node
+  // File node — show read status
   const isActive = activeDocId === node.docId
 
   return (
@@ -134,7 +155,10 @@ function TreeNodeView({
       >
         <span style={{ width: 16 }} />
         <span className="file-tree-icon">
-          <FileText size={14} />
+          {node.isRead
+            ? <CheckCircle2 size={14} style={{ color: 'var(--accent-green)' }} />
+            : <FileText size={14} />
+          }
         </span>
         <span className="file-tree-label">{node.name}</span>
       </div>
@@ -158,14 +182,14 @@ export function FileTree() {
 
   // Build file tree from workspace documents, stripping the leading ../<workspaceDir>/ prefix
   const filePaths = useMemo(() => {
-    const result: { filePath: string; docId: string }[] = []
+    const result: { filePath: string; docId: string; isRead: boolean }[] = []
     const prefix = wsDirName ? `../${wsDirName}/` : ''
     for (const [docId, doc] of documents.entries()) {
       if (doc.source === activeWorkspace && doc.filePath) {
         const fp = prefix && doc.filePath.startsWith(prefix)
           ? doc.filePath.slice(prefix.length)
           : doc.filePath
-        result.push({ filePath: fp, docId })
+        result.push({ filePath: fp, docId, isRead: doc.isRead })
       }
     }
     return result
@@ -227,6 +251,8 @@ export function FileTree() {
           toggleExpand={toggleExpand}
           activeDocId={activeDocId}
           onDocClick={onDocClick}
+          activeWorkspace={activeWorkspace}
+          navigate={navigate}
         />
       ))}
     </div>
