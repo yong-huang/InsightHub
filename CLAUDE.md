@@ -57,9 +57,9 @@ All routes are wrapped in `<Layout />`. Key routes:
 - `/read-later` — Read-later reading list
 - `/achievements` — Achievement system with unlock tracking
 - `/knowledge-graph` — Tabbed page: knowledge graph (D3-force) / personal map / knowledge tree (collapsible Category→Doc→Concept hierarchy)
-- `/learning-path` — Tabbed page: learning path milestones / activity timeline
+- `/learning-path` — Tabbed page: knowledge tree / learning path milestones / activity timeline / study plan (AI-driven document matching from JD/goal text)
 - `/spaced-repetition` — Spaced repetition flashcard review (SM-2 algorithm)
-- `/settings` — AI model config, quiz preferences
+- `/settings` — AI model config, quiz preferences, feature toggles, workspace management
 
 ### Zustand Stores (`src/stores/`)
 

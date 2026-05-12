@@ -2,8 +2,13 @@ import { create } from 'zustand'
 import { storageService } from '@/services/storageService'
 import type { UserPreferences, Difficulty, Source, WorkspaceConfig, QuestionType } from '@/types'
 
+export type FeatureKey = 'aiSummary' | 'aiInception' | 'aiEvaluation' | 'aiSpeech' | 'aiQuiz' | 'aiConcept' | 'aiSimilarity'
+
+const ALL_FEATURES: FeatureKey[] = ['aiSummary', 'aiInception', 'aiEvaluation', 'aiSpeech', 'aiQuiz', 'aiConcept', 'aiSimilarity']
+
 interface PreferenceState extends UserPreferences {
   workspaces: WorkspaceConfig[]
+  enabledFeatures: Record<FeatureKey, boolean>
   setTheme: (theme: 'light' | 'dark') => void
   toggleTheme: () => void
   setQuizDifficulty: (d: Difficulty) => void
@@ -19,6 +24,7 @@ interface PreferenceState extends UserPreferences {
   addWorkspace: (ws: WorkspaceConfig) => void
   updateWorkspace: (ws: WorkspaceConfig) => void
   removeWorkspace: (id: string) => void
+  setEnabledFeatures: (f: Record<FeatureKey, boolean>) => void
   loadQuizSettingsFromServer: () => Promise<void>
   loadWorkspacesFromServer: () => Promise<void>
 }
@@ -40,6 +46,12 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
   quizEnabledTypes: (storageService.getPreferences().quizEnabledTypes || ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']) as QuestionType[],
   workspaces: storageService.getPreferences().workspaces,
+  enabledFeatures: (() => {
+    const raw = storageService.getPreferences() as Record<string, any>
+    const stored = raw.enabledFeatures as Record<FeatureKey, boolean> | undefined
+    if (!stored) return Object.fromEntries(ALL_FEATURES.map(k => [k, true])) as Record<FeatureKey, boolean>
+    return Object.fromEntries(ALL_FEATURES.map(k => [k, stored[k] !== false])) as Record<FeatureKey, boolean>
+  })(),
 
   setTheme: (theme) => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -117,6 +129,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     const workspaces = get().workspaces.filter(w => w.id !== id)
     savePrefs({ workspaces })
     set({ workspaces })
+  },
+
+  setEnabledFeatures: (enabledFeatures) => {
+    savePrefs({ enabledFeatures })
+    set({ enabledFeatures })
   },
 
   loadQuizSettingsFromServer: async () => {

@@ -6,6 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import type { FeatureKey } from '@/stores/preferenceStore'
 import type { Difficulty, WorkspaceConfig, QuestionType } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
 import type { ExportData } from '@/utils/dataExporter'
@@ -39,6 +40,7 @@ export function SettingsPage() {
     conceptMaxCount, setConceptMaxCount,
     workspaces, addWorkspace, updateWorkspace, removeWorkspace,
     activeWorkspace,
+    enabledFeatures, setEnabledFeatures,
   } = usePreferenceStore()
 
   // AI profiles state
@@ -400,7 +402,8 @@ export function SettingsPage() {
                     {p.id !== activeProfileId && (
                       <>
                         <button
-                          className="cs-btn cs-btn-primary"
+                          className="cs-btn cs-btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '0.75rem' }}
                           onClick={e => { e.stopPropagation(); handleSwitchProfile(p.id) }}
                           disabled={saving}
                         >
@@ -408,10 +411,11 @@ export function SettingsPage() {
                         </button>
                         <button
                           className="cs-btn cs-btn-secondary"
+                          style={{ padding: '4px 8px' }}
                           onClick={e => { e.stopPropagation(); handleDeleteProfile(p.id) }}
                           disabled={saving}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </>
                     )}
@@ -547,9 +551,10 @@ export function SettingsPage() {
                   {ws.id !== activeWorkspace && (
                     <button
                       className="cs-btn cs-btn-secondary"
+                      style={{ padding: '4px 8px' }}
                       onClick={e => { e.stopPropagation(); handleDeleteWorkspace(ws.id) }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>
@@ -711,6 +716,38 @@ export function SettingsPage() {
                 <CheckCircle2 size={14} /> Settings saved
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Card: Feature Toggles */}
+      <div className="cs-card">
+        <div className="cs-card-header">FEATURE TOGGLES</div>
+        <div className="cs-card-body">
+          <div className="cs-card-desc">
+            Enable or disable AI-powered features. Disabling a feature only hides its button — existing data is preserved.
+          </div>
+          <div className="cs-question-types">
+            {([
+              { key: 'aiSummary' as FeatureKey, label: 'AI Summary' },
+              { key: 'aiInception' as FeatureKey, label: 'AI Inception' },
+              { key: 'aiEvaluation' as FeatureKey, label: 'AI Evaluation' },
+              { key: 'aiSpeech' as FeatureKey, label: 'AI Speech' },
+              { key: 'aiQuiz' as FeatureKey, label: 'AI Quiz' },
+              { key: 'aiConcept' as FeatureKey, label: 'AI Concept Extraction' },
+              { key: 'aiSimilarity' as FeatureKey, label: 'Document Similarity' },
+            ]).map(({ key, label }) => (
+              <label key={key} className="cs-question-type-item">
+                <input
+                  type="checkbox"
+                  checked={enabledFeatures[key]}
+                  onChange={e => {
+                    setEnabledFeatures({ ...enabledFeatures, [key]: e.target.checked })
+                  }}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
           </div>
         </div>
       </div>

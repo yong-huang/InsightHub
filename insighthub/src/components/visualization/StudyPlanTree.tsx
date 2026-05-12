@@ -9,12 +9,13 @@ import {
   GraduationCap,
   Loader2,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { TreeNode } from './TreeNode'
-import { startGeneration, getOngoingGeneration, loadCachedStudyPlan } from '@/services/studyPlanService'
+import { startGeneration, getOngoingGeneration, loadStudyPlans, deleteStudyPlan } from '@/services/studyPlanService'
 import type { StudyPlanResult } from '@/services/studyPlanService'
 
 /** Cached uppercase labels — avoids repeated .toUpperCase() calls per render */
@@ -28,36 +29,47 @@ function toUpperCached(label: string): string {
   return cached
 }
 
+function formatTime(ts: number): string {
+  const d = new Date(ts)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function StudyPlanTree() {
   const navigate = useNavigate()
   const location = useLocation()
   const fromPath = '/learning-path'
+  const navState = { from: fromPath, tab: 'study-plan' as const }
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const documents = useDocumentStore(s => s.documents)
 
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<StudyPlanResult | null>(null)
+  const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [openNodes, setOpenNodes] = useState<Set<string>>(new Set())
 
-  // Restore state on mount: re-attach to ongoing generation or load cached plan
+  // Load all plans for current workspace
+  const plans = useMemo(() => loadStudyPlans(activeWorkspace), [activeWorkspace, isLoading])
+  const result = plans.find(p => p.id === activePlanId) ?? null
+
+  // Restore state on mount: re-attach to ongoing generation or select most recent plan
   useEffect(() => {
     const ongoing = getOngoingGeneration(activeWorkspace)
     if (ongoing) {
       setIsLoading(true)
       setInputText(ongoing.input)
       ongoing.promise
-        .then(plan => { setResult(plan) })
-        .catch(() => { /* error shown in storage */ })
+        .then(plan => { setActivePlanId(plan.id) })
+        .catch(() => { /* error handled below */ })
         .finally(() => { setIsLoading(false) })
       return
     }
 
-    const cached = loadCachedStudyPlan(activeWorkspace)
-    if (cached) {
-      setResult(cached)
-      setInputText(cached.input)
+    const cached = loadStudyPlans(activeWorkspace)
+    if (cached.length > 0) {
+      setActivePlanId(cached[0].id)
+      setInputText(cached[0].input)
     }
   }, [activeWorkspace])
 
@@ -117,16 +129,29 @@ export function StudyPlanTree() {
 
     setIsLoading(true)
     setError('')
-    setResult(null)
 
     try {
       const plan = await startGeneration(trimmed, documents, activeWorkspace)
-      setResult(plan)
+      setActivePlanId(plan.id)
     } catch (e: any) {
       setError(e.message || 'Failed to generate study plan')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleDelete = (id: string) => {
+    deleteStudyPlan(id)
+    if (activePlanId === id) {
+      const remaining = loadStudyPlans(activeWorkspace)
+      setActivePlanId(remaining.length > 0 ? remaining[0].id : null)
+    }
+  }
+
+  const handleSelectPlan = (id: string) => {
+    setActivePlanId(id)
+    const plan = plans.find(p => p.id === id)
+    if (plan) setInputText(plan.input)
   }
 
   const priorityColor = (p: string) => {
@@ -137,6 +162,32 @@ export function StudyPlanTree() {
 
   return (
     <div>
+      {/* Plan selector — show when multiple plans exist */}
+      {plans.length > 1 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
+          {plans.map(p => (
+            <button
+              key={p.id}
+              className={`cs-btn ${p.id === activePlanId ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', gap: '0.25rem', display: 'inline-flex', alignItems: 'center' }}
+              onClick={() => handleSelectPlan(p.id)}
+            >
+              <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.input.slice(0, 30)}
+              </span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{p.matches.length}</span>
+              {!isLoading && (
+                <Trash2
+                  size={11}
+                  style={{ opacity: 0.4, cursor: 'pointer', flexShrink: 0 }}
+                  onClick={e => { e.stopPropagation(); handleDelete(p.id) }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input area */}
       <div style={{ marginBottom: '1rem' }}>
         <textarea
@@ -183,7 +234,7 @@ export function StudyPlanTree() {
         <div className="kt-tree">
           <div className="kt-summary">
             <GraduationCap size={16} />
-            <span>{result.matches.length} documents matched</span>
+            <span>{result.matches.length} documents matched · {formatTime(result.createdAt)}</span>
             <button
               className="navbar-icon-btn"
               onClick={toggleAll}
@@ -214,7 +265,7 @@ export function StudyPlanTree() {
                 onToggle={toggleNode}
                 onClick={() => {
                   toggleNode(`cat:${catKey}`)
-                  navigate(`/${activeWorkspace}/${catKey}`, { state: { from: fromPath } })
+                  navigate(`/${activeWorkspace}/${catKey}`, { state: navState })
                 }}
               >
                 {matches.map(m => {
@@ -235,7 +286,7 @@ export function StudyPlanTree() {
                       openNodes={openNodes}
                       onToggle={toggleNode}
                       onClick={() => {
-                        navigate(`/doc/${m.docId}`, { state: { from: fromPath } })
+                        navigate(`/doc/${m.docId}`, { state: navState })
                       }}
                     />
                   )

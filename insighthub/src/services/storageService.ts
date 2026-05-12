@@ -369,6 +369,8 @@ export const storageService = {
   // Study plans
   getStudyPlans: () => getItem<StudyPlanResult[]>(storageKeys.STUDY_PLANS, []),
 
+  _setStudyPlans: (plans: StudyPlanResult[]) => setItem(storageKeys.STUDY_PLANS, plans),
+
   saveStudyPlan: (plan: StudyPlanResult) => {
     const plans = storageService.getStudyPlans()
     const idx = plans.findIndex((p: StudyPlanResult) => p.id === plan.id)

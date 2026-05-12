@@ -138,3 +138,47 @@ export async function translateText(
 
   return callAIStream(messages, onChunk)
 }
+
+/** Generate a 5-level progressive summary (Inception) */
+export async function generateInception(
+  documentTitle: string,
+  documentContent: string,
+  onChunk?: (text: string) => void,
+): Promise<AIResponse> {
+  const content = documentContent.slice(0, 8000)
+
+  const messages = [
+    {
+      role: 'system' as const,
+      content: `You are a document analysis assistant. Generate a 5-level progressive summary of the document, from simplest to most detailed.
+
+## Level 1: One-Sentence Summary
+One sentence capturing the absolute core of this document.
+
+## Level 2: Key Takeaways
+3-5 bullet points, each one sentence, covering the main arguments or findings.
+
+## Level 3: Section Summary
+Summarize each major section in 1-2 sentences.
+
+## Level 4: Detailed Content
+For each section, explain the key concepts, important details, and reasoning in 3-5 sentences.
+
+## Level 5: Deep Analysis
+Provide a comprehensive analysis including: how concepts connect, practical implications, comparisons with alternatives, and edge cases.
+
+Rules:
+- Each deeper level MUST contain ALL information from the level above, plus new details.
+- Write in the same language as the document.
+- Output strict Markdown using the ## Level N headings above as separators.
+- Do not skip any level.
+- Start directly with ## Level 1 — no preamble.`,
+    },
+    {
+      role: 'user' as const,
+      content: `Analyze this document and generate the 5-level progressive summary:\n\nTitle: ${documentTitle}\n\n${content}`,
+    },
+  ]
+
+  return callAIStream(messages, onChunk)
+}

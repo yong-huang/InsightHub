@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Map, Clock, BookOpen, Highlighter, BrainCircuit, Layers, Trophy, TreePine, GraduationCap,
@@ -56,6 +56,16 @@ export function LearningPathPage() {
   const quizHistory = useQuizStore(s => s.quizHistory)
   const [activeTab, setActiveTab] = useState<ActiveTab>('tree')
   const [typeFilter, setTypeFilter] = useState<TimelineTypeFilter>('all')
+
+  // Restore tab from navigation state (e.g. returning from doc reader)
+  useEffect(() => {
+    const tab = (location.state as { tab?: string } | null)?.tab
+    if (tab === 'study-plan' || tab === 'tree' || tab === 'path' || tab === 'timeline') {
+      setActiveTab(tab)
+      // Clear the state so tab isn't restored again on in-page navigation
+      window.history.replaceState({ ...location.state, tab: undefined }, '')
+    }
+  }, [location.state])
 
   const pathData = useMemo(() => buildPathData(documents, activeWorkspace), [documents, activeWorkspace])
 

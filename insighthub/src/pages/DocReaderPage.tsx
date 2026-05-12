@@ -5,7 +5,7 @@ import {
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages,
-  ShieldCheck, Swords, GitBranch,
+  ShieldCheck, Swords, GitBranch, Layers,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -31,8 +31,9 @@ import { ChatPanel } from '@/components/DocReader/ChatPanel'
 import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
 
 import { SimilarDocsPanel } from '@/components/DocReader/SimilarDocsPanel'
+import { InceptionPanel } from '@/components/DocReader/InceptionPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
-import { explainConcept, translateText } from '@/services/readerAiService'
+import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
@@ -42,6 +43,7 @@ export function DocReaderPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const fromPath = (location.state as { from?: string; scrollToAnnotation?: string } | null)?.from
+  const fromState = (location.state as Record<string, any>) || {}
   const scrollToAnnotationId = (location.state as { scrollToAnnotation?: string } | null)?.scrollToAnnotation
   const allDocuments = useDocumentStore(s => s.documents)
   const doc = allDocuments.get(docId || '')
@@ -55,7 +57,7 @@ export function DocReaderPage() {
     )
     if (match) {
       navigate(`/doc/${match.id}`, {
-        state: { from: fromPath, scrollToAnnotation: scrollToAnnotationId },
+        state: fromState,
         replace: true,
       })
     }
@@ -101,7 +103,7 @@ export function DocReaderPage() {
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
   const generatingErrors = useQuizStore(s => s.generatingErrors)
   const startGeneration = useQuizStore(s => s.startGeneration)
-  const { quizDifficulty, quizQuestionCount, conceptMaxCount, quizEnabledTypes, workspaces } = usePreferenceStore()
+  const { quizDifficulty, quizQuestionCount, conceptMaxCount, quizEnabledTypes, workspaces, enabledFeatures } = usePreferenceStore()
 
   const existingQuiz = savedQuizzes[docId || '']
   const isGenerating = !!docId && generatingDocIds.has(docId)
@@ -137,6 +139,11 @@ export function DocReaderPage() {
   const [speechPoppedOut, setSpeechPoppedOut] = useState(false)
   const [showSimilarPanel, setShowSimilarPanel] = useState(false)
   const [similarPoppedOut, setSimilarPoppedOut] = useState(false)
+  const [showInceptionPanel, setShowInceptionPanel] = useState(false)
+  const [inceptionText, setInceptionText] = useState<string | null>(null)
+  const [isInceptionGenerating, setIsInceptionGenerating] = useState(false)
+  const [inceptionError, setInceptionError] = useState<string | null>(null)
+  const [inceptionPoppedOut, setInceptionPoppedOut] = useState(false)
   const [showChatPanel, setShowChatPanel] = useState(false)
   const chatHistorySize = docId ? storageService.getChatHistory(docId).length : 0
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
@@ -272,6 +279,10 @@ export function DocReaderPage() {
     setSpeechPoppedOut(false)
     setShowSimilarPanel(false)
     setSimilarPoppedOut(false)
+    setShowInceptionPanel(false)
+    setIsInceptionGenerating(false)
+    setInceptionError(null)
+    setInceptionPoppedOut(false)
     setShowChatPanel(false)
     setChatSelectedText(undefined)
     setShowChallengePanel(false)
@@ -285,6 +296,8 @@ export function DocReaderPage() {
       setEvalResult(evalCached || null)
       const speechCached = storageService.getSummaries()[`speech-${docId}`]
       setSpeechText(speechCached || null)
+      const inceptionCached = storageService.getInception()[docId]
+      setInceptionText(inceptionCached || null)
       setIsBookmarked(storageService.isReadLater(docId))
     } else {
       setSummaryText(null)
@@ -426,6 +439,28 @@ export function DocReaderPage() {
     } else if (result.data && docId) {
       setSpeechText(result.data)
       storageService.saveSummary(`speech-${docId}`, result.data)
+    }
+  }, [doc, docId])
+
+  const handleGenerateInception = useCallback(async () => {
+    if (!doc) return
+    setInceptionText(null)
+    setInceptionError(null)
+    setIsInceptionGenerating(true)
+
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    const result = await generateInception(
+      doc.title,
+      docWithContent?.contentText || doc.contentText,
+      (text) => setInceptionText(text),
+    )
+
+    setIsInceptionGenerating(false)
+    if (!result.success) {
+      setInceptionError(result.error || 'Generation failed')
+    } else if (result.data && docId) {
+      setInceptionText(result.data)
+      storageService.saveInception(docId, result.data)
     }
   }, [doc, docId])
 
@@ -595,7 +630,11 @@ export function DocReaderPage() {
   return (
     <div className="doc-reader-page">
       <div className="doc-reader-toolbar">
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(fromPath || `/${doc.source}`)}>
+        <button className="btn btn-ghost btn-sm" onClick={() => {
+          const target = fromPath || `/${doc.source}`
+          const { from, scrollToAnnotation, ...rest } = fromState
+          navigate(target, { state: Object.keys(rest).length > 0 ? rest : undefined })
+        }}>
           <ArrowLeft size={18} /> Back
         </button>
 
@@ -730,6 +769,7 @@ export function DocReaderPage() {
           </button>
 
           {/* Summary panel toggle */}
+          {enabledFeatures.aiSummary && (
           <button
             className={`dr-action-btn ${showSummaryPanel || summaryText ? 'active' : ''}`}
             onClick={() => {
@@ -745,8 +785,29 @@ export function DocReaderPage() {
             <BrainCircuit size={16} />
             <span className="dr-action-label">Summary</span>
           </button>
+          )}
+
+          {/* Inception panel toggle */}
+          {enabledFeatures.aiInception && (
+          <button
+            className={`dr-action-btn ${showInceptionPanel || inceptionText ? 'active' : ''}`}
+            onClick={() => {
+              setInceptionPoppedOut(false)
+              setShowInceptionPanel(v => {
+                if (!v && !inceptionText && !isInceptionGenerating && !inceptionError) {
+                  handleGenerateInception()
+                }
+                return !v
+              })
+            }}
+          >
+            <Layers size={16} />
+            <span className="dr-action-label">Inception</span>
+          </button>
+          )}
 
           {/* Evaluation button */}
+          {enabledFeatures.aiEvaluation && (
           <button
             className={`dr-action-btn ${showEvalPanel || evalResult ? 'active' : ''}`}
             onClick={() => {
@@ -764,8 +825,10 @@ export function DocReaderPage() {
             {isEvalGenerating ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />}
             <span className="dr-action-label">Evaluate</span>
           </button>
+          )}
 
           {/* Presentation script button */}
+          {enabledFeatures.aiSpeech && (
           <button
             className={`dr-action-btn ${showSpeechPanel || speechText ? 'active' : ''}`}
             onClick={() => {
@@ -783,8 +846,10 @@ export function DocReaderPage() {
             {isSpeechGenerating ? <Loader2 size={16} className="spin" /> : <Languages size={16} />}
             <span className="dr-action-label">Script</span>
           </button>
+          )}
 
           {/* Extract concepts button */}
+          {enabledFeatures.aiConcept && (
           <button
             className={`dr-action-btn ${docConceptCount > 0 ? 'active' : ''}`}
             onClick={() => {
@@ -801,8 +866,10 @@ export function DocReaderPage() {
             <span className="dr-action-label">Concepts</span>
             {docConceptCount > 0 && <span className="dr-action-badge">{docConceptCount}</span>}
           </button>
+          )}
 
           {/* Quiz button area */}
+          {enabledFeatures.aiQuiz && (
           <button
             className={`dr-action-btn ${existingQuiz ? 'active' : ''}`}
             onClick={() => {
@@ -821,8 +888,10 @@ export function DocReaderPage() {
             <span className="dr-action-label">{isGenerating ? 'Generating...' : generatingError ? 'Retry' : existingQuiz ? `Quiz (${existingQuiz.questions.length})` : 'Quiz'}</span>
             {existingQuiz && <span className="dr-action-badge">{existingQuiz.questions.length}</span>}
           </button>
+          )}
 
           {/* Similar documents button */}
+          {enabledFeatures.aiSimilarity && (
           <button
             className={`dr-action-btn ${showSimilarPanel ? 'active' : ''}`}
             onClick={() => {
@@ -833,6 +902,7 @@ export function DocReaderPage() {
             <GitBranch size={16} />
             <span className="dr-action-label">Similar</span>
           </button>
+          )}
 
           {/* Bookmark toggle */}
           <button
@@ -900,7 +970,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showSummaryPanel && (
+        {enabledFeatures.aiSummary && showSummaryPanel && (
           <SummaryPanel
             summaryText={summaryText}
             isGenerating={isSummaryGenerating}
@@ -912,7 +982,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showEvalPanel && (
+        {enabledFeatures.aiEvaluation && showEvalPanel && (
           <EvaluationPanel
             resultText={evalResult}
             isGenerating={isEvalGenerating}
@@ -924,7 +994,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showSpeechPanel && (
+        {enabledFeatures.aiSpeech && showSpeechPanel && (
           <SpeechPanel
             scriptText={speechText}
             isGenerating={isSpeechGenerating}
@@ -933,6 +1003,18 @@ export function DocReaderPage() {
             onClose={() => { setShowSpeechPanel(false); setSpeechPoppedOut(false) }}
             poppedOut={speechPoppedOut}
             onTogglePopup={() => setSpeechPoppedOut(v => !v)}
+          />
+        )}
+
+        {enabledFeatures.aiInception && showInceptionPanel && (
+          <InceptionPanel
+            inceptionText={inceptionText}
+            isGenerating={isInceptionGenerating}
+            error={inceptionError}
+            onGenerate={handleGenerateInception}
+            onClose={() => { setShowInceptionPanel(false); setInceptionPoppedOut(false) }}
+            poppedOut={inceptionPoppedOut}
+            onTogglePopup={() => setInceptionPoppedOut(v => !v)}
           />
         )}
 
@@ -959,7 +1041,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showSimilarPanel && (
+        {enabledFeatures.aiSimilarity && showSimilarPanel && (
           <SimilarDocsPanel
             docId={docId || ''}
             onClose={() => { setShowSimilarPanel(false); setSimilarPoppedOut(false) }}

@@ -67,7 +67,7 @@ export async function generateStudyPlan(
   const stage1Messages = [
     {
       role: 'system' as const,
-      content: `You are a learning planning advisor. Given a user's job description or learning goal, select the most relevant categories from the list below. Return ONLY a JSON array of category keys (strings), no other text. Select 2-5 categories.
+      content: `You are a learning planning advisor. Given a user's job description or learning goal, select ALL potentially relevant categories from the list below. Be generous — include categories that are directly required as well as those that provide useful background knowledge. Return ONLY a JSON array of category keys (strings), no other text. Select 3-8 categories.
 
 Categories:
 ${categoryList}`,
@@ -113,19 +113,20 @@ ${categoryList}`,
   const stage2Messages = [
     {
       role: 'system' as const,
-      content: `You are a learning planning advisor. The user will provide a job description, interview position, or learning goal. Based on the document catalog below, select the most relevant documents and return a JSON response.
+      content: `You are a learning planning advisor. The user will provide a job description, interview position, or learning goal. Based on the document catalog below, select ALL relevant documents and return a JSON response.
 
 Document catalog (grouped by category, format: id | title):
 ${catalogText}
 
 Instructions:
-1. Select documents that are relevant to the user's input. Aim for 5-20 matches.
-2. For each match, provide:
+1. Be thorough — select ALL documents that are relevant, including directly matching topics and foundational background knowledge. Aim for 15-40 matches. It is better to include a borderline-relevant document than to miss an important one.
+2. For each category that appears in the catalog, if ANY document in that category is relevant, review ALL documents in that category — do not stop after finding a few matches.
+3. For each match, provide:
    - docId: exact id from the catalog
    - reason: a short explanation of why this document is relevant (for tooltip)
-   - priority: "high", "medium", or "low"
-3. Provide a concise summary of the study plan recommendation.
-4. Return ONLY valid JSON, no other text.
+   - priority: "high" (directly required), "medium" (useful background), or "low" (supplementary)
+4. Provide a concise summary of the study plan recommendation.
+5. Return ONLY valid JSON, no other text.
 
 JSON format:
 {"summary": "...", "matches": [{"docId": "...", "reason": "...", "priority": "high|medium|low"}]}`,
@@ -193,8 +194,18 @@ export function getOngoingGeneration(workspace: string): { promise: Promise<Stud
   return null
 }
 
-/** Load the most recent cached plan for a workspace */
-export function loadCachedStudyPlan(workspace: string): StudyPlanResult | null {
-  const plans = storageService.getStudyPlans()
-  return plans.find(p => p.workspace === workspace) ?? null
+/** Load all cached plans for a workspace, newest first */
+export function loadStudyPlans(workspace: string): StudyPlanResult[] {
+  return storageService.getStudyPlans().filter(p => p.workspace === workspace)
+}
+
+/** Load a single plan by id */
+export function loadStudyPlanById(id: string): StudyPlanResult | null {
+  return storageService.getStudyPlans().find(p => p.id === id) ?? null
+}
+
+/** Delete a plan by id */
+export function deleteStudyPlan(id: string): void {
+  const plans = storageService.getStudyPlans().filter(p => p.id !== id)
+  storageService._setStudyPlans(plans)
 }

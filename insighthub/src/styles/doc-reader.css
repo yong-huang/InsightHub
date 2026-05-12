@@ -463,3 +463,67 @@
   transition: width 0.3s ease;
   min-width: 2px;
 }
+
+/* ========== Inception Panel (multi-level summary) ========== */
+.inception-level {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.inception-level-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+  font-family: var(--font-sans);
+}
+.inception-level-header:hover {
+  background: var(--bg-hover);
+}
+
+.inception-level-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.inception-level-title {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.inception-level-chevron {
+  color: var(--text-dim);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.inception-level-header[data-open="true"] .inception-level-chevron {
+  transform: rotate(90deg);
+}
+
+.inception-level-body {
+  padding: 0 0.8rem 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* Level accent colors */
+.inception-level[data-level="1"] .inception-level-dot { background: var(--accent-blue); }
+.inception-level[data-level="1"] { border-left: 3px solid var(--accent-blue); }
+.inception-level[data-level="2"] .inception-level-dot { background: #06b6d4; }
+.inception-level[data-level="2"] { border-left: 3px solid #06b6d4; }
+.inception-level[data-level="3"] .inception-level-dot { background: var(--accent-green); }
+.inception-level[data-level="3"] { border-left: 3px solid var(--accent-green); }
+.inception-level[data-level="4"] .inception-level-dot { background: var(--accent-orange); }
+.inception-level[data-level="4"] { border-left: 3px solid var(--accent-orange); }
+.inception-level[data-level="5"] .inception-level-dot { background: var(--accent-purple); }
+.inception-level[data-level="5"] { border-left: 3px solid var(--accent-purple); }
