@@ -15,7 +15,7 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 <p align="center">
   <img src="docs/screenshots/06-knowledge-graph.png" alt="Knowledge Graph" width="440"/>
-  <img src="docs/screenshots/08-personal-map.png" alt="Personal Knowledge Map" width="440"/>
+  <img src="docs/screenshots/07-personal-map.png" alt="Personal Knowledge Map" width="440"/>
 </p>
 <p align="center">
   <em>Knowledge Graph</em> — interactive D3-force document network<br/>
@@ -24,7 +24,7 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 <p align="center">
   <img src="docs/screenshots/05-stats.png" alt="Learning Analytics" width="440"/>
-  <img src="docs/screenshots/07-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
+  <img src="docs/screenshots/10-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
 </p>
 <p align="center">
   <em>Learning Analytics</em> — heatmap, radar, quiz dashboard, token usage<br/>
@@ -32,8 +32,8 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/09-learning-path.png" alt="Learning Path" width="440"/>
-  <img src="docs/screenshots/10-notes.png" alt="Notes" width="440"/>
+  <img src="docs/screenshots/08-learning-path.png" alt="Learning Path" width="440"/>
+  <img src="docs/screenshots/09-notes.png" alt="Notes" width="440"/>
 </p>
 <p align="center">
   <em>Learning Path</em> — milestones with progress and recommendations<br/>
