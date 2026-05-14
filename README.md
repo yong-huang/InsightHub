@@ -1,6 +1,6 @@
 # InsightHub
 
-An intelligent knowledge management platform for browsing, annotating, and mastering HTML learning documents. Powered by local LLM integration for AI-generated quizzes and document summaries, with rich interactive visualizations and science-backed spaced repetition.
+An intelligent knowledge management platform for browsing, annotating, and mastering HTML learning documents. Powered by local LLM integration for AI-generated quizzes, document chat, and concept extraction, with rich interactive visualizations and science-backed spaced repetition.
 
 ## Screenshots
 
@@ -10,7 +10,7 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 </p>
 <p align="center">
   <em>Home Dashboard</em> — stats, recent reads, and category overview<br/>
-  <em>Document Reader</em> — iframe embed with annotation highlights
+  <em>Document Reader</em> — iframe embed with annotation highlights and AI panels
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@ An intelligent knowledge management platform for browsing, annotating, and maste
   <img src="docs/screenshots/07-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
 </p>
 <p align="center">
-  <em>Learning Analytics</em> — heatmap, radar, quiz dashboard<br/>
+  <em>Learning Analytics</em> — heatmap, radar, quiz dashboard, token usage<br/>
   <em>Spaced Repetition</em> — AI flashcards with SM-2 scheduling
 </p>
 
@@ -46,11 +46,21 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 InsightHub integrates with any OpenAI-compatible local LLM to bring intelligence directly into your reading workflow:
 
-- **AI Quiz Generation** — Select any document and generate a complete quiz session on the fly. The LLM analyzes the document content and produces multiple-choice and true/false questions via SSE streaming, so you see questions appear in real-time as they're generated. Supports configurable difficulty and question count.
+- **AI Quiz Generation** — Generate a complete quiz session on the fly. The LLM analyzes document content and produces multiple-choice and true/false questions via SSE streaming, with questions appearing in real-time. Supports configurable difficulty and question count.
 
-- **AI Document Summarization** — Get a structured summary of any document with one click. The AI extracts core takeaways, key concepts, and a content outline. Summaries stream in incrementally with markdown rendering.
+- **AI Document Chat** — Ask questions about the current document and get contextual answers. Supports multi-turn conversation with streaming responses.
 
-- **AI Answer Grading** — Short-answer quiz questions are graded by the LLM with detailed feedback, explaining why an answer is correct or incorrect.
+- **AI Document Summarization** — Get a structured summary with one click. The AI extracts core takeaways, key concepts, and a content outline.
+
+- **AI Inception (Progressive Summary)** — Multi-level progressive summarization that distills a document from full content to increasingly concise abstracts.
+
+- **AI Concept Extraction** — Automatically extract key concepts from documents and generate spaced repetition flashcards.
+
+- **AI Study Plan** — Paste a job description or learning goal, and the AI matches relevant documents from your library to create a personalized study plan.
+
+- **AI Answer Grading** — Short-answer quiz questions are graded by the LLM with detailed feedback.
+
+- **Token Usage Tracking** — Monitor AI token consumption across all features with cost estimation for commercial LLMs (GPT-4o, Claude, DeepSeek).
 
 - **Privacy-First** — All AI features run against a local model. No data leaves your machine. Works with llama.cpp, Ollama, vLLM, or any OpenAI-compatible server.
 
@@ -58,23 +68,15 @@ InsightHub integrates with any OpenAI-compatible local LLM to bring intelligence
 
 InsightHub turns your learning data into actionable visual insights:
 
-- **Knowledge Graph** — A force-directed network graph where documents, categories, and tags are nodes connected by relationships. Pan, zoom, and drag to explore. Click any node to navigate. Built with D3-force simulation.
-
-- **Personal Knowledge Map** — A force-directed graph centered on "You", showing your personal knowledge landscape. Node size reflects engagement depth (reading + annotations + quizzes). Color-coded mastery levels from red (needs work) to cyan (mastered).
-
-- **Knowledge Tree** — A collapsible tree view organizing content by Category → Document → Concept. Documents show read status, concepts show definitions on hover. Provides a structured, hierarchical alternative to the graph view.
-
-- **GitHub-Style Reading Heatmap** — Track daily reading activity over time with a calendar heatmap, just like GitHub's contribution graph. See your reading streaks at a glance.
-
-- **Category Radar Chart** — A radar/spider chart showing your reading distribution across up to 15 categories. Instantly spot which areas you've covered and which you've neglected.
-
-- **Quiz Performance Dashboard** — A circular gauge for average score, difficulty distribution bar chart, and score trend line chart. Track how your quiz performance evolves over time.
-
-- **Reading Habits Analysis** — Discover when you read most with hourly distribution charts, weekday patterns, and streak tracking (current and longest).
-
-- **Tag Cloud** — A dynamic word cloud where tag size and opacity reflect usage frequency. Click any tag to filter documents.
-
-- **Learning Path** — A timeline of learning milestones showing category progress, completion counts, and recommended next steps based on your reading history.
+- **Knowledge Graph** — A force-directed network graph where documents, categories, and tags are nodes connected by relationships. Pan, zoom, and drag to explore. Built with D3-force simulation.
+- **Personal Knowledge Map** — A force-directed graph centered on "You", showing your personal knowledge landscape. Node size reflects engagement depth. Color-coded mastery levels from red (needs work) to cyan (mastered).
+- **Knowledge Tree** — A collapsible tree view organizing content by Category → Document → Concept.
+- **GitHub-Style Reading Heatmap** — Track daily reading activity over time.
+- **Category Radar Chart** — A radar/spider chart showing reading distribution across categories.
+- **Quiz Performance Dashboard** — Circular gauge for average score, difficulty distribution, and score trend line chart.
+- **Reading Habits Analysis** — Hourly distribution, weekday patterns, and streak tracking.
+- **Tag Cloud** — Dynamic word cloud where tag size reflects usage frequency.
+- **Learning Path** — Timeline of learning milestones with recommended next steps.
 
 ### Spaced Repetition
 
@@ -83,40 +85,39 @@ Turn your highlights and comments into durable knowledge:
 - Annotations are **automatically converted** into flashcards — highlights become fill-in-the-blank cards, comments become Q&A cards.
 - Reviews are scheduled using the **SM-2 algorithm** (SuperMemo 2), the same proven algorithm behind Anki.
 - Intervals grow from 1 day → 6 days → 17 days → 49 days → ... based on your recall performance.
-- Grade each card 0-5 (forgot → perfect). Failed cards reset to short intervals.
+- Concept cards extracted by AI are also scheduled for review.
 - 3D flip card animation with keyboard shortcuts (Space to flip, 0-5 to grade, S to skip).
-- Workspace-isolated — flashcards are filtered by your current knowledge base.
 
 ### Rich Annotation System
 
 - **Highlight** text in 6 colors with persistent overlays that survive page reloads.
 - **Comment** on any selection with threaded replies.
-- **Click-to-view** — Click any highlighted passage in the document to see its annotation in a popup.
-- Annotations are serialized via XPath and restored with fuzzy text matching as fallback, so they survive document edits.
+- **Click-to-view** — Click any highlighted passage to see its annotation in a popup.
+- Annotations are serialized via XPath and restored with fuzzy text matching as fallback.
 - All annotations are synced across LAN clients.
 
 ## Feature Overview
 
 | Category | Features |
 |----------|----------|
-| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import |
-| **AI Integration** | Quiz generation (SSE streaming), document summarization, AI grading, configurable model endpoint |
+| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import, cross-document navigation |
+| **AI Integration** | Quiz generation (SSE streaming), document chat, summarization, inception, concept extraction, study plan, AI grading, token usage tracking |
 | **Annotations** | Multi-color highlights, inline comments with replies, click-to-view popup, XPath persistence with fuzzy restore |
-| **Spaced Repetition** | Auto flashcard generation, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
+| **Spaced Repetition** | Auto flashcard generation from annotations and AI concepts, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
 | **Visualizations** | Knowledge graph, personal map, knowledge tree, reading heatmap, category radar, quiz dashboard, reading habits, tag cloud, learning path |
 | **Gamification** | Achievement system with 20+ unlockable milestones, toast notifications |
-| **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation (MindInsight / TechInsight) |
-| **UI/UX** | Light/dark theme, responsive sidebar, keyboard shortcuts, iframe-based document reader |
+| **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation |
+| **UI/UX** | Light/dark theme, responsive sidebar, keyboard shortcuts, iframe-based document reader, feature toggles |
 
 ## Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | Framework | React 19 + TypeScript | UI and type safety |
-| Build | Vite 8 | Dev server and bundling |
+| Build | Vite 8 | Dev server and bundling with code splitting |
 | State | Zustand 5 | Lightweight reactive state |
 | Search | FlexSearch | Client-side full-text search |
-| Charts | Recharts | Statistical charts (radar, heatmap, line, bar) |
+| Charts | Recharts | Statistical charts (radar, heatmap, line, bar, area) |
 | Graph | D3-force | Force-directed graph layouts |
 | Icons | Lucide React | Consistent icon system |
 | Styling | Pure CSS + Custom Properties | Theming without dependencies |
@@ -139,9 +140,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3060`. Document source directories must exist at the paths configured in `vite.config.ts`.
+Open `http://localhost:5600`. Document source directories must exist at the paths configured in `vite.config.ts`.
 
-> **Without a local LLM**, the app works fully — browsing, search, annotations, flashcards, and all visualizations function normally. Only AI quiz generation and document summarization require an LLM server.
+> **Without a local LLM**, the app works fully — browsing, search, annotations, flashcards, and all visualizations function normally. Only AI features require an LLM server.
 
 ### Production Build
 
@@ -156,13 +157,13 @@ npm run preview  # Serve the production build locally
 insighthub/
 ├── src/
 │   ├── components/
-│   │   ├── DocReader/           # Annotation bar, panel, popup, summary panel
+│   │   ├── DocReader/           # Annotation bar, panel, popup, summary/chat/AI panels
 │   │   ├── Layout/              # App shell, sidebar with workspace switching
-│   │   ├── visualization/       # 10 interactive visualization components
+│   │   ├── visualization/       # 12 interactive visualization components
 │   │   │   ├── KnowledgeGraph   #   Force-directed document/category/tag graph
 │   │   │   ├── PersonalMap      #   Personal knowledge landscape graph
 │   │   │   ├── KnowledgeTree    #   Collapsible category→doc→concept tree
-│   │   │   ├── LearningPath     #   Timeline with milestone cards
+│   │   │   ├── LearningPath     #   Timeline with milestone cards + AI study plan
 │   │   │   ├── CategoryRadar    #   Radar chart for category coverage
 │   │   │   ├── ReadingHeatmap   #   GitHub-style daily activity heatmap
 │   │   │   ├── QuizPerformance  #   Score gauge + trend + difficulty chart
@@ -170,13 +171,31 @@ insighthub/
 │   │   │   ├── TagCloud         #   Frequency-based word cloud
 │   │   │   ├── TopEngaged       #   Ranked engagement list
 │   │   │   └── ReportHero       #   Summary hero cards for stats page
-│   │   └── stats/               # Chart containers and stat components
+│   │   ├── stats/               # Chart containers and stat components
+│   │   └── shared/              # Reusable UI components (DocCard, FilterBar, etc.)
+│   ├── pages/
+│   │   ├── HomePage.tsx         # Dashboard
+│   │   ├── CategoryPage.tsx     # Category listing + doc grid
+│   │   ├── DocReaderPage.tsx    # Document reader with all AI panels
+│   │   ├── SearchPage.tsx       # Full-text search
+│   │   ├── QuizPage.tsx         # AI quiz session
+│   │   ├── StatsPage.tsx        # Learning analytics
+│   │   ├── KnowledgeGraphPage.tsx # Tabbed: graph / personal map
+│   │   ├── LearningPathPage.tsx # Tabbed: tree / milestones / timeline / study plan
+│   │   ├── SpacedRepetitionPage.tsx # SM-2 flashcard review
+│   │   ├── TokenStatsPage.tsx   # AI token usage and cost estimation
+│   │   └── ...
 │   ├── services/
 │   │   ├── aiService.ts         # SSE streaming, quiz gen, summarization, grading
-│   │   ├── spacedRepetition.ts  # SM-2 algorithm, card creation, HTML stripping
-│   │   └── achievementService.ts # 20+ achievement definitions
-│   ├── stores/                  # 8 Zustand stores (document, annotation, quiz, etc.)
-│   ├── utils/                   # XPath serialization, graph builders, aggregators
+│   │   ├── readerAiService.ts   # Document chat, explain, translate, inception
+│   │   ├── conceptService.ts    # AI concept extraction
+│   │   ├── studyPlanService.ts  # AI study plan generation
+│   │   ├── tokenUsageService.ts # Token usage tracking
+│   │   ├── spacedRepetition.ts  # SM-2 algorithm, card creation
+│   │   ├── similarityService.ts # TF-IDF document similarity
+│   │   └── achievementService.ts # Achievement definitions
+│   ├── stores/                  # 9 Zustand stores
+│   ├── utils/                   # XPath, graph builders, aggregators, markdown renderer
 │   └── styles/                  # 7 CSS files (globals, layout, components, etc.)
 ├── vite-plugins/                # Custom Vite plugin (document discovery + API proxy)
 └── vite.config.ts
@@ -199,16 +218,21 @@ Compatible with any OpenAI-compatible server: llama.cpp, Ollama, vLLM, LM Studio
 
 ### Document Sources
 
-Two knowledge bases, each with multiple categories:
+Three knowledge bases, each with multiple categories:
 
-| Workspace | Categories |
-|-----------|-----------|
-| **MindInsight** | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
-| **TechInsight** | AI Frameworks, Algorithms, Cloud, Dell, Infrastructure, Job, Programming, VMware |
+| Workspace | Prefix | Categories |
+|-----------|--------|-----------|
+| **MindInsight** | `mi-` | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
+| **TechInsight** | `ti-` | AI Frameworks, Algorithms, Cloud, Database, DevOps, K8s, Linux, Networking, Programming, Security, VMware, and more |
+| **LeetCodeInsight** | `li-` | Arrays, Strings, Linked List, Stack, Math, Dynamic Programming, Binary Search |
 
 ### Workspace Switching
 
-Toggle between MindInsight and TechInsight from the navbar. Each workspace independently filters documents, annotations, flashcards, tags, and sidebar navigation.
+Toggle between workspaces from the navbar. Each workspace independently filters documents, annotations, flashcards, tags, and sidebar navigation. Custom workspaces can be added in Settings.
+
+### Feature Toggles
+
+Individual AI features can be enabled/disabled from Settings: Summary, Evaluation, Inception, Speech, Script, Quiz, Concept Extraction, Similarity Edges, and more.
 
 ## Documentation
 

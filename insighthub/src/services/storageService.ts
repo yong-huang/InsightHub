@@ -240,11 +240,11 @@ export const storageService = {
 
   // Reading positions
   getReadingPositions: () =>
-    getItem<Record<string, { scrollTop: number; savedAt: number }>>(storageKeys.READ_POSITIONS, {}),
+    getItem<Record<string, { scrollTop: number; scrollHeight: number; savedAt: number }>>(storageKeys.READ_POSITIONS, {}),
 
-  saveReadingPosition: (docId: string, scrollTop: number) => {
+  saveReadingPosition: (docId: string, scrollTop: number, scrollHeight = 0) => {
     const positions = storageService.getReadingPositions()
-    positions[docId] = { scrollTop, savedAt: Date.now() }
+    positions[docId] = { scrollTop, scrollHeight, savedAt: Date.now() }
     // Evict oldest entries beyond 500 to prevent localStorage bloat
     const keys = Object.keys(positions)
     if (keys.length > 500) {

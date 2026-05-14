@@ -371,7 +371,7 @@ export function DocReaderPage() {
           const doc = iframeRef.current?.contentDocument
           const win = doc?.defaultView
           if (win) {
-            storageService.saveReadingPosition(docId, win.scrollY)
+            storageService.saveReadingPosition(docId, win.scrollY, win.document.documentElement.scrollHeight)
           }
         } catch {}
       }, 500)
@@ -394,7 +394,7 @@ export function DocReaderPage() {
       try {
         const doc = iframeRef.current?.contentDocument
         const win = doc?.defaultView
-        if (win) storageService.saveReadingPosition(docId, win.scrollY)
+        if (win) storageService.saveReadingPosition(docId, win.scrollY, win.document.documentElement.scrollHeight)
       } catch {}
     }
     window.addEventListener('beforeunload', save)

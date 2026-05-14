@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from three sources: MindInsight (academic, finance, history, literature, media-analysis, philosophy, pop-culture), TechInsight (ai-frameworks, algorithms, cloud, dell, infrastructure, job, vmware, programming), and LeetcodeInsight (arrays, strings, linked-list, stack, math, dynamic-programming, binary-search, summary). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes. Features include text annotations (highlights and comments), spaced repetition flashcards, knowledge graph, achievements, and LAN sync across clients.
+InsightHub is a client-side React SPA for browsing, searching, and quizzing against HTML learning documents from three sources: MindInsight (academic, finance, history, literature, media-analysis, philosophy, pop-culture), TechInsight (ai-frameworks, algorithms, cloud, dell, infrastructure, job, vmware, programming), and LeetcodeInsight (arrays, strings, linked-list, stack, math, dynamic-programming, binary-search, summary). It connects to a local Qwen3.5-27B-4bit model for AI-generated quizzes, document chat, concept extraction, and study plans. Features include text annotations (highlights and comments), spaced repetition flashcards, knowledge graph, achievements, token usage tracking, and LAN sync across clients.
 
 ## Commands
 
@@ -48,7 +48,7 @@ All routes are wrapped in `<Layout />`. Key routes:
 - `/` — Home dashboard with stats and category overview
 - `/mindinsight`, `/techinsight`, `/leetcodeinsight` — Source-level category listing
 - `/mindinsight/:category`, `/techinsight/:category`, `/leetcodeinsight/:category` — Filtered by category
-- `/doc/:docId` — Document reader (iframe embed) with annotation support
+- `/doc/:docId` — Document reader (iframe embed) with annotation support, AI chat, summary, inception panels
 - `/search` — Search results
 - `/quiz/:quizId` — AI quiz session (quizId is a composite of docId + timestamp)
 - `/tag/:tagId` — Documents filtered by tag
@@ -59,6 +59,7 @@ All routes are wrapped in `<Layout />`. Key routes:
 - `/knowledge-graph` — Tabbed page: knowledge graph (D3-force) / personal map / knowledge tree (collapsible Category→Doc→Concept hierarchy)
 - `/learning-path` — Tabbed page: knowledge tree / learning path milestones / activity timeline / study plan (AI-driven document matching from JD/goal text)
 - `/spaced-repetition` — Spaced repetition flashcard review (SM-2 algorithm)
+- `/token-stats` — AI token usage statistics with cost estimation
 - `/settings` — AI model config, quiz preferences, feature toggles, workspace management
 
 ### Zustand Stores (`src/stores/`)
@@ -72,9 +73,9 @@ All routes are wrapped in `<Layout />`. Key routes:
 - **flashcardStore** — Flashcards with SM-2 scheduling, auto-generation from annotations, workspace filtering.
 - **conceptCardStore** — Concept cards with SM-2 scheduling, auto-extracted from documents via AI. Syncs to server. Used by KnowledgeTree and SpacedRepetition pages.
 
-### AI Quiz System (`src/services/aiService.ts`, `quizService.ts`)
+### AI System (`src/services/aiService.ts`, `readerAiService.ts`, `conceptService.ts`, `studyPlanService.ts`)
 
-Calls local OpenAI-compatible API (configurable, default `http://127.0.0.1:7001/v1`). Uses streaming (SSE) for quiz generation via server-side proxy (`/api/ai/chat/completions`). Generates multiple-choice and true/false questions only, scored on a 100-point scale. 60-second timeout per AI call. Supports concurrent quiz generation for different documents.
+Calls local OpenAI-compatible API (configurable, default `http://127.0.0.1:7001/v1`). Uses streaming (SSE) for quiz generation via server-side proxy (`/api/ai/chat/completions`). Generates multiple-choice and true/false questions only, scored on a 100-point scale. 60-second timeout per AI call. Supports concurrent quiz generation for different documents. Token usage is captured from both callAI (non-streaming) and callAIStream (SSE) responses and tracked in `tokenUsageService` for the Token Stats page.
 
 ### Annotation System (`src/hooks/useAnnotationIframe.ts`, `src/utils/xpath.ts`)
 
@@ -137,9 +138,10 @@ CSS files:
 - `src/utils/markdownRenderer.ts` — Markdown-to-React renderer for AI summaries
 - `src/utils/bidirectionalLinks.ts` — Wiki-style bidirectional link resolver
 - `src/utils/notesExporter.ts` — Notes export to text/markdown
-- `src/services/aiService.ts` — AI API client (OpenAI-compatible, SSE streaming)
-- `src/services/readerAiService.ts` — AI document summary/chat for DocReader
+- `src/services/aiService.ts` — AI API client (OpenAI-compatible, SSE streaming), token usage capture
+- `src/services/readerAiService.ts` — AI document chat, explain, translate, inception for DocReader
 - `src/services/conceptService.ts` — Concept card extraction via AI
+- `src/services/tokenUsageService.ts` — Token usage persistence and retrieval
 - `src/services/quizService.ts` — Quiz generation and parsing logic
 - `src/services/searchService.ts` — FlexSearch index and query execution
 - `src/services/importService.ts` — Document import handling
