@@ -182,7 +182,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: var(--font-sans);
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .kg-controls button:hover {
@@ -523,7 +523,7 @@
   padding: 4px 12px;
   border-radius: var(--radius-full, 9999px);
   font-size: 0.8rem;
-  transition: all 0.2s;
+  transition: opacity 0.2s, transform 0.2s;
   cursor: pointer;
   border: 1px solid transparent;
 }

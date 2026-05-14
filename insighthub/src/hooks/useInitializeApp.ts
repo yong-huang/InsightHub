@@ -32,7 +32,21 @@ export function useInitializeApp() {
       // Migrate legacy challenge storage (one-time)
       storageService.migrateChallengeStorage()
 
+      // Start document loading (fetch + parse, non-blocking)
       const initDocs = useDocumentStore.getState().initializeDocuments()
+
+      // Parallel: load all lightweight stores while documents are loading
+      // These are all localStorage reads and don't depend on each other or on documents
+      const lightweightStores = Promise.all([
+        useTagStore.getState().loadTags(),
+        useSearchStore.getState().loadHistory(),
+        useQuizStore.getState().loadHistory(),
+        useQuizStore.getState().loadSavedQuizzes(),
+        usePreferenceStore.getState().loadQuizSettingsFromServer(),
+        useAnnotationStore.getState().loadAnnotations(),
+        useConceptCardStore.getState().loadCards(),
+      ])
+
       // After documents load, register dynamic categories globally
       initDocs.then(() => {
         const docs = useDocumentStore.getState().documents
@@ -51,13 +65,8 @@ export function useInitializeApp() {
         })))
       })
 
-      useTagStore.getState().loadTags()
-      useSearchStore.getState().loadHistory()
-      useQuizStore.getState().loadHistory()
-      useQuizStore.getState().loadSavedQuizzes()
-      usePreferenceStore.getState().loadQuizSettingsFromServer()
-      useAnnotationStore.getState().loadAnnotations()
-      useConceptCardStore.getState().loadCards()
+      // lightweightStores is intentionally not awaited — it resolves quickly from localStorage
+      // and we don't need it before UI renders
     })
   }, [])
 }

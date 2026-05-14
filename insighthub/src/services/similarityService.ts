@@ -119,7 +119,7 @@ export function buildSimilarityIndex(docs: Map<string, Document>, tags: Tag[]): 
     } catch {}
   }
 
-  const vectors = buildTfIdfVectors(textSnippets)
+  let vectors = buildTfIdfVectors(textSnippets)
 
   // Build tag lookup: docId → Set<tagId>
   const docTagMap = new Map<string, Set<string>>()
@@ -184,6 +184,7 @@ export function buildSimilarityIndex(docs: Map<string, Document>, tags: Tag[]): 
 
   indexCache = results
   textSnippets = [] // free memory
+  vectors = null as any // release TF-IDF vectors for GC
 
   // Cache to localStorage
   try {

@@ -5,6 +5,7 @@ import {
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
   GraduationCap, BookOpen, Sparkles, Server, Cloud, Database, Terminal, GitBranch,
   Briefcase, Globe, Layers, Lightbulb, ShieldCheck, FileText, FolderOpen, Box, Package,
+  Coins,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { prefetchRoute } from '@/utils/prefetchRoute'
@@ -111,6 +112,7 @@ export function Navbar() {
     { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
     { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },
     { icon: BarChart3, label: 'Statistics', to: '/stats', badge: 0 },
+    { icon: Coins, label: 'Token Stats', to: '/token-stats', badge: 0 },
     { icon: Settings, label: 'Settings', to: '/settings', badge: 0 },
   ]
 

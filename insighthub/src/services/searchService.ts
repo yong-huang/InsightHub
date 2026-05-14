@@ -16,7 +16,7 @@ function createIndex(): Document {
     document: {
       id: 'id',
       index: ['title', 'content'],
-      store: ['title', 'category', 'source', 'content'],
+      store: ['title', 'category', 'source', 'snippet'],
     },
     context: {
       resolution: 9,
@@ -26,6 +26,9 @@ function createIndex(): Document {
   })
   return index
 }
+
+// Amount of content to keep in FlexSearch store for snippet generation (~200 chars per doc)
+const STORE_SNIPPET_LENGTH = 200
 
 export async function indexDocument(doc: {
   id: string
@@ -38,11 +41,16 @@ export async function indexDocument(doc: {
     searchIndex = createIndex()
   }
   const truncatedContent = doc.contentText.slice(0, 8000)
+  // Store a short excerpt for snippet generation instead of full content
+  const storeSnippet = truncatedContent.length > STORE_SNIPPET_LENGTH
+    ? truncatedContent.slice(0, STORE_SNIPPET_LENGTH) + '...'
+    : truncatedContent
   await searchIndex.add(doc.id, {
     title: doc.title,
     content: truncatedContent,
     category: doc.category,
     source: doc.source,
+    snippet: storeSnippet,
   })
 }
 
@@ -140,14 +148,14 @@ export async function search(
           const id = String(result.id)
           const doc = result.doc as Record<string, any> | undefined
           if (!results.find(r => r.id === id)) {
-            const content: string = doc?.content || ''
+            const snippet: string = doc?.snippet || ''
             results.push({
               id,
               title: doc?.title || id,
               category: doc?.category || '',
               source: doc?.source || '',
               score: 10,
-              snippet: generateSnippet(content, query),
+              snippet: generateSnippet(snippet, query),
             })
           }
         }
@@ -166,14 +174,14 @@ export async function search(
           const id = String(result.id)
           const doc = result.doc as Record<string, any> | undefined
           if (!results.find(r => r.id === id)) {
-            const content: string = doc?.content || ''
+            const snippet: string = doc?.snippet || ''
             results.push({
               id,
               title: doc?.title || id,
               category: doc?.category || '',
               source: doc?.source || '',
               score: 5,
-              snippet: generateSnippet(content, query),
+              snippet: generateSnippet(snippet, query),
             })
           }
         }

@@ -24,6 +24,17 @@ function loadWorkspacePaths(): string[] {
 }
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/recharts')) return 'vendor-recharts'
+          if (id.includes('node_modules/d3-force')) return 'vendor-d3'
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'vendor-react'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     documentDiscovery({

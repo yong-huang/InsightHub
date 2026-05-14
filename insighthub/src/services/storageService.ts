@@ -36,6 +36,7 @@ export const storageKeys = {
   TTS_PREFERENCES: `${PREFIX}tts-preferences`,
   INCEPTION: `${PREFIX}inception`,
   STUDY_PLANS: `${PREFIX}study-plans`,
+  TOKEN_USAGE: `${PREFIX}token-usage`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -229,6 +230,11 @@ export const storageService = {
   saveSummary: (docId: string, text: string) => {
     const summaries = storageService.getSummaries()
     summaries[docId] = text
+    // Keep at most 100 summaries
+    const keys = Object.keys(summaries)
+    if (keys.length > 100) {
+      for (const oldKey of keys.slice(0, keys.length - 100)) delete summaries[oldKey]
+    }
     return setItem(storageKeys.SUMMARIES, summaries)
   },
 
@@ -239,6 +245,12 @@ export const storageService = {
   saveReadingPosition: (docId: string, scrollTop: number) => {
     const positions = storageService.getReadingPositions()
     positions[docId] = { scrollTop, savedAt: Date.now() }
+    // Evict oldest entries beyond 500 to prevent localStorage bloat
+    const keys = Object.keys(positions)
+    if (keys.length > 500) {
+      const sorted = keys.sort((a, b) => positions[a].savedAt - positions[b].savedAt)
+      for (let i = 0; i < keys.length - 500; i++) delete positions[sorted[i]]
+    }
     setItem(storageKeys.READ_POSITIONS, positions)
   },
 
@@ -279,7 +291,13 @@ export const storageService = {
 
   saveChatHistory: (docId: string, messages: any[]) => {
     const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
-    all[docId] = messages
+    // Cap at 50 messages per document to prevent localStorage bloat
+    all[docId] = messages.slice(-50)
+    // Keep at most 30 documents' history
+    const keys = Object.keys(all)
+    if (keys.length > 30) {
+      for (const oldKey of keys.slice(0, keys.length - 30)) delete all[oldKey]
+    }
     setItem(storageKeys.CHAT_HISTORY, all)
   },
 
@@ -370,6 +388,11 @@ export const storageService = {
   getStudyPlans: () => getItem<StudyPlanResult[]>(storageKeys.STUDY_PLANS, []),
 
   _setStudyPlans: (plans: StudyPlanResult[]) => setItem(storageKeys.STUDY_PLANS, plans),
+
+  // Token usage tracking
+  getTokenUsage: () => getItem<any[]>(storageKeys.TOKEN_USAGE, []),
+
+  _setTokenUsage: (entries: any[]) => setItem(storageKeys.TOKEN_USAGE, entries),
 
   saveStudyPlan: (plan: StudyPlanResult) => {
     const plans = storageService.getStudyPlans()

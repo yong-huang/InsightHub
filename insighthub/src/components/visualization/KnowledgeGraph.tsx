@@ -88,14 +88,20 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
       .force('center', forceCenter(WIDTH / 2, HEIGHT / 2))
       .force('collide', forceCollide<SimNode>().radius(d => d.size + 4))
 
+    let rafId = 0
     sim.on('tick', () => {
-      setSimNodes(nodes.map(n => ({ ...n })))
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        rafId = 0
+        setSimNodes(nodes.map(n => ({ ...n })))
+      })
     })
 
     simRef.current = sim
 
     return () => {
       sim.stop()
+      if (rafId) cancelAnimationFrame(rafId)
     }
   }, [graphData])
 

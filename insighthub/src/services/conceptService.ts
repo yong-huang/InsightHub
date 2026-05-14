@@ -1,4 +1,5 @@
 import { callAIStream, extractJSON } from '@/services/aiService'
+import { recordUsage } from '@/services/tokenUsageService'
 import type { ConceptCard } from '@/types'
 
 interface RawConcept {
@@ -32,6 +33,7 @@ Format:
   ]
 
   const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('concept', result.usage)
   if (!result.success || !result.data) return result
 
   try {

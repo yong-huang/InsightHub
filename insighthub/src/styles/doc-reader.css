@@ -42,7 +42,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   font-family: var(--font-sans);
   font-size: 0;
   white-space: nowrap;
@@ -193,7 +193,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
 
@@ -229,7 +229,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   text-align: left;
   line-height: 1.4;
 }
@@ -257,7 +257,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   font-family: var(--font-sans);
 }
 
@@ -314,7 +314,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   font-family: var(--font-sans);
 }
 
@@ -381,6 +381,7 @@
   line-height: 1.6;
   max-height: 120px;
   overflow-y: auto;
+  contain: layout style paint;
 }
 
 .tts-sentence-active {
@@ -402,7 +403,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   text-align: left;
   width: 100%;
   font-family: var(--font-sans);

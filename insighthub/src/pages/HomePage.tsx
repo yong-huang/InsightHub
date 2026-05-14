@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen, CheckCircle2, Circle, Layers, ArrowRight, Clock,
@@ -18,24 +19,43 @@ export function HomePage() {
   const workspaces = usePreferenceStore(s => s.workspaces)
 
   const meta = getWorkspaceConfig(activeWorkspace, workspaces)
-  const workspaceDocs = Array.from(documents.values()).filter(d => d.source === activeWorkspace)
   const workspaceCategories = useDynamicCategories(activeWorkspace)
-  const recentReads = getRecentReads().filter(d => d.source === activeWorkspace).slice(0, 10)
+  const recentReads = useMemo(
+    () => getRecentReads().filter(d => d.source === activeWorkspace).slice(0, 10),
+    [getRecentReads, activeWorkspace],
+  )
 
-  const stats = {
-    total: workspaceDocs.length,
-    read: workspaceDocs.filter(d => d.isRead).length,
-    unread: workspaceDocs.filter(d => !d.isRead).length,
-    categories: new Set(workspaceDocs.map(d => d.category)).size,
-  }
+  // Single-pass: compute stats + build docId set + category set
+  const { stats, workspaceDocIds, workspaceTags } = useMemo(() => {
+    const docIds = new Set<string>()
+    const cats = new Set<string>()
+    let readCount = 0
+    for (const doc of documents.values()) {
+      if (doc.source !== activeWorkspace) continue
+      docIds.add(doc.id)
+      cats.add(doc.category)
+      if (doc.isRead) readCount++
+    }
+    const s = {
+      total: docIds.size,
+      read: readCount,
+      unread: docIds.size - readCount,
+      categories: cats.size,
+    }
+    const wsTags = tags
+      .map(tag => ({
+        ...tag,
+        documentIds: tag.documentIds.filter(id => docIds.has(id)),
+      }))
+      .filter(tag => tag.documentIds.length > 0)
+      .sort((a, b) => b.documentIds.length - a.documentIds.length)
+    return { stats: s, workspaceDocIds: docIds, workspaceTags: wsTags }
+  }, [documents, activeWorkspace, tags])
 
-  const workspaceDocIds = new Set(workspaceDocs.map(d => d.id))
-  const workspaceTags = tags
-    .map(tag => ({
-      ...tag,
-      documentIds: tag.documentIds.filter(id => workspaceDocIds.has(id)),
-    }))
-    .filter(tag => tag.documentIds.length > 0)
+  const workspaceDocs = useMemo(
+    () => Array.from(documents.values()).filter(d => d.source === activeWorkspace),
+    [documents, activeWorkspace],
+  )
 
   return (
     <div className="cs-settings">
@@ -129,7 +149,6 @@ export function HomePage() {
           <div className="cs-card-body">
             <div className="tag-list">
               {workspaceTags
-                .sort((a, b) => b.documentIds.length - a.documentIds.length)
                 .slice(0, 15)
                 .map(tag => (
                   <Link

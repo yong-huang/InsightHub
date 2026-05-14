@@ -1,5 +1,6 @@
 import { callAI, extractJSON } from './aiService'
 import { storageService } from './storageService'
+import { recordUsage } from './tokenUsageService'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import type { Document } from '@/types'
 
@@ -76,6 +77,7 @@ ${categoryList}`,
   ]
 
   const stage1 = await callAI(stage1Messages, 60000, 512)
+  if (stage1.usage) recordUsage('study-plan', stage1.usage)
   if (!stage1.success || !stage1.data) {
     throw new Error(stage1.error || 'Failed to select categories')
   }
@@ -136,6 +138,7 @@ JSON format:
 
   const validDocIds = new Set(filteredEntries.map(e => e.id))
   const result = await callAI(stage2Messages, 180000, 4096)
+  if (result.usage) recordUsage('study-plan', result.usage)
 
   if (!result.success || !result.data) {
     throw new Error(result.error || 'AI call failed')

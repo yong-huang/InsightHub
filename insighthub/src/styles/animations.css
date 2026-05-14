@@ -80,13 +80,14 @@
   animation: slideInUp 0.4s var(--ease-smooth) forwards;
 }
 
-/* ========== Pulse Glow ========== */
+/* ========== Pulse Glow (GPU-composited via transform/opacity) ========== */
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-blue-glow); }
-  50% { box-shadow: 0 0 20px 4px var(--accent-blue-glow); }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: 0.85; }
 }
 .pulse-glow {
   animation: pulseGlow 2s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 /* ========== Spin ========== */

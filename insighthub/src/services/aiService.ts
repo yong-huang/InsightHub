@@ -1,3 +1,5 @@
+import { recordUsage } from './tokenUsageService'
+
 const TIMEOUT_MS = 120000
 const IDLE_TIMEOUT_MS = 180000 // No data received for 180s = timeout
 
@@ -15,10 +17,18 @@ interface ChatMessage {
   content: string
 }
 
+export interface UsageInfo {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  estimated?: boolean
+}
+
 export interface AIResponse {
   success: boolean
   data?: any
   error?: string
+  usage?: UsageInfo
 }
 
 export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS, maxTokens = 8000): Promise<AIResponse> {
@@ -73,7 +83,16 @@ export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS, maxT
       }
     }
 
-    return { success: true, data: content }
+    const u = data.usage
+    return {
+      success: true,
+      data: content,
+      usage: u ? {
+        promptTokens: u.prompt_tokens || 0,
+        completionTokens: u.completion_tokens || 0,
+        totalTokens: u.total_tokens || 0,
+      } : undefined,
+    }
   } catch (e: any) {
     clearTimeout(timeoutId)
     if (e.name === 'AbortError') {
@@ -105,6 +124,8 @@ export async function callAIStream(
 
   // Track whether abort came from idle timeout (internal) vs external signal
   let abortedByTimeout = false
+  let content = ''
+  let lastUsage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined
 
   try {
     const response = await fetch(PROXY_URL, {
@@ -127,7 +148,6 @@ export async function callAIStream(
 
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()
-    let content = ''
     let buffer = ''
 
     // Idle timeout: reset every time we receive data
@@ -155,6 +175,8 @@ export async function callAIStream(
 
           try {
             const parsed = JSON.parse(payload)
+            // Capture usage if present in this chunk
+            if (parsed.usage) lastUsage = parsed.usage
             const choice = parsed.choices?.[0]
             // Handle thinking mode: extract content from reasoning delta if content is empty
             const delta = choice?.delta?.content || ''
@@ -179,7 +201,27 @@ export async function callAIStream(
       return { success: false, error: 'AI service returned no content' }
     }
 
-    return { success: true, data: content }
+    let usage: UsageInfo | undefined
+    if (lastUsage && lastUsage.total_tokens) {
+      usage = {
+        promptTokens: lastUsage.prompt_tokens || 0,
+        completionTokens: lastUsage.completion_tokens || 0,
+        totalTokens: lastUsage.total_tokens || 0,
+      }
+    } else {
+      // Estimate tokens from character count (~1 token per 3 chars for English/Chinese mix)
+      const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0)
+      const promptTokens = Math.ceil(promptChars / 3)
+      const completionTokens = Math.ceil(content.length / 3)
+      usage = {
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        estimated: true,
+      }
+    }
+
+    return { success: true, data: content, usage }
   } catch (e: any) {
     if (e.name === 'AbortError') {
       // External abort → treat accumulated content as valid result
@@ -187,7 +229,14 @@ export async function callAIStream(
       if (externalSignal?.aborted && !abortedByTimeout) {
         // Caller aborted; onChunk has already streamed content to UI.
         // The caller reads streamingText from its own state, so we just signal success.
-        return { success: true, data: '' }
+        if (!content) return { success: true, data: '' }
+        const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0)
+        const promptTokens = Math.ceil(promptChars / 3)
+        const completionTokens = Math.ceil(content.length / 3)
+        return {
+          success: true, data: '',
+          usage: { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens, estimated: true },
+        }
       }
       return { success: false, error: 'Generation timed out. The model response was too slow. Please try again later.' }
     }
@@ -428,6 +477,7 @@ Format:
     const result = attempt === 0
       ? await callAI(messages)
       : await callAI(messages)
+    if (result.usage) recordUsage('quiz', result.usage)
     if (!result.success || !result.data) {
       return result
     }
@@ -506,6 +556,7 @@ Return strict JSON format:
   ]
 
   const result = await callAI(messages, 30000)
+  if (result.usage) recordUsage('grade', result.usage)
   if (result.success && result.data) {
     try {
       result.data = extractJSON(result.data)
@@ -550,7 +601,9 @@ Requirements: Keep the content concise and accurate. Output only Markdown text, 
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('summary', result.usage)
+  return result
 }
 
 export async function generateSpeakerNotes(
@@ -583,7 +636,9 @@ Output only the presentation script in Markdown, nothing else.`,
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('speech', result.usage)
+  return result
 }
 
 export async function evaluateDocumentAccuracy(
@@ -619,5 +674,7 @@ Requirements: Be objective and fair. Output only Markdown text, nothing else.`,
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('evaluation', result.usage)
+  return result
 }

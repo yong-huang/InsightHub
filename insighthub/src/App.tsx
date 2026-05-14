@@ -22,6 +22,7 @@ const importAchievements = () => import('@/pages/AchievementsPage')
 const importKnowledgeGraph = () => import('@/pages/KnowledgeGraphPage')
 const importLearningPath = () => import('@/pages/LearningPathPage')
 const importSpacedRepetition = () => import('@/pages/SpacedRepetitionPage')
+const importTokenStats = () => import('@/pages/TokenStatsPage')
 
 registerPrefetch('/', importHome)
 registerPrefetch('/doc', importDocReader)
@@ -40,6 +41,7 @@ registerPrefetch('/knowledge-graph', () => import('@/components/visualization/Kn
 registerPrefetch('/knowledge-graph', () => import('@/components/visualization/PersonalMap'))
 registerPrefetch('/learning-path', importLearningPath)
 registerPrefetch('/spaced-repetition', importSpacedRepetition)
+registerPrefetch('/token-stats', importTokenStats)
 
 const HomePage = lazy(() => importHome().then(m => ({ default: m.HomePage })))
 const CategoryPage = lazy(() => importCategory().then(m => ({ default: m.CategoryPage })))
@@ -54,6 +56,7 @@ const AchievementsPage = lazy(() => importAchievements().then(m => ({ default: m
 const KnowledgeGraphPage = lazy(() => importKnowledgeGraph().then(m => ({ default: m.KnowledgeGraphPage })))
 const LearningPathPage = lazy(() => importLearningPath().then(m => ({ default: m.LearningPathPage })))
 const SpacedRepetitionPage = lazy(() => importSpacedRepetition().then(m => ({ default: m.SpacedRepetitionPage })))
+const TokenStatsPage = lazy(() => importTokenStats().then(m => ({ default: m.TokenStatsPage })))
 
 function AppContent() {
   useInitializeApp()
@@ -79,6 +82,7 @@ function AppContent() {
               <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
               <Route path="/learning-path" element={<LearningPathPage />} />
               <Route path="/spaced-repetition" element={<SpacedRepetitionPage />} />
+              <Route path="/token-stats" element={<TokenStatsPage />} />
               {/* Dynamic workspace routes — catch-all for workspace IDs */}
               <Route path="/:workspace" element={<CategoryPage />} />
               <Route path="/:workspace/:category" element={<CategoryPage />} />

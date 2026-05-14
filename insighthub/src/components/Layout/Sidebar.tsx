@@ -14,16 +14,18 @@ export function Sidebar() {
 
   const activeWs = workspaces.find(w => w.id === activeWorkspace)
 
-  // Filter tags to only those with docs in current workspace
-  const workspaceDocIds = new Set(
-    Array.from(documents.values()).filter(d => d.source === activeWorkspace).map(d => d.id)
-  )
-  const workspaceTags = tags
-    .map(tag => ({
-      ...tag,
-      documentIds: tag.documentIds.filter(id => workspaceDocIds.has(id)),
-    }))
-    .filter(tag => tag.documentIds.length > 0)
+  // Memoize tag filtering to avoid recomputing on every render
+  const workspaceTags = useMemo(() => {
+    const wsDocIds = new Set(
+      Array.from(documents.values()).filter(d => d.source === activeWorkspace).map(d => d.id)
+    )
+    return tags
+      .map(tag => ({
+        ...tag,
+        documentIds: tag.documentIds.filter(id => wsDocIds.has(id)),
+      }))
+      .filter(tag => tag.documentIds.length > 0)
+  }, [documents, activeWorkspace, tags])
 
   return (
     <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>

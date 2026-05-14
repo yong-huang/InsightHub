@@ -25,14 +25,20 @@ export function SearchPage() {
 
   const plainQuery = useMemo(() => parseSearchQuery(query).text, [query])
 
-  const resultDocs = results
-    .map(r => {
-      const doc = documents.get(r.id)
-      return doc ? { doc, snippet: r.snippet } : null
-    })
-    .filter((d): d is NonNullable<typeof d> => !!d)
+  const resultDocs = useMemo(
+    () => results
+      .map(r => {
+        const doc = documents.get(r.id)
+        return doc ? { doc, snippet: r.snippet } : null
+      })
+      .filter((d): d is NonNullable<typeof d> => !!d),
+    [results, documents],
+  )
 
-  const recentReads = getRecentReads().filter(d => d.source === activeWorkspace)
+  const recentReads = useMemo(
+    () => getRecentReads().filter(d => d.source === activeWorkspace),
+    [getRecentReads, activeWorkspace],
+  )
   const navigate = useNavigate()
 
   const title = !query ? 'Recent Reads' : `Search: ${query}`

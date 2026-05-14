@@ -134,7 +134,7 @@ a:hover {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
-  transition: all 0.25s var(--ease-smooth);
+  transition: background-color 0.25s var(--ease-smooth), border-color 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth);
 }
 .card:hover {
   background: var(--bg-card-hover);
@@ -189,7 +189,7 @@ a:hover {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s var(--ease-smooth);
+  transition: background-color 0.2s var(--ease-smooth), border-color 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth);
   font-family: var(--font-sans);
   line-height: 1.5;
 }

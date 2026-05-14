@@ -184,7 +184,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
   text-decoration: none;
   font-size: 0;
 }
@@ -253,7 +253,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s;
   text-decoration: none;
 }
 .btn-icon:hover {
@@ -276,7 +276,7 @@
   color: var(--text-dim);
   cursor: pointer;
   font-size: 0.85rem;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
   font-family: var(--font-sans);
 }
 .search-trigger:hover {
@@ -309,6 +309,7 @@
   border-right: 1px solid var(--border-subtle);
   overflow-y: auto;
   overflow-x: hidden;
+  contain: layout style paint;
   transition: width 0.3s var(--ease-smooth);
   z-index: 50;
   display: flex;
@@ -352,7 +353,7 @@
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.85rem;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -405,7 +406,7 @@
   color: var(--text-secondary);
   text-decoration: none;
   background: var(--border-subtle);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 }
 .sidebar-tag:hover {
   background: var(--tag-color, var(--accent-blue));
@@ -489,7 +490,7 @@
   cursor: pointer;
   font-size: 0.8rem;
   color: var(--text-secondary);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   white-space: nowrap;
   overflow: hidden;
 }

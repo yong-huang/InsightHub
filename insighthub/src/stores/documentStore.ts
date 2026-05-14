@@ -222,12 +222,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     fetch('/api/read-meta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(metaMap[docId]) }).catch(() => {})
     fetch('/api/read-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentId: docId, readAt: Date.now() }) }).catch(() => {})
 
-    const docArray = Array.from(updated.values())
-    const readCount = docArray.filter(d => d.isRead).length
-
+    const { stats } = get()
     set({
       documents: updated,
-      stats: { ...get().stats, read: readCount, unread: docArray.length - readCount },
+      stats: { ...stats, read: stats.read + 1, unread: stats.unread - 1 },
     })
 
     get().applyFilters()
@@ -261,12 +259,10 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       fetch(`/api/read-meta?id=${encodeURIComponent(docId)}`, { method: 'DELETE' }).catch(() => {})
       fetch(`/api/read-history?documentId=${encodeURIComponent(docId)}`, { method: 'DELETE' }).catch(() => {})
 
-      const docArray = Array.from(updated.values())
-      const readCount = docArray.filter(d => d.isRead).length
-
+      const { stats } = get()
       set({
         documents: updated,
-        stats: { ...get().stats, read: readCount, unread: docArray.length - readCount },
+        stats: { ...stats, read: stats.read - 1, unread: stats.unread + 1 },
       })
     } else {
       get().markAsRead(docId)

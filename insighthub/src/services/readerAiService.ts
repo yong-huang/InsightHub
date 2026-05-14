@@ -1,5 +1,6 @@
 import { callAIStream, callAI, extractJSON } from './aiService'
 import type { AIResponse } from './aiService'
+import { recordUsage } from './tokenUsageService'
 
 export interface ChatMessage {
   id: string
@@ -61,7 +62,9 @@ ${truncatedDoc}`
     { role: 'user' as const, content: userMessage },
   ]
 
-  return callAIStream(messages, onChunk, signal)
+  const result = await callAIStream(messages, onChunk, signal)
+  if (result.usage) recordUsage('chat', result.usage)
+  return result
 }
 
 /** Generate follow-up suggestion questions after an AI response */
@@ -85,6 +88,7 @@ export async function generateFollowUpSuggestions(
   ]
 
   const result = await callAI(messages, 15000)
+  if (result.usage) recordUsage('follow-up', result.usage)
   if (!result.success || !result.data) return []
 
   try {
@@ -117,10 +121,10 @@ export async function explainConcept(
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('explain', result.usage)
+  return result
 }
-
-/** Translate selected text (auto-detect language) */
 export async function translateText(
   selectedText: string,
   onChunk?: (text: string) => void,
@@ -136,10 +140,10 @@ export async function translateText(
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('translate', result.usage)
+  return result
 }
-
-/** Generate a 5-level progressive summary (Inception) */
 export async function generateInception(
   documentTitle: string,
   documentContent: string,
@@ -180,5 +184,7 @@ Rules:
     },
   ]
 
-  return callAIStream(messages, onChunk)
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('inception', result.usage)
+  return result
 }
