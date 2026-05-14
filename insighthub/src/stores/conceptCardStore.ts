@@ -88,6 +88,21 @@ function migrateCards(cards: ConceptCard[]): ConceptCard[] {
   return updated
 }
 
+/** Enforce per-document concept card limit based on current preference */
+function enforcePerDocLimit(cards: ConceptCard[]): ConceptCard[] {
+  const maxCount = usePreferenceStore.getState().conceptMaxCount || 10
+  const docCounts = new Map<string, number>()
+  const result: ConceptCard[] = []
+  for (const c of cards) {
+    const count = docCounts.get(c.sourceDocId) || 0
+    if (count < maxCount) {
+      result.push(c)
+      docCounts.set(c.sourceDocId, count + 1)
+    }
+  }
+  return result
+}
+
 export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
   cards: [],
   isLoaded: false,
@@ -97,20 +112,26 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
   loadCards: () => {
     const localCards = storageService.getConceptCards() as ConceptCard[]
     const migrated = migrateCards(localCards)
-    set({ cards: migrated, isLoaded: true })
+    const enforced = enforcePerDocLimit(migrated)
+    set({ cards: enforced, isLoaded: true })
+    if (enforced.length !== migrated.length) {
+      storageService.setConceptCards(enforced)
+      syncCardsToServer(enforced)
+    }
     // Merge from server (LAN sync)
     fetch('/api/concept-cards')
       .then(r => r.json())
       .then((serverCards: ConceptCard[]) => {
-        const localIds = new Set(migrated.map(c => c.id))
-        const merged = [...migrated]
+        const localIds = new Set(enforced.map(c => c.id))
+        const merged = [...enforced]
         for (const c of serverCards) {
           if (!localIds.has(c.id)) merged.push(c)
         }
-        storageService.setConceptCards(merged)
-        set({ cards: merged })
+        const trimmed = enforcePerDocLimit(merged)
+        storageService.setConceptCards(trimmed)
+        set({ cards: trimmed })
         // Sync merged state back to server
-        syncCardsToServer(merged)
+        syncCardsToServer(trimmed)
       })
       .catch(() => {})
   },

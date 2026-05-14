@@ -265,6 +265,60 @@ export function DocReaderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId])
 
+  // Intercept cross-document links inside the iframe
+  // When user clicks a link to another .html doc, navigate parent instead of iframe
+  useEffect(() => {
+    const handleIframeMessage = (e: MessageEvent) => {
+      if (e.data?.type !== 'insighthub-navigate') return
+      const filename = e.data.filename as string | undefined
+      if (!filename) return
+      // Find document by filename
+      let target: { id: string } | undefined
+      for (const d of allDocuments.values()) {
+        if (d.fileName === filename) { target = d; break }
+      }
+      if (!target) return
+      // Navigate to the linked document with current tab state
+      const { from, scrollToAnnotation, ...rest } = fromState
+      navigate(`/doc/${target.id}`, {
+        state: Object.keys(rest).length > 0 ? rest : undefined,
+      })
+    }
+
+    window.addEventListener('message', handleIframeMessage)
+    return () => window.removeEventListener('message', handleIframeMessage)
+  }, [navigate, fromState, allDocuments])
+
+  // Inject link interceptor into iframe on each load
+  useEffect(() => {
+    if (!docId) return
+    const inject = () => {
+      const iframe = iframeRef.current
+      if (!iframe?.contentDocument?.body) return
+      // Avoid double-injection
+      if (iframe.contentDocument.getElementById('__insighthub-link-interceptor')) return
+      const script = iframe.contentDocument.createElement('script')
+      script.id = '__insighthub-link-interceptor'
+      script.textContent = `
+        document.addEventListener('click', function(e) {
+          var a = e.target.closest('a');
+          if (!a) return;
+          var href = a.getAttribute('href');
+          if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
+          // Only intercept .html links to other docs
+          if (!/\\.html?(\\?|$)/.test(href)) return;
+          // Extract filename
+          var filename = href.split('/').pop().split('?')[0];
+          window.parent.postMessage({ type: 'insighthub-navigate', filename: filename }, '*');
+          e.preventDefault();
+        });
+      `
+      iframe.contentDocument.head.appendChild(script)
+    }
+    const timer = setTimeout(inject, 500)
+    return () => clearTimeout(timer)
+  }, [docId])
+
   // Reset summary state when document changes, load cached summary
   useEffect(() => {
     setShowSummaryPanel(false)
@@ -828,7 +882,7 @@ export function DocReaderPage() {
           )}
 
           {/* Presentation script button */}
-          {enabledFeatures.aiSpeech && (
+          {enabledFeatures.aiScript && (
           <button
             className={`dr-action-btn ${showSpeechPanel || speechText ? 'active' : ''}`}
             onClick={() => {

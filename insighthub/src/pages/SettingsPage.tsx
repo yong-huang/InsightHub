@@ -53,11 +53,6 @@ export function SettingsPage() {
   const [editApiKey, setEditApiKey] = useState('')
   const [isNewProfile, setIsNewProfile] = useState(false)
 
-  const [localDifficulty, setLocalDifficulty] = useState<Difficulty>(quizDifficulty)
-  const [localCount, setLocalCount] = useState(String(quizQuestionCount))
-  const [localConceptCount, setLocalConceptCount] = useState(String(conceptMaxCount))
-  const [localEnabledTypes, setLocalEnabledTypes] = useState<QuestionType[]>(quizEnabledTypes)
-  const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -108,8 +103,8 @@ export function SettingsPage() {
         setActiveProfileId(cfg.activeProfileId || '')
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
-        if (cfg.quizDifficulty) setLocalDifficulty(cfg.quizDifficulty as Difficulty)
-        if (cfg.quizQuestionCount) setLocalCount(String(cfg.quizQuestionCount))
+        if (cfg.quizDifficulty) setQuizDifficulty(cfg.quizDifficulty as Difficulty)
+        if (cfg.quizQuestionCount) setQuizQuestionCount(cfg.quizQuestionCount)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -197,22 +192,6 @@ export function SettingsPage() {
         }
         setIsNewProfile(false)
       }
-      const quizRes = await fetch('/api/ai/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quizDifficulty: localDifficulty,
-          quizQuestionCount: Number(localCount) || 10,
-        }),
-      })
-      if (quizRes.ok) {
-        setQuizDifficulty(localDifficulty)
-        setQuizQuestionCount(Number(localCount))
-        setQuizEnabledTypes(localEnabledTypes)
-        setConceptMaxCount(Number(localConceptCount) || 10)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
-      }
     } catch {}
     setSaving(false)
   }
@@ -274,6 +253,15 @@ export function SettingsPage() {
     } finally {
       setTesting(false)
     }
+  }
+
+  /** Sync quiz/concept settings to server (fire-and-forget) */
+  const syncQuizToServer = (partial: Record<string, any>) => {
+    fetch('/api/ai/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    }).catch(() => {})
   }
 
   const handleProfileClick = (p: AIProfile) => {
@@ -648,8 +636,12 @@ export function SettingsPage() {
             <div className="cs-form-group">
               <label>QUIZ DIFFICULTY</label>
               <select
-                value={localDifficulty}
-                onChange={e => setLocalDifficulty(e.target.value as Difficulty)}
+                value={quizDifficulty}
+                onChange={e => {
+                  const v = e.target.value as Difficulty
+                  setQuizDifficulty(v)
+                  syncQuizToServer({ quizDifficulty: v })
+                }}
               >
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
@@ -661,9 +653,13 @@ export function SettingsPage() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={localCount}
-                onChange={e => setLocalCount(e.target.value.replace(/[^0-9]/g, ''))}
-                onBlur={() => setLocalCount(String(Math.max(1, Math.min(20, Number(localCount) || 10))))}
+                value={quizQuestionCount}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  const n = Math.max(1, Math.min(20, Number(raw) || 10))
+                  setQuizQuestionCount(n)
+                  syncQuizToServer({ quizQuestionCount: n })
+                }}
               />
             </div>
             <div className="cs-form-group">
@@ -671,9 +667,13 @@ export function SettingsPage() {
               <input
                 type="text"
                 inputMode="numeric"
-                value={localConceptCount}
-                onChange={e => setLocalConceptCount(e.target.value.replace(/[^0-9]/g, ''))}
-                onBlur={() => setLocalConceptCount(String(Math.max(1, Math.min(50, Number(localConceptCount) || 10))))}
+                value={conceptMaxCount}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  const n = Math.max(1, Math.min(50, Number(raw) || 10))
+                  setConceptMaxCount(n)
+                  syncQuizToServer({ conceptMaxCount: n })
+                }}
               />
             </div>
           </div>
@@ -691,13 +691,13 @@ export function SettingsPage() {
                   <label key={type} className="cs-question-type-item">
                     <input
                       type="checkbox"
-                      checked={localEnabledTypes.includes(type)}
+                      checked={quizEnabledTypes.includes(type)}
                       onChange={e => {
-                        if (e.target.checked) {
-                          setLocalEnabledTypes(prev => [...prev, type])
-                        } else {
-                          setLocalEnabledTypes(prev => prev.filter(t => t !== type))
-                        }
+                        const next = e.target.checked
+                          ? [...quizEnabledTypes, type]
+                          : quizEnabledTypes.filter(t => t !== type)
+                        setQuizEnabledTypes(next)
+                        syncQuizToServer({ quizEnabledTypes: next })
                       }}
                     />
                     <span>{label}</span>
@@ -705,17 +705,6 @@ export function SettingsPage() {
                 ))}
               </div>
             </div>
-          </div>
-          <div className="cs-btn-group">
-            <button className="cs-btn cs-btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />}
-              {saved ? 'Saved' : 'Save Settings'}
-            </button>
-            {saved && (
-              <div className="cs-test-result success">
-                <CheckCircle2 size={14} /> Settings saved
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -732,7 +721,8 @@ export function SettingsPage() {
               { key: 'aiSummary' as FeatureKey, label: 'AI Summary' },
               { key: 'aiInception' as FeatureKey, label: 'AI Inception' },
               { key: 'aiEvaluation' as FeatureKey, label: 'AI Evaluation' },
-              { key: 'aiSpeech' as FeatureKey, label: 'AI Speech' },
+              { key: 'aiSpeech' as FeatureKey, label: 'AI Speech (TTS)' },
+              { key: 'aiScript' as FeatureKey, label: 'AI Script' },
               { key: 'aiQuiz' as FeatureKey, label: 'AI Quiz' },
               { key: 'aiConcept' as FeatureKey, label: 'AI Concept Extraction' },
               { key: 'aiSimilarity' as FeatureKey, label: 'Document Similarity' },
