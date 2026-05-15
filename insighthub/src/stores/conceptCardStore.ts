@@ -67,6 +67,45 @@ function syncCardsToServer(cards: ConceptCard[]): Promise<void> {
   }).then(() => {}).catch(() => {})
 }
 
+/** Debounced persistence — avoids blocking the UI on every grade click */
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+
+function schedulePersist() {
+  if (persistTimer) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    storageService.setConceptCards(useConceptCardStore.getState().cards)
+    persistTimer = null
+  }, 500)
+}
+
+function scheduleSync() {
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => {
+    syncCardsToServer(useConceptCardStore.getState().cards)
+    syncTimer = null
+  }, 2000)
+}
+
+/** Flush any pending persistence (e.g. on page unload) */
+export function flushConceptCardPersistence() {
+  if (persistTimer) {
+    clearTimeout(persistTimer)
+    storageService.setConceptCards(useConceptCardStore.getState().cards)
+    persistTimer = null
+  }
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncCardsToServer(useConceptCardStore.getState().cards)
+    syncTimer = null
+  }
+}
+
+// Flush on page unload to avoid data loss
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushConceptCardPersistence)
+}
+
 /**
  * Migrate old concept cards that don't have SM-2 fields.
  */
@@ -191,22 +230,24 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
   },
 
   reviewCard: (cardId, grade) => {
-    const updated = get().cards.map(c =>
-      c.id === cardId ? sm2Review(c, grade) : c
-    )
-    set({ cards: updated })
-    storageService.setConceptCards(updated)
-    syncCardsToServer(updated)
+    set(state => ({
+      cards: state.cards.map(c =>
+        c.id === cardId ? sm2Review(c, grade) : c
+      )
+    }))
+    schedulePersist()
+    scheduleSync()
   },
 
   skipCard: (cardId) => {
     const tomorrow = Date.now() + 24 * 60 * 60 * 1000
-    const updated = get().cards.map(c =>
-      c.id === cardId ? { ...c, nextReview: tomorrow } : c
-    )
-    set({ cards: updated })
-    storageService.setConceptCards(updated)
-    syncCardsToServer(updated)
+    set(state => ({
+      cards: state.cards.map(c =>
+        c.id === cardId ? { ...c, nextReview: tomorrow } : c
+      )
+    }))
+    schedulePersist()
+    scheduleSync()
   },
 
   getDueCards: () => {

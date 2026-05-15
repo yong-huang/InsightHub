@@ -11,7 +11,7 @@ export interface SelectionInfo {
   existingAnnotationIds: string[]
 }
 
-export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
+export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement | null>, docId?: string) {
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
   const [staleAnnotationIds, setStaleAnnotationIds] = useState<Set<string>>(new Set())
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null)
@@ -257,7 +257,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
         clearTimeout(restoreTimeoutRef.current)
       }
     }
-  }, [iframeRef, getIframeDoc, handleMouseUp])
+  }, [iframeRef, getIframeDoc, handleMouseUp, docId])
 
   return {
     selectionInfo,

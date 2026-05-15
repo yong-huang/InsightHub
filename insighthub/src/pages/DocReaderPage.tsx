@@ -197,7 +197,7 @@ export function DocReaderPage() {
     removeHighlight,
     restoreHighlights,
     scrollToAnnotation,
-  } = useAnnotationIframe(iframeRef)
+  } = useAnnotationIframe(iframeRef, docId)
   const activeAnnotation = useMemo(
     () => allAnnotations.find(a => a.id === activeAnnotationId) || null,
     [allAnnotations, activeAnnotationId]
@@ -1004,6 +1004,7 @@ export function DocReaderPage() {
 
       <div className="doc-reader-content">
         <iframe
+          key={docId}
           ref={iframeRef}
           src={iframeSrc}
           className="doc-reader-iframe"
