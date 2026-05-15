@@ -62,15 +62,18 @@ export function SpacedRepetitionPage() {
 
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
-  const [slidingOut, setSlidingOut] = useState(false)
 
+  // Load cards once on mount, clean up empty cards on initial load only
   useEffect(() => {
     if (!isLoaded) loadCards()
-    if (isLoaded) {
-      const empty = cards.filter(c => !c.conceptName || !c.definition)
-      for (const c of empty) removeCard(c.id)
-    }
-  }, [isLoaded, loadCards, cards, removeCard])
+  }, [isLoaded, loadCards])
+  useEffect(() => {
+    if (!isLoaded) return
+    const empty = cards.filter(c => !c.conceptName || !c.definition)
+    if (empty.length === 0) return
+    for (const c of empty) removeCard(c.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded])
 
   const dueCards = useMemo(() => {
     const now = Date.now()
@@ -100,18 +103,14 @@ export function SpacedRepetitionPage() {
 
   const handleGrade = useCallback((grade: number) => {
     if (!currentCard) return
-    setSlidingOut(true)
-    setTimeout(() => {
-      reviewCard(currentCard.id, grade)
-      setSessionResults(prev => [...prev, { cardId: currentCard.id, grade }])
-      setFlipped(false)
-      setSlidingOut(false)
-      if (currentIdx + 1 >= sessionQueue.length) {
-        setSessionDone(true)
-      } else {
-        setCurrentIdx(i => i + 1)
-      }
-    }, 200)
+    reviewCard(currentCard.id, grade)
+    setSessionResults(prev => [...prev, { cardId: currentCard.id, grade }])
+    setFlipped(false)
+    if (currentIdx + 1 >= sessionQueue.length) {
+      setSessionDone(true)
+    } else {
+      setCurrentIdx(i => i + 1)
+    }
   }, [currentCard, currentIdx, sessionQueue.length, reviewCard])
 
   const handleFlip = useCallback(() => {
@@ -528,7 +527,7 @@ export function SpacedRepetitionPage() {
       </div>
 
       {/* Concept card */}
-      <div className="question-card slide-in-right" key={currentCard?.id} style={slidingOut ? { animation: 'slide-out-left 0.2s ease forwards' } : undefined}>
+      <div className="question-card slide-in-right" key={currentCard?.id}>
         <div className="question-card-header">
           <span className="question-type-badge">Concept Card</span>
           <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
