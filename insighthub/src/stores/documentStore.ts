@@ -46,44 +46,22 @@ async function loadAllDocuments(
   const manifest = await fetchDocumentManifest()
   set({ isLoading: true, loadProgress: { current: 0, total: manifest.length } })
 
-  // Load cached meta from localStorage
-  let metaMap = storageService.getDocumentMeta()
-
-  // Merge server-side read meta (server takes priority)
-  try {
-    const serverMeta = await fetch('/api/read-meta').then(r => r.json())
-    metaMap = { ...metaMap, ...serverMeta }
-    storageService.setDocumentMeta(metaMap)
-    // Also merge server read history
-    const serverHistory: any[] = await fetch('/api/read-history').then(r => r.json())
-    const localHistory = storageService.getReadHistory()
-    const localIds = new Set(localHistory.map(h => h.documentId))
-    const newEntries = serverHistory.filter(h => !localIds.has(h.documentId))
-    if (newEntries.length > 0) {
-      const merged = [...newEntries, ...localHistory].slice(0, 365)
-      storageService._setReadHistory(merged)
-    }
-  } catch {}
+  // Start server meta fetches in parallel with document loading
+  const serverMetaPromise = fetch('/api/read-meta').then(r => r.json()).catch(() => ({}))
+  const serverHistoryPromise = fetch('/api/read-history').then(r => r.json()).catch(() => [])
 
   const docs = new Map<string, Document>()
   const categoryCounts: Record<string, number> = {}
 
   clearIndex()
 
-  // Phase 1: fetch + parse ALL docs (no indexing) — batches for progress UI
-  const BATCH_SIZE = 20
+  // Phase 1: fetch + parse ALL docs (no indexing) — larger batches for 1000+ docs
+  const BATCH_SIZE = 50
   for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
     const batch = manifest.slice(i, i + BATCH_SIZE)
     const promises = batch.map(async (entry) => {
       try {
         const doc = await fetchAndParseDocument(entry)
-        // Restore read state from cache
-        const meta: DocumentMeta | undefined = metaMap[doc.id]
-        if (meta) {
-          doc.isRead = meta.isRead
-          doc.lastReadAt = meta.lastReadAt
-          doc.readCount = meta.readCount
-        }
         docs.set(doc.id, doc)
 
         // Count categories
@@ -93,9 +71,33 @@ async function loadAllDocuments(
       }
     })
     await Promise.all(promises)
-    set({ loadProgress: { current: i + batch.length, total: manifest.length } })
+    set({ loadProgress: { current: Math.min(i + BATCH_SIZE, manifest.length), total: manifest.length } })
     // Yield to browser so progress bar repaints and UI stays responsive
     await new Promise(r => setTimeout(r, 0))
+  }
+
+  // Merge server meta (arrived in parallel) — server takes priority
+  const [serverMeta, serverHistory] = await Promise.all([serverMetaPromise, serverHistoryPromise])
+  if (Object.keys(serverMeta).length > 0) {
+    const metaMap = { ...storageService.getDocumentMeta(), ...serverMeta }
+    storageService.setDocumentMeta(metaMap)
+    for (const doc of docs.values()) {
+      const meta: DocumentMeta | undefined = metaMap[doc.id]
+      if (meta) {
+        doc.isRead = meta.isRead
+        doc.lastReadAt = meta.lastReadAt
+        doc.readCount = meta.readCount
+      }
+    }
+  }
+  if (Array.isArray(serverHistory) && serverHistory.length > 0) {
+    const localHistory = storageService.getReadHistory()
+    const localIds = new Set(localHistory.map(h => h.documentId))
+    const newEntries = serverHistory.filter((h: any) => !localIds.has(h.documentId))
+    if (newEntries.length > 0) {
+      const merged = [...newEntries, ...localHistory].slice(0, 365)
+      storageService._setReadHistory(merged)
+    }
   }
 
   const docArray = Array.from(docs.values())
@@ -129,7 +131,7 @@ async function indexAllDocs(
   allDocs: Document[],
   setPartial: (partial: Partial<DocumentState>) => void,
 ): Promise<void> {
-  const BATCH_SIZE = 20
+  const BATCH_SIZE = 50
   for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
     const batch = allDocs.slice(i, i + BATCH_SIZE)
     await Promise.all(batch.map(async (doc) => {

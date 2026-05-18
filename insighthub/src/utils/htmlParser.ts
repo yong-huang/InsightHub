@@ -27,25 +27,29 @@ function extractSections(doc: globalThis.Document): Element[] {
   return Array.from(doc.querySelectorAll('h2, h3'))
 }
 
-function countWords(text: string): number {
+function analyzeText(text: string): { wordCount: number; language: 'zh' | 'en' | 'mixed' } {
   const cjkMatches = text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g)
   const cjkCount = cjkMatches ? cjkMatches.length : 0
+  // Replace CJK with spaces, then count Latin words
   const latinText = text.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, ' ')
-  const latinCount = latinText.split(/\s+/).filter(w => w.length > 0).length
-  return cjkCount + latinCount
-}
+  const latinWords = latinText.split(/\s+/).filter(w => w.length > 0)
+  const latinCount = latinWords.length
 
-function detectLanguage(text: string): 'zh' | 'en' | 'mixed' {
-  const cjkMatches = text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g)
-  const cjkCount = cjkMatches ? cjkMatches.length : 0
-  const latinMatches = text.match(/[a-zA-Z]/g)
-  const latinCount = latinMatches ? latinMatches.length : 0
-  const total = cjkCount + latinCount
-  if (total === 0) return 'en'
-  const cjkRatio = cjkCount / total
-  if (cjkRatio > 0.7) return 'zh'
-  if (cjkRatio < 0.2) return 'en'
-  return 'mixed'
+  const wordCount = cjkCount + latinCount
+
+  // Language detection from same counts
+  const latinCharMatches = text.match(/[a-zA-Z]/g)
+  const latinCharCount = latinCharMatches ? latinCharMatches.length : 0
+  const total = cjkCount + latinCharCount
+  let language: 'zh' | 'en' | 'mixed'
+  if (total === 0) {
+    language = 'en'
+  } else {
+    const cjkRatio = cjkCount / total
+    language = cjkRatio > 0.7 ? 'zh' : cjkRatio < 0.2 ? 'en' : 'mixed'
+  }
+
+  return { wordCount, language }
 }
 
 function resolveDocPath(entry: DocumentManifestEntry): string {
@@ -85,9 +89,8 @@ export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): O
     level: el.tagName === 'H2' ? 2 : 3,
   }))
 
-  // Word count & language
-  const wordCount = countWords(contentText)
-  const language = detectLanguage(contentText)
+  // Word count & language (single pass)
+  const { wordCount, language } = analyzeText(contentText)
 
   return {
     id: entry.id,

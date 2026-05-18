@@ -184,13 +184,24 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         return DEFAULT_WORKSPACES
       }
 
-      // API endpoint: return document manifest
+      // API endpoint: return document manifest (cached 1s to avoid redundant fs scans)
+      let manifestCache: { data: string; ts: number } | null = null
+      const MANIFEST_TTL = 1000 // 1 second
+
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
+          const now = Date.now()
+          if (manifestCache && now - manifestCache.ts < MANIFEST_TTL) {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(manifestCache.data)
+            return
+          }
           const workspaces = loadWorkspaces()
           const manifest = scanWorkspaces(workspaces, BASE_DIR)
+          const data = JSON.stringify(manifest)
+          manifestCache = { data, ts: now }
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(manifest))
+          res.end(data)
         } catch (e) {
           res.statusCode = 500
           res.end(JSON.stringify({ error: String(e) }))

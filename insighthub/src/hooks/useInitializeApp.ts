@@ -25,48 +25,47 @@ export function useInitializeApp() {
     if (initialized.current) return
     initialized.current = true
 
-    // Sync localStorage from server first so all stores read the latest data
+    // Migrate legacy challenge storage (one-time)
+    storageService.migrateChallengeStorage()
+
+    // Start document loading immediately — don't block on server sync
+    const initDocs = useDocumentStore.getState().initializeDocuments()
+
+    // Parallel: load all lightweight stores from localStorage
+    // These don't depend on each other or on documents
+    Promise.all([
+      useTagStore.getState().loadTags(),
+      useSearchStore.getState().loadHistory(),
+      useQuizStore.getState().loadHistory(),
+      useQuizStore.getState().loadSavedQuizzes(),
+      usePreferenceStore.getState().loadQuizSettingsFromServer(),
+      useAnnotationStore.getState().loadAnnotations(),
+      useConceptCardStore.getState().loadCards(),
+    ])
+
+    // Sync from server in parallel — results applied when ready, no blocking
     storageService.syncFromServer().then(() => {
-      // Restore workspaces from server (handles localStorage loss)
       usePreferenceStore.getState().loadWorkspacesFromServer()
-      // Migrate legacy challenge storage (one-time)
-      storageService.migrateChallengeStorage()
+    })
 
-      // Start document loading (fetch + parse, non-blocking)
-      const initDocs = useDocumentStore.getState().initializeDocuments()
-
-      // Parallel: load all lightweight stores while documents are loading
-      // These are all localStorage reads and don't depend on each other or on documents
-      const lightweightStores = Promise.all([
-        useTagStore.getState().loadTags(),
-        useSearchStore.getState().loadHistory(),
-        useQuizStore.getState().loadHistory(),
-        useQuizStore.getState().loadSavedQuizzes(),
-        usePreferenceStore.getState().loadQuizSettingsFromServer(),
-        useAnnotationStore.getState().loadAnnotations(),
-        useConceptCardStore.getState().loadCards(),
-      ])
-
-      // After documents load, register dynamic categories globally
-      initDocs.then(() => {
-        const docs = useDocumentStore.getState().documents
-        const catEntries: { key: string; source: string }[] = []
-        for (const doc of docs.values()) {
-          if (doc.category && !catEntries.some(e => e.key === doc.category)) {
-            catEntries.push({ key: doc.category, source: doc.source })
-          }
+    // After documents load, register dynamic categories globally
+    initDocs.then(() => {
+      const docs = useDocumentStore.getState().documents
+      const seen = new Set<string>()
+      const catEntries: { key: string; source: string }[] = []
+      for (const doc of docs.values()) {
+        if (doc.category && !seen.has(doc.category)) {
+          seen.add(doc.category)
+          catEntries.push({ key: doc.category, source: doc.source })
         }
-        registerDynamicCategories(catEntries)
+      }
+      registerDynamicCategories(catEntries)
 
-        // Also extend search service's label→key map
-        extendCategoryMap(catEntries.map(e => ({
-          key: e.key,
-          label: getCategoryInfo(e.key).label,
-        })))
-      })
-
-      // lightweightStores is intentionally not awaited — it resolves quickly from localStorage
-      // and we don't need it before UI renders
+      // Also extend search service's label→key map
+      extendCategoryMap(catEntries.map(e => ({
+        key: e.key,
+        label: getCategoryInfo(e.key).label,
+      })))
     })
   }, [])
 }
