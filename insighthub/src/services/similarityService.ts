@@ -1,5 +1,6 @@
-import type { Document, Tag } from '@/types'
 import { storageService } from '@/services/storageService'
+import { useTagStore } from '@/stores/tagStore'
+import { useDocumentStore } from '@/stores/documentStore'
 
 const CACHE_KEY = 'insighthub:similarity-cache'
 const TEXT_SNIPPET_LENGTH = 4000
@@ -16,6 +17,7 @@ type SparseVector = Map<string, number>
 
 let indexCache: Map<string, SimilarityResult[]> | null = null
 let textSnippets: { docId: string; text: string; source: string; category: string; subcategory?: string }[] = []
+let similarityBuilt = false
 
 // ---------- English & Chinese stop words ----------
 const EN_STOPS = new Set([
@@ -103,17 +105,22 @@ export function addSnippet(docId: string, text: string, source: string, category
   textSnippets.push({ docId, text: text.slice(0, TEXT_SNIPPET_LENGTH), source, category, subcategory })
 }
 
-/** Build similarity index from accumulated snippets. Call once after all indexing is done. */
-export function buildSimilarityIndex(docs: Map<string, Document>, tags: Tag[]): void {
-  if (textSnippets.length === 0) return
+/** Build similarity index from accumulated snippets (lazy, runs on first access). */
+function buildSimilarityIndex(): void {
+  const docs = useDocumentStore.getState().documents
+  const tags = useTagStore.getState().tags
+  const snippetCount = textSnippets.length
+
+  if (snippetCount === 0) return
 
   // Try loading cache first — compare doc count
   const cached = storageService._getRaw(CACHE_KEY)
   if (cached) {
     try {
       const parsed = JSON.parse(cached) as { key: string; data: Map<string, SimilarityResult[]> }
-      if (parsed.key === `docs:${docs.size}:snippets:${textSnippets.length}`) {
+      if (parsed.key === `docs:${docs.size}:snippets:${snippetCount}`) {
         indexCache = new Map(Object.entries(parsed.data))
+        textSnippets = [] // free memory
         return
       }
     } catch {}
@@ -191,7 +198,7 @@ export function buildSimilarityIndex(docs: Map<string, Document>, tags: Tag[]): 
     const serializable: Record<string, SimilarityResult[]> = {}
     for (const [k, v] of results) serializable[k] = v
     localStorage.setItem(CACHE_KEY, JSON.stringify({
-      key: `docs:${docs.size}:snippets:${textSnippets.length}`,
+      key: `docs:${docs.size}:snippets:${snippetCount}`,
       data: serializable,
     }))
   } catch {
@@ -199,8 +206,25 @@ export function buildSimilarityIndex(docs: Map<string, Document>, tags: Tag[]): 
   }
 }
 
-/** Get similar documents for a given docId */
+/** Lazy guard — builds the index on first call to getSimilarDocuments. */
+export function buildIfNeeded(): void {
+  if (similarityBuilt || textSnippets.length === 0) return
+  similarityBuilt = true
+  try {
+    buildSimilarityIndex()
+  } catch (e) {
+    console.error('Failed to build similarity index:', e)
+  }
+}
+
+/** Reset the build flag (used by clearSimilarityCache on reload). */
+function resetBuildFlag(): void {
+  similarityBuilt = false
+}
+
+/** Get similar documents for a given docId (builds index lazily on first call) */
 export function getSimilarDocuments(docId: string, limit = 10): SimilarityResult[] {
+  buildIfNeeded()
   if (!indexCache) {
     // Try loading from localStorage
     const cached = storageService._getRaw(CACHE_KEY)
@@ -219,5 +243,6 @@ export function getSimilarDocuments(docId: string, limit = 10): SimilarityResult
 export function clearSimilarityCache(): void {
   indexCache = null
   textSnippets = []
+  resetBuildFlag()
   try { localStorage.removeItem(CACHE_KEY) } catch {}
 }

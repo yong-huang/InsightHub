@@ -8,7 +8,7 @@ import { useTagStore } from '@/stores/tagStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { getDirectoryFromSource } from '@/utils/workspaceUtils'
 import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
-import { addSnippet, buildSimilarityIndex, clearSimilarityCache } from '@/services/similarityService'
+import { addSnippet, clearSimilarityCache } from '@/services/similarityService'
 
 interface DocumentState {
   documents: Map<string, Document>
@@ -18,7 +18,6 @@ interface DocumentState {
   filteredDocuments: Document[]
   categoryCounts: Record<string, number>
   stats: { total: number; read: number; unread: number; categories: number }
-  similarityReady: boolean
 
   // Actions
   initializeDocuments: () => Promise<void>
@@ -124,12 +123,11 @@ async function loadAllDocuments(
 
   // Phase 2: index ALL docs in background (search becomes available progressively)
   setIsIndexing(true)
-  indexAllDocs(Array.from(docs.values()), set)
+  indexAllDocs(Array.from(docs.values()))
 }
 
 async function indexAllDocs(
   allDocs: Document[],
-  setPartial: (partial: Partial<DocumentState>) => void,
 ): Promise<void> {
   const BATCH_SIZE = 50
   for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
@@ -148,15 +146,6 @@ async function indexAllDocs(
     await new Promise(r => setTimeout(r, 0))
   }
   setIsIndexing(false)
-
-  // Build similarity index after all text is processed
-  try {
-    const tags = useTagStore.getState().tags
-    buildSimilarityIndex(new Map(allDocs.map(d => [d.id, d])), tags)
-    setPartial({ similarityReady: true })
-  } catch (e) {
-    console.error('Failed to build similarity index:', e)
-  }
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -167,7 +156,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   filteredDocuments: [],
   categoryCounts: {},
   stats: { total: 0, read: 0, unread: 0, categories: 0 },
-  similarityReady: false,
 
   initializeDocuments: async () => {
     // Skip if already loaded — startup guard
@@ -179,7 +167,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     // Force full reload — clear caches first
     clearManifestCache()
     clearSimilarityCache()
-    set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 }, similarityReady: false })
+    set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 } })
     clearIndex()
     await loadAllDocuments(get, set)
   },

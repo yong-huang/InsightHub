@@ -212,16 +212,43 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     }, 1500)
   }, [getIframeDoc])
 
-  // Setup mouseup listener on iframe
+  // Setup selection listeners on iframe (mouseup for desktop, selectionchange for touch)
   useEffect(() => {
     const iframe = iframeRef.current
     if (!iframe) return
+
+    let selectionChangeTimer: ReturnType<typeof setTimeout> | null = null
 
     const onLoad = () => {
       const doc = getIframeDoc()
       if (!doc) return
 
+      // Desktop: mouseup fires after text drag selection
       doc.addEventListener('mouseup', handleMouseUp)
+
+      // Touch devices (iPad, etc.): selectionchange is the reliable signal
+      // Fired on the iframe's window, not the document
+      const win = doc.defaultView
+      if (win) {
+        win.addEventListener('selectionchange', () => {
+          if (selectionChangeTimer) clearTimeout(selectionChangeTimer)
+          selectionChangeTimer = setTimeout(() => {
+            // Only process if selection exists and is non-collapsed
+            const sel = win.getSelection()
+            if (!sel || sel.isCollapsed || !sel.rangeCount) {
+              // Dismiss annotation bar on collapsed selection
+              if (selectionInfoRef.current) {
+                selectionInfoRef.current = null
+                setSelectionInfo(null)
+              }
+              setActiveAnnotationId(null)
+              setActiveAnnotationRect(null)
+              return
+            }
+            handleMouseUp()
+          }, 150) // debounce: wait for selection handles to settle
+        })
+      }
 
       // Click on a mark to show its annotation popup
       doc.addEventListener('click', (e: MouseEvent) => {
@@ -253,6 +280,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
       if (doc) {
         doc.removeEventListener('mouseup', handleMouseUp)
       }
+      if (selectionChangeTimer) clearTimeout(selectionChangeTimer)
       if (restoreTimeoutRef.current) {
         clearTimeout(restoreTimeoutRef.current)
       }
