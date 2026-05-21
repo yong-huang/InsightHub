@@ -287,4 +287,4 @@ Configure difficulty (easy/medium/hard), question count, and enabled question ty
 
 ## License
 
-Private project.
+[MIT](LICENSE)
