@@ -84,7 +84,7 @@ export function buildGraphData(
   }
 
   const addLink = (source: string, target: string, type: string) => {
-    if (source !== target) {
+    if (source !== target && nodeIds.has(source) && nodeIds.has(target)) {
       links.push({ source, target, type })
     }
   }

@@ -6,56 +6,29 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 <p align="center">
   <img src="docs/screenshots/01-home.png" alt="Home Dashboard" width="440"/>
-  <img src="docs/screenshots/02-category.png" alt="Category Page" width="440"/>
+  <img src="docs/screenshots/02-doc-reader.png" alt="Document Reader" width="440"/>
 </p>
 <p align="center">
   <em>Home Dashboard</em> — stats, recent reads, and category overview<br/>
-  <em>Category Page</em> — document grid with filtering and sorting
+  <em>Document Reader</em> — iframe embed with annotation highlights and AI panels
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/03-doc-reader.png" alt="Document Reader" width="440"/>
-  <img src="docs/screenshots/04-search.png" alt="Search Results" width="440"/>
-</p>
-<p align="center">
-  <em>Document Reader</em> — iframe embed with annotation highlights and AI panels<br/>
-  <em>Search Results</em> — full-text search with FlexSearch
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/06-knowledge-graph.png" alt="Knowledge Graph" width="440"/>
-  <img src="docs/screenshots/07-personal-map.png" alt="Personal Knowledge Map" width="440"/>
+  <img src="docs/screenshots/03-knowledge-graph.png" alt="Knowledge Graph" width="440"/>
+  <img src="docs/screenshots/04-learning-path.png" alt="Learning Path" width="440"/>
 </p>
 <p align="center">
   <em>Knowledge Graph</em> — interactive D3-force document network<br/>
-  <em>Personal Map</em> — your knowledge landscape, color-coded by mastery
+  <em>Learning Path</em> — knowledge tree with milestones and recommendations
 </p>
 
 <p align="center">
   <img src="docs/screenshots/05-stats.png" alt="Learning Analytics" width="440"/>
-  <img src="docs/screenshots/10-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
+  <img src="docs/screenshots/06-hidden-docs.png" alt="Hidden Documents" width="440"/>
 </p>
 <p align="center">
   <em>Learning Analytics</em> — heatmap, radar, quiz dashboard, token usage<br/>
-  <em>Spaced Repetition</em> — AI flashcards with SM-2 scheduling
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/08-learning-path.png" alt="Learning Path" width="440"/>
-  <img src="docs/screenshots/09-notes.png" alt="Notes" width="440"/>
-</p>
-<p align="center">
-  <em>Learning Path</em> — milestones with progress and recommendations<br/>
-  <em>Notes</em> — all annotations grouped by document
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/11-token-stats.png" alt="Token Stats" width="440"/>
-  <img src="docs/screenshots/12-settings.png" alt="Settings" width="440"/>
-</p>
-<p align="center">
-  <em>Token Stats</em> — AI usage tracking with cost estimation<br/>
-  <em>Settings</em> — AI profiles, quiz prefs, feature toggles, workspaces, data backup
+  <em>Hidden Documents</em> — manage hidden documents and categories
 </p>
 
 ## Highlights
@@ -135,7 +108,7 @@ Turn your highlights and comments into durable knowledge:
 
 | Category | Features |
 |----------|----------|
-| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import (HTML), cross-document navigation |
+| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import (HTML), cross-document navigation, document/category hide & restore |
 | **AI Integration** | Quiz generation (SSE streaming, 5 question types), document chat, summarization, evaluation, inception, concept challenges, speech/script, study plan, concept extraction, AI bubble, token usage tracking |
 | **Annotations** | Multi-color highlights (6 colors), inline comments with replies, click-to-view popup, touch support, XPath persistence with fuzzy restore |
 | **Spaced Repetition** | Auto flashcard generation from annotations and AI concepts, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
@@ -239,6 +212,7 @@ insighthub/
 │   │   ├── TokenStatsPage.tsx        # AI token usage and cost estimation
 │   │   ├── AchievementsPage.tsx      # Achievement gallery
 │   │   ├── ReadLaterPage.tsx         # Read-later reading list
+│   │   ├── HiddenDocsPage.tsx        # Hidden documents & categories management
 │   │   └── SettingsPage.tsx          # Full settings (AI, quiz, features, workspaces, data)
 │   ├── services/                # 12 service modules
 │   │   ├── aiService.ts         # SSE streaming, quiz gen, summarization, grading

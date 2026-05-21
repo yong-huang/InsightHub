@@ -80,9 +80,9 @@ export function buildPathData(documents: Map<string, Document>, source?: string)
     }
     workspaceMilestones[cat.source].push(results[cat.key])
   }
-  // Sort each workspace by progress descending
+  // Sort each workspace alphabetically by category key (matches file tree order)
   for (const key of Object.keys(workspaceMilestones)) {
-    workspaceMilestones[key].sort((a, b) => b.progress - a.progress)
+    workspaceMilestones[key].sort((a, b) => a.categoryKey.localeCompare(b.categoryKey))
   }
 
   // Overall progress
