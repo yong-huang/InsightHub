@@ -156,8 +156,35 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Base directory: resolve workspace paths relative to the insighthub project root
       const BASE_DIR = path.resolve(__dirname, '..')
 
-      // Workspace config: read from .insighthub-workspaces.json
-      const workspacesConfigPath = path.resolve(BASE_DIR, options.workspacesPath || '.insighthub-workspaces.json')
+      // Unified data directory for all persistent JSON files
+      const DATA_DIR = path.resolve(BASE_DIR, 'data')
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+
+      // Migrate legacy data files from insighthub/ root to data/ directory
+      const LEGACY_FILES = [
+        '.insighthub-config.json',
+        '.ai-config.json',
+        '.insighthub-quizzes.json',
+        '.insighthub-read-meta.json',
+        '.insighthub-read-history.json',
+        '.insighthub-quiz-history.json',
+        '.insighthub-tags.json',
+        '.insighthub-annotations.json',
+        '.insighthub-concept-cards.json',
+        '.insighthub-imported-docs.json',
+        '.insighthub-client-storage.json',
+        '.insighthub-workspaces.json',
+      ]
+      for (const file of LEGACY_FILES) {
+        const legacyPath = path.resolve(BASE_DIR, file)
+        const newPath = path.resolve(DATA_DIR, file)
+        if (fs.existsSync(legacyPath) && !fs.existsSync(newPath)) {
+          fs.renameSync(legacyPath, newPath)
+        }
+      }
+
+      // Workspace config: read from data/.insighthub-workspaces.json
+      const workspacesConfigPath = path.resolve(DATA_DIR, options.workspacesPath || '.insighthub-workspaces.json')
 
       // Map from workspace ID to directory path (resolved relative to project root)
       function getWorkspaceDirs(): Record<string, string> {
@@ -295,10 +322,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
       })
 
-      // App config: persisted to .insighthub-config.json, editable from any client
+      // App config: persisted to data/.insighthub-config.json, editable from any client
       // Migrate from old .ai-config.json if it exists
-      const configPath = path.resolve(process.cwd(), '.insighthub-config.json')
-      const legacyConfigPath = path.resolve(process.cwd(), '.ai-config.json')
+      const configPath = path.resolve(DATA_DIR, '.insighthub-config.json')
+      const legacyConfigPath = path.resolve(DATA_DIR, '.ai-config.json')
       if (fs.existsSync(legacyConfigPath) && !fs.existsSync(configPath)) {
         fs.renameSync(legacyConfigPath, configPath)
       }
@@ -763,8 +790,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
       })
 
-      // Quiz persistence: shared across all LAN clients via .insighthub-quizzes.json
-      const quizzesPath = path.resolve(process.cwd(), '.insighthub-quizzes.json')
+      // Quiz persistence: shared across all LAN clients via data/.insighthub-quizzes.json
+      const quizzesPath = path.resolve(DATA_DIR, '.insighthub-quizzes.json')
 
       function loadQuizzesFile(): Record<string, any> {
         try {
@@ -837,8 +864,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Read meta persistence: shared across all LAN clients via .insighthub-read-meta.json
-      const readMetaPath = path.resolve(process.cwd(), '.insighthub-read-meta.json')
+      // Read meta persistence: shared across all LAN clients via data/.insighthub-read-meta.json
+      const readMetaPath = path.resolve(DATA_DIR, '.insighthub-read-meta.json')
 
       function loadReadMetaFile(): Record<string, any> {
         try {
@@ -902,8 +929,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Read history persistence: shared across all LAN clients via .insighthub-read-history.json
-      const readHistoryPath = path.resolve(process.cwd(), '.insighthub-read-history.json')
+      // Read history persistence: shared across all LAN clients via data/.insighthub-read-history.json
+      const readHistoryPath = path.resolve(DATA_DIR, '.insighthub-read-history.json')
 
       function loadReadHistoryFile(): any[] {
         try {
@@ -969,8 +996,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Quiz history persistence: shared across all LAN clients via .insighthub-quiz-history.json
-      const quizHistoryPath = path.resolve(process.cwd(), '.insighthub-quiz-history.json')
+      // Quiz history persistence: shared across all LAN clients via data/.insighthub-quiz-history.json
+      const quizHistoryPath = path.resolve(DATA_DIR, '.insighthub-quiz-history.json')
 
       function loadQuizHistoryFile(): any[] {
         try {
@@ -1025,8 +1052,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Tags persistence: shared across all LAN clients via .insighthub-tags.json
-      const tagsPath = path.resolve(process.cwd(), '.insighthub-tags.json')
+      // Tags persistence: shared across all LAN clients via data/.insighthub-tags.json
+      const tagsPath = path.resolve(DATA_DIR, '.insighthub-tags.json')
 
       function loadTagsFile(): any[] {
         try {
@@ -1074,8 +1101,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Annotations persistence: shared across all LAN clients via .insighthub-annotations.json
-      const annotationsPath = path.resolve(process.cwd(), '.insighthub-annotations.json')
+      // Annotations persistence: shared across all LAN clients via data/.insighthub-annotations.json
+      const annotationsPath = path.resolve(DATA_DIR, '.insighthub-annotations.json')
 
       function loadAnnotationsFile(): any[] {
         try {
@@ -1123,8 +1150,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Concept cards persistence: shared across all LAN clients via .insighthub-concept-cards.json
-      const conceptCardsPath = path.resolve(process.cwd(), '.insighthub-concept-cards.json')
+      // Concept cards persistence: shared across all LAN clients via data/.insighthub-concept-cards.json
+      const conceptCardsPath = path.resolve(DATA_DIR, '.insighthub-concept-cards.json')
 
       server.middlewares.use('/api/concept-cards', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
@@ -1167,8 +1194,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Imported documents: written directly to TechInsight/<category>/, legacy metadata in .insighthub-imported-docs.json
-      const importedDocsPath = path.resolve(process.cwd(), '.insighthub-imported-docs.json')
+      // Imported documents: written directly to TechInsight/<category>/, legacy metadata in data/.insighthub-imported-docs.json
+      const importedDocsPath = path.resolve(DATA_DIR, '.insighthub-imported-docs.json')
       const IMPORT_DOC_SIZE_LIMIT = 5 * 1024 * 1024 // 5MB
 
       interface ImportedDocRecord {
@@ -1295,9 +1322,9 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
-      // Generic client storage sync: shared across all LAN clients via .insighthub-client-storage.json
+      // Generic client storage sync: shared across all LAN clients via data/.insighthub-client-storage.json
       // Keys that already have dedicated sync endpoints are excluded on the client side.
-      const clientStoragePath = path.resolve(process.cwd(), '.insighthub-client-storage.json')
+      const clientStoragePath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
 
       function loadClientStorageFile(): Record<string, any> {
         try {

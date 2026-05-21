@@ -12,3 +12,7 @@ dist/
 
 # Claude
 .claude/
+
+# InsightHub runtime data
+insighthub/data/*
+!insighthub/data/.gitkeep
