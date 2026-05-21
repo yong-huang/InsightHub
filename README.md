@@ -77,12 +77,11 @@ InsightHub turns your learning data into actionable visual insights:
 
 ### Spaced Repetition
 
-Turn your highlights and comments into durable knowledge:
+Review AI-extracted concept cards with science-backed scheduling:
 
-- Annotations are **automatically converted** into flashcards — highlights become fill-in-the-blank cards, comments become Q&A cards.
+- Concept cards are **automatically generated** by AI when you extract concepts from documents.
 - Reviews are scheduled using the **SM-2 algorithm** (SuperMemo 2), the same proven algorithm behind Anki.
 - Intervals grow from 1 day → 6 days → 17 days → 49 days → ... based on your recall performance.
-- Concept cards extracted by AI are also scheduled for review.
 - 3D flip card animation with keyboard shortcuts (Space to flip, 0-5 to grade, S to skip).
 
 ### Rich Annotation System
@@ -111,7 +110,7 @@ Turn your highlights and comments into durable knowledge:
 | **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import (HTML), cross-document navigation, document/category hide & restore |
 | **AI Integration** | Quiz generation (SSE streaming, 5 question types), document chat, summarization, evaluation, inception, concept challenges, speech/script, study plan, concept extraction, AI bubble, token usage tracking |
 | **Annotations** | Multi-color highlights (6 colors), inline comments with replies, click-to-view popup, touch support, XPath persistence with fuzzy restore |
-| **Spaced Repetition** | Auto flashcard generation from annotations and AI concepts, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
+| **Spaced Repetition** | AI concept card extraction, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
 | **Visualizations** | Knowledge graph, personal map, knowledge tree, reading heatmap, category radar, quiz dashboard, reading habits, tag cloud, learning path, top engaged documents |
 | **Gamification** | Achievement system with 44 unlockable milestones across 5 categories, toast notifications |
 | **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation, full data backup/export/import (JSON) |
@@ -151,7 +150,7 @@ npm run dev
 
 Open `http://localhost:5600`. Document source directories must exist at the paths configured in `vite.config.ts`.
 
-> **Without a local LLM**, the app works fully — browsing, search, annotations, flashcards, and all visualizations function normally. Only AI features require an LLM server.
+> **Without a local LLM**, the app works fully — browsing, search, annotations, and all visualizations function normally. Only AI features (quiz, chat, concept extraction, etc.) require an LLM server.
 
 ### Production Build
 
@@ -207,7 +206,7 @@ insighthub/
 │   │   ├── StatsPage.tsx             # Learning analytics
 │   │   ├── KnowledgeGraphPage.tsx    # Tabbed: graph / personal map / knowledge tree
 │   │   ├── LearningPathPage.tsx      # Tabbed: tree / milestones / timeline / study plan
-│   │   ├── SpacedRepetitionPage.tsx  # SM-2 flashcard review
+│   │   ├── SpacedRepetitionPage.tsx  # SM-2 concept card review
 │   │   ├── NotesPage.tsx             # All notes/comments management
 │   │   ├── TokenStatsPage.tsx        # AI token usage and cost estimation
 │   │   ├── AchievementsPage.tsx      # Achievement gallery
@@ -221,7 +220,6 @@ insighthub/
 │   │   ├── challengeService.ts  # AI devil's advocate concept challenges
 │   │   ├── studyPlanService.ts  # AI study plan generation
 │   │   ├── tokenUsageService.ts # Token usage tracking
-│   │   ├── spacedRepetition.ts  # SM-2 algorithm, card creation
 │   │   ├── similarityService.ts # Lazy TF-IDF document similarity
 │   │   ├── quizService.ts       # Quiz generation and parsing
 │   │   ├── searchService.ts     # FlexSearch index and query
