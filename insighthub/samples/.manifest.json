@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "entries": {
+    "si-kubernetes-k8s-operator-pattern": {
+      "file": "kubernetes/k8s-operator-pattern.html"
+    }
+  }
+}

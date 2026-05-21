@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes Operator Pattern</title>
+<style>
+  /* ========== CSS Reset & Base ========== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #f5f7fb;
+    --bg-secondary: #edf0f8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f4ff;
+    --k8s-blue: #326ce5;
+    --k8s-blue-light: #326ce5;
+    --k8s-blue-glow: rgba(50, 108, 229, 0.15);
+    --accent-green: #059669;
+    --accent-orange: #ea580c;
+    --accent-purple: #7c3aed;
+    --accent-yellow: #d97706;
+    --accent-red: #dc2626;
+    --accent-cyan: #0891b2;
+    --text-primary: #1a1a2e;
+    --text-secondary: #4a5568;
+    --text-dim: #94a3b8;
+    --border-subtle: rgba(0,0,0,0.08);
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ========== Scrollbar ========== */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--k8s-blue); border-radius: 3px; }
+
+  /* ========== Navigation ========== */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0 2rem;
+    transition: transform 0.3s var(--ease-smooth);
+  }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 1rem; color: var(--text-primary);
+    text-decoration: none;
+  }
+  .nav-brand svg { width: 28px; height: 28px; }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-links a {
+    padding: 6px 14px; border-radius: 8px; font-size: 0.8rem;
+    color: var(--text-secondary); text-decoration: none;
+    transition: all 0.2s;
+  }
+  .nav-links a:hover, .nav-links a.active {
+    background: rgba(50, 108, 229, 0.12); color: var(--k8s-blue);
+  }
+  .nav-progress {
+    position: absolute; bottom: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, var(--k8s-blue), var(--accent-purple));
+    transition: width 0.3s;
+  }
+
+  /* ========== Hero Section ========== */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 50% 40%, rgba(50, 108, 229, 0.12), transparent),
+      radial-gradient(ellipse 400px 300px at 30% 60%, rgba(167, 139, 250, 0.08), transparent),
+      radial-gradient(ellipse 400px 300px at 70% 60%, rgba(16, 185, 129, 0.06), transparent);
+    pointer-events: none;
+  }
+
+  /* ========== Gear/Operator Particles ========== */
+  .operator-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    opacity: 0.3;
+  }
+  .gear-particle {
+    position: absolute;
+    border: 3px solid var(--k8s-blue);
+    border-radius: 50%;
+    opacity: 0.35;
+    animation: spinGear linear infinite;
+  }
+  @keyframes spinGear {
+    0% {
+      transform: translateY(100vh) translateX(0) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.5;
+    }
+    90% {
+      opacity: 0.5;
+    }
+    100% {
+      transform: translateY(-100vh) translateX(30px) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  /* ========== Loop Arrows ========== */
+  .loop-arrows {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.15;
+  }
+  .loop-arrow {
+    position: absolute;
+    font-size: 1.8rem;
+    opacity: 0.4;
+    animation: floatLoop linear infinite;
+  }
+  @keyframes floatLoop {
+    0% {
+      transform: translateY(100vh) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.4;
+    }
+    90% {
+      opacity: 0.4;
+    }
+    100% {
+      transform: translateY(-100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-radius: 20px;
+    background: rgba(50, 108, 229, 0.1);
+    border: 1px solid rgba(50, 108, 229, 0.2);
+    color: var(--k8s-blue);
+    font-size: 0.82rem; font-weight: 500;
+    margin-bottom: 1.5rem;
+    animation: fadeInDown 0.8s var(--ease-spring) both;
+  }
+  .hero-badge svg { width: 18px; height: 18px; }
+  .hero h1 {
+    font-size: clamp(2.4rem, 5.5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.15;
+    max-width: 800px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #1e3a8a 50%, var(--k8s-blue) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeInUp 0.8s 0.1s var(--ease-spring) both;
+  }
+  .hero-sub {
+    font-size: 1.15rem; color: var(--text-secondary);
+    max-width: 560px; margin-top: 1.2rem;
+    animation: fadeInUp 0.8s 0.25s var(--ease-spring) both;
+  }
+  .hero-scroll {
+    margin-top: 3rem;
+    animation: fadeInUp 0.8s 0.4s var(--ease-spring) both;
+  }
+  .hero-scroll a {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 28px; border-radius: 12px;
+    background: var(--k8s-blue);
+    color: #fff; font-weight: 600; font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.3s var(--ease-smooth);
+    box-shadow: 0 4px 20px rgba(50, 108, 229, 0.2);
+  }
+  .hero-scroll a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(50, 108, 229, 0.25);
+  }
+
+  /* ========== Section Layout ========== */
+  .section {
+    max-width: 1100px; margin: 0 auto;
+    padding: 5rem 2rem;
+    position: relative;
+  }
+  .section-header {
+    text-align: center; margin-bottom: 3.5rem;
+  }
+  .section-num {
+    display: inline-block;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 2px;
+    color: var(--k8s-blue-light);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .section-header h2 {
+    font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--k8s-blue), var(--accent-purple));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-header p {
+    color: var(--text-secondary); margin-top: 0.8rem;
+    font-size: 1.05rem; max-width: 600px; margin-inline: auto;
+  }
+  .divider {
+    width: 60px; height: 3px; margin: 0 auto;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--k8s-blue), var(--accent-purple));
+    margin-top: 1.2rem;
+  }
+
+  /* ========== Reveal Animation ========== */
+  .reveal {
+    opacity: 0; transform: translateY(40px);
+    transition: opacity 0.7s var(--ease-smooth), transform 0.7s var(--ease-spring);
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+
+  /* ========== Compare Grid ========== */
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 2rem; margin-top: 1rem;
+  }
+  @media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+  .compare-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-subtle);
+  }
+  .compare-card.imperative { border-top: 3px solid var(--accent-orange); }
+  .compare-card.declarative { border-top: 3px solid var(--k8s-blue); }
+  .compare-card h3 {
+    font-size: 1.25rem; margin-bottom: 0.4rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .compare-card h3 .icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .imperative .icon { background: rgba(234, 88, 12, 0.1); color: var(--accent-orange); }
+  .declarative .icon { background: rgba(50, 108, 229, 0.1); color: var(--k8s-blue); }
+  .compare-card .subtitle {
+    color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.2rem;
+  }
+
+  /* ========== Code Blocks ========== */
+  .code-block {
+    background: #0d0d18;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 10px;
+    padding: 1.2rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    position: relative;
+  }
+  .code-block .line { display: block; white-space: pre; }
+  .code-block .comment { color: #7c8caa; }
+  .code-block .keyword { color: #c678dd; }
+  .code-block .string { color: #98c379; }
+  .code-block .cmd { color: #e5c07b; }
+  .code-block .flag { color: #61afef; }
+  .code-block .number { color: #d19a66; }
+  .code-block .key { color: #e06c75; }
+  .code-block .punct { color: #abb2bf; }
+  .code-block .line { color: #d4dce6; }
+  .code-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 1.2rem;
+    background: rgba(0,0,0,0.02);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    border-radius: 10px 10px 0 0;
+    font-size: 0.75rem; color: var(--text-dim);
+  }
+  .code-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .code-header .dot:nth-child(1) { background: #ff5f57; }
+  .code-header .dot:nth-child(2) { background: #febc2e; }
+  .code-header .dot:nth-child(3) { background: #28c840; }
+  .code-header span { margin-left: 8px; }
+  .code-with-header .code-block {
+    border-radius: 0 0 10px 10px;
+  }
+
+  .analogy-box {
+    margin-top: 1.5rem;
+    padding: 1rem 1.2rem;
+    background: rgba(50, 108, 229, 0.03);
+    border: 1px solid rgba(50, 108, 229, 0.12);
+    border-radius: 10px;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+  }
+  .analogy-box strong { color: var(--k8s-blue); }
+
+  /* ========== Feature Cards ========== */
+  .feature-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem; margin-top: 2rem;
+  }
+  .feature-card {
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    border-left: 3px solid var(--k8s-blue);
+    transition: all 0.3s;
+  }
+  .feature-card:hover {
+    transform: translateX(4px);
+    background: var(--bg-card-hover);
+    border-left-color: var(--accent-purple);
+  }
+  .feature-card h4 {
+    font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .feature-card h4 .icon { font-size: 1.2rem; }
+  .feature-card p {
+    font-size: 0.87rem; color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ========== Loop Diagram ========== */
+  .loop-diagram {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    position: relative;
+    min-height: 350px;
+  }
+  .loop-step {
+    position: absolute;
+    padding: 1.5rem 2rem;
+    background: var(--bg-card-hover);
+    border: 2px solid var(--k8s-blue);
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .loop-step:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(50, 108, 229, 0.3);
+  }
+  .loop-step h4 {
+    font-size: 1rem; font-weight: 600;
+    margin-bottom: 0.3rem;
+    color: var(--k8s-blue-light);
+  }
+  .loop-step p {
+    font-size: 0.8rem; color: var(--text-secondary);
+  }
+
+  /* ========== CRD Visual ========== */
+  .crd-structure {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 2rem;
+  }
+  .crd-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.8rem 1rem;
+    background: var(--bg-card-hover);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .crd-field-name {
+    color: var(--k8s-blue-light);
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .crd-field-type {
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+  }
+
+  /* ========== Operator Examples ========== */
+  .operator-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  .operator-card {
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .operator-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--k8s-blue);
+  }
+  .operator-card .icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .operator-card h4 {
+    font-size: 1rem; font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .operator-card p {
+    font-size: 0.85rem; color: var(--text-secondary);
+  }
+
+  /* ========== Key Takeaways ========== */
+  .takeaways-list {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  .takeaway-item {
+    padding: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    border-left: 3px solid var(--k8s-blue);
+  }
+  .takeaway-item h4 {
+    font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;
+    color: var(--k8s-blue-light);
+  }
+  .takeaway-item p {
+    font-size: 0.87rem; color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ========== Footer ========== */
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    border-top: 1px solid var(--border-subtle);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  /* ========== Animations ========== */
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+      TechInsight
+    </a>
+    <div class="nav-links">
+      <a href="#concept">Concept</a>
+      <a href="#controller">Controller</a>
+      <a href="#crd">CRD</a>
+      <a href="#loop">Reconciliation</a>
+      <a href="#examples">Examples</a>
+    </div>
+  </div>
+  <div class="nav-progress" id="navProgress"></div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="hero">
+  <div class="operator-particles" id="operatorParticles"></div>
+  <div class="loop-arrows" id="loopArrows"></div>
+  <div class="hero-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+    Kubernetes Pattern
+  </div>
+  <h1>The Operator Pattern</h1>
+  <p class="hero-sub">
+    Automating complex operational tasks in Kubernetes using custom controllers.
+    The standard way to manage applications and infrastructure.
+  </p>
+  <div class="hero-scroll">
+    <a href="#concept">Start Learning</a>
+  </div>
+</section>
+
+<!-- Scene 1: What is an Operator -->
+<section class="section" id="concept">
+  <div class="section-header reveal">
+    <div class="section-num">Scene 01</div>
+    <h2>What is an Operator?</h2>
+    <p>Extending Kubernetes for application-specific automation</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="compare-grid">
+    <!-- Manual Operations -->
+    <div class="compare-card imperative reveal reveal-delay-1">
+      <h3><span class="icon">👤</span> Manual Operations</h3>
+      <p class="subtitle">"Human intervention for every action"</p>
+      <div class="code-with-header">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>human-ops.sh</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="comment"># Human must handle everything</span></span>
+<span class="line"><span class="cmd">kubectl</span> apply -f deployment.yaml</span>
+<span class="line"><span class="comment"># Wait for pods to be ready...</span></span>
+<span class="line"><span class="cmd">kubectl</span> rollout restart deployment/app</span>
+<span class="line"><span class="comment"># Check if rollback needed...</span></span>
+<span class="line"><span class="cmd">kubectl</span> scale deployment/app --replicas=5</span>
+<span class="line"><span class="comment"># Database backup? Manual script.</span></span>
+<span class="line"><span class="cmd">./backup-database.sh</span></span>
+        </div>
+      </div>
+      <div class="analogy-box" style="border-color:rgba(234,88,12,0.15);background:rgba(234,88,12,0.04);">
+        <strong style="color:var(--accent-orange);">Problem:</strong> Humans make mistakes, forget steps, and can't respond 24/7. Each application needs unique operational knowledge.
+      </div>
+    </div>
+
+    <!-- Operator -->
+    <div class="compare-card declarative reveal reveal-delay-2">
+      <h3><span class="icon">🤖</span> Kubernetes Operator</h3>
+      <p class="subtitle">"Application-specific controller encoded in software"</p>
+      <div class="code-with-header">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>Database.yaml</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="key">apiVersion</span><span class="punct">:</span> <span class="string">example.com/v1</span></span>
+<span class="line"><span class="key">kind</span><span class="punct">:</span> <span class="string">Database</span></span>
+<span class="line"><span class="key">metadata</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">name</span><span class="punct">:</span> <span class="string">my-db</span></span>
+<span class="line"><span class="key">spec</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">version</span><span class="punct">:</span> <span class="string">"14.0"</span></span>
+<span class="line">  <span class="key">replicas</span><span class="punct">:</span> <span class="number">3</span></span>
+<span class="line">  <span class="key">backupSchedule</span><span class="punct">:</span> <span class="string">"0 2 * * *"</span></span>
+<span class="line">  <span class="key">storage</span><span class="punct">:</span> <span class="string">100Gi</span></span>
+        </div>
+      </div>
+      <div class="analogy-box">
+        <strong>Solution:</strong> Operator knows HOW to achieve desired state. It handles upgrades, backups, scaling, and failures automatically.
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Insight -->
+  <div class="reveal reveal-delay-3" style="margin-top:2.5rem;text-align:center;">
+    <div style="display:inline-block;padding:1rem 2rem;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:12px;max-width:700px;">
+      <p style="font-size:1rem;color:var(--text-secondary);">
+        <strong style="color:var(--k8s-blue);">An Operator is a custom Kubernetes controller</strong>
+        that encodes operational knowledge for a specific application.
+        It extends Kubernetes to manage <strong style="color:var(--accent-purple);">stateful applications</strong>
+        like databases, message queues, and caching systems.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Scene 2: Controller Pattern -->
+<section class="section" id="controller" style="background: linear-gradient(180deg, transparent, rgba(50,108,229,0.03), transparent);">
+  <div class="section-header reveal">
+    <div class="section-num">Scene 02</div>
+    <h2>The Controller Pattern</h2>
+    <p>The foundation of Kubernetes automation</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="feature-grid reveal reveal-delay-1">
+    <div class="feature-card">
+      <h4><span class="icon">👁️</span> Watch</h4>
+      <p>Controller continuously watches API server for changes to resources it's responsible for.</p>
+    </div>
+    <div class="feature-card">
+      <h4><span class="icon">🔄</span> Reconcile</h4>
+      <p>Compare desired state (from YAML) with actual state (from cluster) and take action to align them.</p>
+    </div>
+    <div class="feature-card">
+      <h4><span class="icon">⚡</span> Act</h4>
+      <p>Create, update, or delete resources to achieve desired state. Create pods, services, configmaps, etc.</p>
+    </div>
+  </div>
+
+  <!-- Built-in Controllers -->
+  <div class="reveal reveal-delay-2" style="margin-top:3rem;">
+    <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;text-align:center;">Kubernetes Built-in Controllers</h3>
+    <div class="operator-grid">
+      <div class="operator-card">
+        <div class="icon">🎯</div>
+        <h4>Deployment Controller</h4>
+        <p>Manages ReplicaSets and Pods for stateless applications. Handles rolling updates and rollbacks.</p>
+      </div>
+      <div class="operator-card">
+        <div class="icon">🔑</div>
+        <h4>Service Controller</h4>
+        <p>Creates load balancers and configures proxy rules for service discovery.</p>
+      </div>
+      <div class="operator-card">
+        <div class="icon">📋</div>
+        <h4>Namespace Controller</h4>
+        <p>Manages namespace lifecycle and cleanup of resources in deleted namespaces.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- From Built-in to Custom -->
+  <div class="reveal reveal-delay-3" style="margin-top:3rem;">
+    <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;text-align:center;">Custom Controllers = Operators</h3>
+    <div class="code-with-header">
+      <div class="code-header">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span>operator-vs-controller</span>
+      </div>
+      <div class="code-block">
+<span class="line"><span class="comment"># Built-in Deployment Controller</span></span>
+<span class="line"><span class="key">apiVersion</span><span class="punct">:</span> <span class="string">apps/v1</span></span>
+<span class="line"><span class="key">kind</span><span class="punct">:</span> <span class="string">Deployment</span>  <span class="comment"># Works for any stateless app</span></span>
+<span class="line"><span class="key">spec</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">replicas</span><span class="punct">:</span> <span class="number">3</span></span>
+<span class="line"></span>
+<span class="line"><span class="comment"># Custom Database Operator</span></span>
+<span class="line"><span class="key">apiVersion</span><span class="punct">:</span> <span class="string">example.com/v1</span></span>
+<span class="line"><span class="key">kind</span><span class="punct">:</span> <span class="string">Database</span>  <span class="comment"># Knows PostgreSQL specifics</span></span>
+<span class="line"><span class="key">spec</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">version</span><span class="punct">:</span> <span class="string">"14.0"</span>      <span class="comment"># Handles upgrades</span></span>
+<span class="line">  <span class="key">backupSchedule</span><span class="punct">:</span> <span class="string">"daily"</span> <span class="comment"># Runs pg_dump</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Scene 3: Custom Resource Definitions -->
+<section class="section" id="crd">
+  <div class="section-header reveal">
+    <div class="section-num">Scene 03</div>
+    <h2>Custom Resource Definitions</h2>
+    <p>Extending the Kubernetes API</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="reveal reveal-delay-1">
+    <p style="text-align:center;color:var(--text-secondary);margin-bottom:2rem;">
+      CRDs define new kinds of resources. Once installed, you can use <code style="background:var(--bg-card-hover);padding:2px 6px;border-radius:4px;">kubectl</code> to manage them just like built-in resources.
+    </p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;">
+    <!-- CRD YAML -->
+    <div class="reveal reveal-delay-2">
+      <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">📄 CRD Definition</h3>
+      <div class="code-with-header">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>database-crd.yaml</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="key">apiVersion</span><span class="punct">:</span> <span class="string">apiextensions.k8s.io/v1</span></span>
+<span class="line"><span class="key">kind</span><span class="punct">:</span> <span class="string">CustomResourceDefinition</span></span>
+<span class="line"><span class="key">metadata</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">name</span><span class="punct">:</span> <span class="string">databases.example.com</span></span>
+<span class="line"><span class="key">spec</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">group</span><span class="punct">:</span> <span class="string">example.com</span></span>
+<span class="line">  <span class="key">versions</span><span class="punct">:</span></span>
+<span class="line">    - <span class="key">name</span><span class="punct">:</span> <span class="string">v1</span></span>
+<span class="line">      <span class="key">served</span><span class="punct">:</span> <span class="keyword">true</span></span>
+<span class="line">      <span class="key">storage</span><span class="punct">:</span> <span class="keyword">true</span></span>
+<span class="line">  <span class="key">scope</span><span class="punct">:</span> <span class="string">Namespaced</span></span>
+<span class="line">  <span class="key">names</span><span class="punct">:</span></span>
+<span class="line">    <span class="key">plural</span><span class="punct">:</span> <span class="string">databases</span></span>
+<span class="line">    <span class="key">singular</span><span class="punct">:</span> <span class="string">database</span></span>
+<span class="line">    <span class="key">kind</span><span class="punct">:</span> <span class="string">Database</span></span>
+<span class="line">    <span class="key">shortNames</span><span class="punct">:</span></span>
+<span class="line">      - <span class="string">db</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Using the CRD -->
+    <div class="reveal reveal-delay-3">
+      <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">🚀 Using the Custom Resource</h3>
+      <div class="code-with-header">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>my-database.yaml</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="key">apiVersion</span><span class="punct">:</span> <span class="string">example.com/v1</span></span>
+<span class="line"><span class="key">kind</span><span class="punct">:</span> <span class="string">Database</span></span>
+<span class="line"><span class="key">metadata</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">name</span><span class="punct">:</span> <span class="string">my-postgres</span></span>
+<span class="line"><span class="key">spec</span><span class="punct">:</span></span>
+<span class="line">  <span class="key">version</span><span class="punct">:</span> <span class="string">"14.0"</span></span>
+<span class="line">  <span class="key">replicas</span><span class="punct">:</span> <span class="number">3</span></span>
+<span class="line">  <span class="key">storage</span><span class="punct">:</span> <span class="string">100Gi</span></span>
+<span class="line">  <span class="key">backupSchedule</span><span class="punct">:</span> <span class="string">"0 2 * * *"</span></span>
+        </div>
+      </div>
+
+      <div class="code-with-header" style="margin-top:1rem;">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>terminal</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="comment"># Apply the custom resource</span></span>
+<span class="line"><span class="cmd">kubectl</span> apply -f my-database.yaml</span>
+<span class="line"></span>
+<span class="line"><span class="comment"># List all databases</span></span>
+<span class="line"><span class="cmd">kubectl</span> get databases</span>
+<span class="line"></span>
+<span class="line"><span class="comment"># Get details</span></span>
+<span class="line"><span class="cmd">kubectl</span> get db my-postgres -o yaml</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRD Schema -->
+  <div class="crd-structure reveal reveal-delay-4" style="margin-top:2rem;">
+    <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">📋 CRD Schema Validation</h3>
+    <div class="crd-field">
+      <span class="crd-field-name">version</span>
+      <span class="crd-field-type">string (required)</span>
+    </div>
+    <div class="crd-field">
+      <span class="crd-field-name">replicas</span>
+      <span class="crd-field-type">integer (1-10)</span>
+    </div>
+    <div class="crd-field">
+      <span class="crd-field-name">storage</span>
+      <span class="crd-field-type">quantity (e.g., "100Gi")</span>
+    </div>
+    <div class="crd-field">
+      <span class="crd-field-name">backupSchedule</span>
+      <span class="crd-field-type">cron expression</span>
+    </div>
+    <div class="crd-field">
+      <span class="crd-field-name">enableSSL</span>
+      <span class="crd-field-type">boolean (default: true)</span>
+    </div>
+  </div>
+</section>
+
+<!-- Scene 4: Reconciliation Loop -->
+<section class="section" id="loop" style="background: linear-gradient(180deg, transparent, rgba(50,108,229,0.02), transparent);">
+  <div class="section-header reveal">
+    <div class="section-num">Scene 04</div>
+    <h2>The Reconciliation Loop</h2>
+    <p>How Operators maintain desired state continuously</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="loop-diagram reveal reveal-delay-1">
+    <!-- Watch -->
+    <div class="loop-step" style="top: 50%; left: 15%; transform: translate(-50%, -50%);">
+      <h4>👁️ Watch</h4>
+      <p>Monitor CRDs and related resources</p>
+    </div>
+
+    <!-- Fetch -->
+    <div class="loop-step" style="top: 10%; left: 50%; transform: translateX(-50%);">
+      <h4>📥 Fetch</h4>
+      <p>Get current cluster state</p>
+    </div>
+
+    <!-- Compare -->
+    <div class="loop-step" style="top: 50%; right: 15%; transform: translate(50%, -50%);">
+      <h4>⚖️ Compare</h4>
+      <p>Desired vs Actual state</p>
+    </div>
+
+    <!-- Act -->
+    <div class="loop-step" style="bottom: 10%; left: 50%; transform: translateX(-50%);">
+      <h4>⚡ Act</h4>
+      <p>Update resources to match</p>
+    </div>
+
+    <!-- Arrows would be drawn here in a real diagram -->
+  </div>
+
+  <!-- Loop Steps Detail -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:3rem;">
+    <div class="reveal reveal-delay-2">
+      <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">🔄 Continuous Reconciliation</h3>
+      <div class="code-with-header">
+        <div class="code-header">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span>reconcile.go</span>
+        </div>
+        <div class="code-block">
+<span class="line"><span class="keyword">func</span> (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, <span class="keyword">error</span>) {</span>
+<span class="line">    <span class="comment">// 1. Fetch the Database resource</span></span>
+<span class="line">    db := &amp;Database{}</span>
+<span class="line">    <span class="keyword">if</span> err := r.Get(ctx, req.NamespacedName, db); <span class="keyword">err</span> != <span class="keyword">nil</span> {</span>
+<span class="line">        <span class="keyword">return</span> ctrl.Result{}, <span class="keyword">err</span></span>
+<span class="line">    }</span>
+<span class="line"></span>
+<span class="line">    <span class="comment">// 2. Check current state</span></span>
+<span class="line">    deployment := &amp;appsv1.Deployment{}</span>
+<span class="line">    r.Get(ctx, client.ObjectKey{Name: db.Name}, deployment)</span>
+<span class="line"></span>
+<span class="line">    <span class="comment">// 3. Compare and reconcile</span></span>
+<span class="line">    <span class="keyword">if</span> deployment.Spec.Replicas != db.Spec.Replicas {</span>
+<span class="line">        deployment.Spec.Replicas = db.Spec.Replicas</span>
+<span class="line">        r.Update(ctx, deployment)</span>
+<span class="line">    }</span>
+<span class="line"></span>
+<span class="line">    <span class="comment">// 4. Requeue for next check</span></span>
+<span class="line">    <span class="keyword">return</span> ctrl.Result{RequeueAfter: time.Minute * 5}, <span class="keyword">nil</span></span>
+<span class="line">}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal reveal-delay-3">
+      <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">🎯 Triggers Reconciliation</h3>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4><span class="icon">📝</span> CRD Change</h4>
+          <p>User updates Database spec</p>
+        </div>
+        <div class="feature-card">
+          <h4><span class="icon">🔄</span> Resource Change</h4>
+          <p>Pod crashes or updates</p>
+        </div>
+        <div class="feature-card">
+          <h4><span class="icon">⏰</span> Periodic</h4>
+          <p>Regular health checks</p>
+        </div>
+        <div class="feature-card">
+          <h4><span class="icon">🎬</span> Manual Request</h4>
+          <p>kubectl annotate with reconcile</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Scene 5: Real-World Operators -->
+<section class="section" id="examples">
+  <div class="section-header reveal">
+    <div class="section-num">Scene 05</div>
+    <h2>Popular Operators</h2>
+    <p>Production-grade Operators you can use today</p>
+    <div class="divider"></div>
+  </div>
+
+  <div class="operator-grid reveal reveal-delay-1">
+    <div class="operator-card">
+      <div class="icon">🐘</div>
+      <h4>PostgreSQL Operator</h4>
+      <p>Zalando, CrunchyData. Manages Postgres clusters with HA, backups, failover, and upgrades.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">🍃</div>
+      <h4>MySQL Operator</h4>
+      <p>Oracle, Presslabs. Orchestrates MySQL InnoDB clusters with automatic failover.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">🔍</div>
+      <h4>Elasticsearch Operator</h4>
+      <p>Elastic. Manages Elasticsearch clusters including scaling, config, and certificate management.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">📰</div>
+      <h4>Kafka Operator</h4>
+      <p>Strimzi. Deploys and manages Kafka clusters on Kubernetes with security and monitoring.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">🔑</div>
+      <h4>Vault Operator</h4>
+      <p>Banzaicloud. Manages HashiCorp Vault for secrets management with auto-unseal.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">📊</div>
+      <h4>Prometheus Operator</h4>
+      <p>CoreOS. Manages Prometheus monitoring stack with ServiceMonitor CRDs.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">🎯</div>
+      <h4>Cert-Manager</h4>
+      <p>Jetstack. Automates TLS certificate issuance and renewal from Let's Encrypt.</p>
+    </div>
+    <div class="operator-card">
+      <div class="icon">🤖</div>
+      <h4>ArgoCD Operator</h4>
+      <p>Argo Project. GitOps continuous delivery with application lifecycle management.</p>
+    </div>
+  </div>
+
+  <!-- Building Your Own Operator -->
+  <div class="reveal reveal-delay-2" style="margin-top:3rem;">
+    <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;text-align:center;">🛠️ Building Your Own Operator</h3>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h4><span class="icon">🎣</span> Operator SDK</h4>
+        <p>Official SDK from Red Hat. Supports Go, Ansible, and Helm. Fastest way to get started.</p>
+      </div>
+      <div class="feature-card">
+        <h4><span class="icon">🏗️</span> Kubebuilder</h4>
+        <p>Framework for building Kubernetes APIs using Go. Creates CRDs, controllers, and RBAC.</p>
+      </div>
+      <div class="feature-card">
+        <h4><span class="icon">🐍</span> Kopf / KOPF</h4>
+        <p>Python framework for building operators. Great for teams without Go expertise.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Summary Section -->
+<section class="section" id="summary">
+  <div class="section-header reveal">
+    <div class="section-num">Key Takeaways</div>
+    <h2>Why Operators Matter</h2>
+    <div class="divider"></div>
+  </div>
+
+  <div class="takeaways-list reveal reveal-delay-1">
+    <div class="takeaway-item">
+      <h4>🔄 Encode Operational Knowledge</h4>
+      <p>Operators capture human expertise in code. No more runbooks, tribal knowledge, or manual procedures.</p>
+    </div>
+    <div class="takeaway-item">
+      <h4>⚡ Self-Healing Systems</h4>
+      <p>Operators continuously reconcile state. When things break, they automatically fix them without human intervention.</p>
+    </div>
+    <div class="takeaway-item">
+      <h4>🎯 Declarative Management</h4>
+      <p>Describe WHAT you want, not HOW. The Operator figures out the implementation details.</p>
+    </div>
+    <div class="takeaway-item">
+      <h4>🌐 Native Kubernetes Integration</h4>
+      <p>Operators use standard Kubernetes patterns. They work with kubectl, Helm, and GitOps workflows.</p>
+    </div>
+    <div class="takeaway-item">
+      <h4>🔧 Extensible Platform</h4>
+      <p>CRDs let you extend Kubernetes for any application. The cluster becomes your automation platform.</p>
+    </div>
+    <div class="takeaway-item">
+      <h4>🏭 Production Ready</h4>
+      <p>Major cloud providers and enterprises use operators to manage databases, messaging, and data infrastructure.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Built with ❤️ for TechInsight • Making Kubernetes concepts visual and accessible</p>
+</footer>
+
+<script>
+// ========== Operator Gears & Loop Arrows ==========
+(function() {
+  const particlesContainer = document.getElementById('operatorParticles');
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('div');
+    p.className = 'gear-particle';
+    p.style.left = Math.random() * 100 + '%';
+    const size = 8 + Math.random() * 16;
+    p.style.width = p.style.height = size + 'px';
+    p.style.animationDuration = (10 + Math.random() * 15) + 's';
+    p.style.animationDelay = Math.random() * 12 + 's';
+    particlesContainer.appendChild(p);
+  }
+
+  const arrowsContainer = document.getElementById('loopArrows');
+  const arrows = ['🔄', '⟳', '⚙️', '🔁'];
+  for (let i = 0; i < 10; i++) {
+    const a = document.createElement('div');
+    a.className = 'loop-arrow';
+    a.textContent = arrows[Math.floor(Math.random() * arrows.length)];
+    a.style.left = Math.random() * 100 + '%';
+    a.style.animationDuration = (12 + Math.random() * 18) + 's';
+    a.style.animationDelay = Math.random() * 14 + 's';
+    arrowsContainer.appendChild(a);
+  }
+})();
+
+// ========== Scroll Progress ==========
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+  document.getElementById('navProgress').style.width = pct + '%';
+});
+
+// ========== Reveal on Scroll ==========
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// ========== Active Nav Link ==========
+const sections = document.querySelectorAll('.section[id], .hero[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`.nav-links a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(s => navObserver.observe(s));
+</script>
+
+</body>
+</html>

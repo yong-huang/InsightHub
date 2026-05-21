@@ -157,3 +157,4 @@ Each workspace uses a two-letter prefix for document IDs:
 - `mi-` — MindInsight (e.g., `mi-academic-my-doc`)
 - `ti-` — TechInsight (e.g., `ti-algorithms-binary-search`)
 - `li-` — LeetcodeInsight (e.g., `li-arrays-leetcode-1-two-sum`)
+- `si-` — SampleInsight (e.g., `si-kubernetes-k8s-operator-pattern`). Bundled sample workspace inside `insighthub/samples/`. Can be deleted after initial setup.

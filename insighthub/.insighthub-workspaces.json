@@ -41,5 +41,17 @@
     "icon": "FileText",
     "path": "/Users/hyhit/Desktop/workspace/projects/ProjectInsight",
     "prefix": "pi"
+  },
+  {
+    "id": "sampleinsight",
+    "label": "SampleInsight",
+    "icon": "BookOpen",
+    "path": "./samples",
+    "prefix": "si",
+    "shortLabel": "Sample",
+    "subtitle": "Sample Documents",
+    "gradientClass": "gradient-text-purple",
+    "color": "#a78bfa",
+    "colorBg": "rgba(167, 139, 250, 0.15)"
   }
 ]

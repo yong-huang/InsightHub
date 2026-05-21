@@ -288,8 +288,9 @@ Three knowledge bases, each dynamically discovering categories from documents:
 | **MindInsight** | `mi-` | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
 | **TechInsight** | `ti-` | AI Frameworks, Algorithms, Cloud, Database, DevOps, K8s, Linux, Networking, Programming, Security, VMware |
 | **LeetCodeInsight** | `li-` | Arrays, Strings, Linked List, Stack, Math, Dynamic Programming, Binary Search |
+| **SampleInsight** | `si-` | Bundled sample documents for first-time setup |
 
-Custom workspaces can be added in Settings with any local directory.
+Custom workspaces can be added in Settings with any local directory. The SampleInsight workspace ships with the project for initial exploration and can be deleted after setup.
 
 ### Workspace Switching
 
