@@ -37,7 +37,7 @@ export function CategoryPage() {
     if (!source) return allTags
     const workspaceDocIds = new Set(
       Array.from(documents.values())
-        .filter(d => d.source === source)
+        .filter(d => d.source === source && !d.isDeprecated)
         .map(d => d.id)
     )
     return allTags

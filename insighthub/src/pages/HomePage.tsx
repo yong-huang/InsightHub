@@ -21,7 +21,7 @@ export function HomePage() {
   const meta = getWorkspaceConfig(activeWorkspace, workspaces)
   const workspaceCategories = useDynamicCategories(activeWorkspace)
   const recentReads = useMemo(
-    () => getRecentReads().filter(d => d.source === activeWorkspace).slice(0, 10),
+    () => getRecentReads().filter(d => d.source === activeWorkspace && !d.isDeprecated).slice(0, 10),
     [getRecentReads, activeWorkspace],
   )
 
@@ -53,7 +53,7 @@ export function HomePage() {
   }, [documents, activeWorkspace, tags])
 
   const workspaceDocs = useMemo(
-    () => Array.from(documents.values()).filter(d => d.source === activeWorkspace),
+    () => Array.from(documents.values()).filter(d => d.source === activeWorkspace && !d.isDeprecated),
     [documents, activeWorkspace],
   )
 

@@ -1,8 +1,9 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2 } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2, EyeOff } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { storageService } from '@/services/storageService'
 
 interface TreeNode {
   name: string
@@ -88,6 +89,7 @@ function TreeNodeView({
   onDocClick,
   activeWorkspace,
   navigate,
+  onHideCategory,
 }: {
   node: TreeNode
   depth: number
@@ -97,6 +99,7 @@ function TreeNodeView({
   onDocClick: (docId: string) => void
   activeWorkspace: string
   navigate: ReturnType<typeof useNavigate>
+  onHideCategory?: (categoryPath: string) => void
 }) {
   const isExpanded = expandedPaths.has(node.path)
 
@@ -122,6 +125,15 @@ function TreeNodeView({
           {node.docCount !== undefined && (
             <span className="file-tree-count">{node.docCount}</span>
           )}
+          {isTopLevel && onHideCategory && (
+            <span
+              className="file-tree-hide-btn"
+              onClick={e => { e.stopPropagation(); onHideCategory(node.path) }}
+              title="Hide category"
+            >
+              <EyeOff size={12} />
+            </span>
+          )}
         </div>
         {isExpanded && (
           <div className="file-tree-children">
@@ -136,6 +148,7 @@ function TreeNodeView({
                 onDocClick={onDocClick}
                 activeWorkspace={activeWorkspace}
                 navigate={navigate}
+                onHideCategory={onHideCategory}
               />
             ))}
           </div>
@@ -174,6 +187,16 @@ export function FileTree() {
   const location = useLocation()
 
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [deprecatedCats, setDeprecatedCats] = useState<Set<string>>(() =>
+    new Set(storageService.getDeprecatedCategories())
+  )
+
+  // Sync deprecated categories from localStorage
+  useMemo(() => {
+    const handler = () => setDeprecatedCats(new Set(storageService.getDeprecatedCategories()))
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
 
   // Get workspace directory name (last segment of workspace path) for stripping from filePath
   const wsDirName = usePreferenceStore(
@@ -185,7 +208,7 @@ export function FileTree() {
     const result: { filePath: string; docId: string; isRead: boolean }[] = []
     const prefix = wsDirName ? `../${wsDirName}/` : ''
     for (const [docId, doc] of documents.entries()) {
-      if (doc.source === activeWorkspace && doc.filePath) {
+      if (doc.source === activeWorkspace && !doc.isDeprecated && !deprecatedCats.has(`${activeWorkspace}:${doc.category}`) && doc.filePath) {
         const fp = prefix && doc.filePath.startsWith(prefix)
           ? doc.filePath.slice(prefix.length)
           : doc.filePath
@@ -193,9 +216,15 @@ export function FileTree() {
       }
     }
     return result
-  }, [documents, activeWorkspace, wsDirName])
+  }, [documents, activeWorkspace, wsDirName, deprecatedCats])
 
   const tree = useMemo(() => buildTree(filePaths), [filePaths])
+
+  // Filter tree by deprecated top-level categories
+  const filteredTree = useMemo(() => {
+    if (deprecatedCats.size === 0) return tree
+    return tree.filter(node => !deprecatedCats.has(`${activeWorkspace}:${node.path}`))
+  }, [tree, deprecatedCats, activeWorkspace])
 
   // Auto-expand first level when there's a single root directory on mount or workspace change
   useMemo(() => {
@@ -223,6 +252,13 @@ export function FileTree() {
     navigate(`/doc/${docId}`)
   }, [navigate])
 
+  const onHideCategory = useCallback((categoryPath: string) => {
+    storageService.setDeprecatedCategory(activeWorkspace, categoryPath)
+    setDeprecatedCats(new Set(storageService.getDeprecatedCategories()))
+    window.dispatchEvent(new Event('storage'))
+    useDocumentStore.getState().applyFilters()
+  }, [activeWorkspace])
+
   // Current active docId from URL
   const activeDocId = location.pathname.startsWith('/doc/')
     ? location.pathname.replace('/doc/', '')
@@ -232,7 +268,7 @@ export function FileTree() {
     return null
   }
 
-  if (tree.length === 0) {
+  if (filteredTree.length === 0) {
     return (
       <div style={{ padding: '1rem', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
         No Documents
@@ -242,7 +278,7 @@ export function FileTree() {
 
   return (
     <div className="file-tree">
-      {tree.map(node => (
+      {filteredTree.map(node => (
         <TreeNodeView
           key={node.path}
           node={node}
@@ -253,6 +289,7 @@ export function FileTree() {
           onDocClick={onDocClick}
           activeWorkspace={activeWorkspace}
           navigate={navigate}
+          onHideCategory={onHideCategory}
         />
       ))}
     </div>

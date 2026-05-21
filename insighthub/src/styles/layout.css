@@ -551,6 +551,28 @@
   flex-shrink: 0;
 }
 
+.file-tree-hide-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.file-tree-hide-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.file-tree-row:hover .file-tree-hide-btn {
+  display: flex;
+}
+
 .file-tree-children {
   margin-left: 12px;
   border-left: 1px solid var(--border-subtle);

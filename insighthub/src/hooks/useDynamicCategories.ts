@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
+import { storageService } from '@/services/storageService'
 import type { Source } from '@/types'
 
 export interface DynamicCategory {
@@ -16,9 +17,10 @@ export function useDynamicCategories(source?: string): DynamicCategory[] {
   const documents = useDocumentStore(s => s.documents)
 
   return useMemo(() => {
+    const deprecatedCats = new Set(storageService.getDeprecatedCategories())
     const allDocs = source
-      ? Array.from(documents.values()).filter(d => d.source === source)
-      : Array.from(documents.values())
+      ? Array.from(documents.values()).filter(d => d.source === source && !d.isDeprecated && !deprecatedCats.has(`${source}:${d.category}`))
+      : Array.from(documents.values()).filter(d => !d.isDeprecated && !deprecatedCats.has(`${d.source}:${d.category}`))
 
     // Group by category
     const catMap = new Map<string, { docs: typeof allDocs }>()

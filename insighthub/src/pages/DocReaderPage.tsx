@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
-  MessageCircle, Lightbulb, Languages,
+  MessageCircle, Lightbulb, Languages, EyeOff,
   ShieldCheck, Swords, GitBranch, Layers,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -965,6 +965,19 @@ export function DocReaderPage() {
           >
             <Bookmark size={16} fill={isBookmarked ? 'currentColor' : 'none'} />
             <span className="dr-action-label">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+          </button>
+
+          {/* Hide document */}
+          <button
+            className="dr-action-btn"
+            onClick={() => {
+              useDocumentStore.getState().setDeprecated(doc.id)
+              navigate(fromPath || `/${doc.source}/${doc.category}`)
+            }}
+            title="Hide this document"
+          >
+            <EyeOff size={16} />
+            <span className="dr-action-label">Hide</span>
           </button>
 
           {/* Fullscreen */}

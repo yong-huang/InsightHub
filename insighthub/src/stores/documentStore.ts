@@ -26,6 +26,8 @@ interface DocumentState {
   resetFilters: () => void
   markAsRead: (docId: string) => void
   toggleRead: (docId: string) => void
+  setDeprecated: (docId: string) => void
+  restoreDocument: (docId: string) => void
   applyFilters: () => void
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
@@ -88,6 +90,12 @@ async function loadAllDocuments(
         doc.readCount = meta.readCount
       }
     }
+  }
+
+  // Mark deprecated documents
+  const deprecatedIds = new Set(storageService.getDeprecatedIds())
+  for (const doc of docs.values()) {
+    if (deprecatedIds.has(doc.id)) doc.isDeprecated = true
   }
   if (Array.isArray(serverHistory) && serverHistory.length > 0) {
     const localHistory = storageService.getReadHistory()
@@ -262,9 +270,37 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     get().applyFilters()
   },
 
+  setDeprecated: (docId) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    const updated = new Map(documents)
+    updated.set(docId, { ...doc, isDeprecated: true })
+    storageService.setDeprecated(docId)
+    set({ documents: updated })
+    get().applyFilters()
+  },
+
+  restoreDocument: (docId) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    const updated = new Map(documents)
+    updated.set(docId, { ...doc, isDeprecated: false })
+    storageService.restoreDeprecated(docId)
+    set({ documents: updated })
+    get().applyFilters()
+  },
+
   applyFilters: () => {
     const { documents, filters } = get()
     let result = Array.from(documents.values())
+
+    // Filter out deprecated documents and categories from listings
+    const deprecatedCategories = new Set(storageService.getDeprecatedCategories())
+    result = result.filter(d => !d.isDeprecated && !deprecatedCategories.has(`${d.source}:${d.category}`))
 
     if (filters.source) {
       result = result.filter(d => d.source === filters.source)

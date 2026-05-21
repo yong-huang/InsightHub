@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Quiz, QuizAttempt, Difficulty, QuestionType } from '@/types'
 import { storageService } from '@/services/storageService'
 import { createQuiz } from '@/services/quizService'
+import { useDocumentStore } from '@/stores/documentStore'
 
 function syncQuizToServer(quiz: Quiz): Promise<void> {
   return fetch('/api/quizzes', {
@@ -120,21 +121,21 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
   loadSavedQuizzes: () => {
     const localQuizzes = storageService.getQuizzes()
+    const docCount = useDocumentStore.getState().documents.size || 1
     // Also load from server (server takes priority on conflicts)
     fetch('/api/quizzes')
       .then(r => r.json())
       .then((serverQuizzes: Record<string, any>) => {
         // Merge: server data overwrites local, but keep local-only quizzes
         const merged = { ...localQuizzes, ...serverQuizzes }
-        set({ savedQuizzes: merged })
-        // Sync merged data back to localStorage
-        for (const [docId, quiz] of Object.entries(merged)) {
-          storageService.saveQuiz(quiz)
-        }
+        // Trim to document count (keep newest) and save once
+        const trimmed = storageService.trimQuizzes(docCount)
+        set({ savedQuizzes: trimmed })
       })
       .catch(() => {
-        // Server unavailable, use local data
-        set({ savedQuizzes: localQuizzes })
+        // Server unavailable, use local data — still trim to avoid quota issues
+        const trimmed = storageService.trimQuizzes(docCount)
+        set({ savedQuizzes: trimmed })
       })
     // Immediately set local data for fast initial render
     set({ savedQuizzes: localQuizzes })
@@ -176,16 +177,22 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             createdAt: Date.now(),
           }
           storageService.saveQuiz(merged)
-          set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: merged } }))
+          const updated = { ...get().savedQuizzes, [docId]: merged }
+          const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
+          set({ savedQuizzes: trimmed })
           syncQuizToServer(merged)
         } else {
           storageService.saveQuiz(quiz)
-          set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+          const updated = { ...get().savedQuizzes, [docId]: quiz }
+          const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
+          set({ savedQuizzes: trimmed })
           syncQuizToServer(quiz)
         }
       } else {
         storageService.saveQuiz(quiz)
-        set(s => ({ savedQuizzes: { ...s.savedQuizzes, [docId]: quiz } }))
+        const updated = { ...get().savedQuizzes, [docId]: quiz }
+        const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
+        set({ savedQuizzes: trimmed })
         syncQuizToServer(quiz)
       }
     } catch (e: any) {

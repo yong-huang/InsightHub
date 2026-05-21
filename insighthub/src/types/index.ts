@@ -30,6 +30,7 @@ export interface Document {
   contentText: string
   tags: string[]
   isRead: boolean
+  isDeprecated?: boolean
   lastReadAt?: number
   readCount: number
   indexedAt?: number

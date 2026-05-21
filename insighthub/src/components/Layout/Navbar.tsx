@@ -5,7 +5,7 @@ import {
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
   GraduationCap, BookOpen, Sparkles, Server, Cloud, Database, Terminal, GitBranch,
   Briefcase, Globe, Layers, Lightbulb, ShieldCheck, FileText, FolderOpen, Box, Package,
-  Coins,
+  Coins, EyeOff,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { prefetchRoute } from '@/utils/prefetchRoute'
@@ -89,6 +89,16 @@ export function Navbar() {
     return storageService.getAchievementState().unlockedIds.length
   }, [storageVersion])
 
+  const deprecatedCount = useMemo(() => {
+    const deprecatedIds = storageService.getDeprecatedIds()
+    const docCount = deprecatedIds.filter(id => {
+      const doc = documents.get(id)
+      return doc?.source === activeWorkspace
+    }).length
+    const catCount = storageService.getDeprecatedCategories().filter(key => key.startsWith(`${activeWorkspace}:`)).length
+    return docCount + catCount
+  }, [documents, activeWorkspace, storageVersion])
+
   const handleSwitch = (wsId: string) => {
     if (wsId === activeWorkspace) {
       setMenuOpen(false)
@@ -108,6 +118,7 @@ export function Navbar() {
   const navButtons = [
     { icon: MessageSquare, label: 'All Notes', to: '/notes', badge: noteCount },
     { icon: Bookmark, label: 'Read Later', to: '/read-later', badge: readLaterCount },
+    { icon: EyeOff, label: 'Hidden', to: '/hidden-docs', badge: deprecatedCount },
     { icon: Trophy, label: 'Achievements', to: '/achievements', badge: achievementCount },
     { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
     { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },

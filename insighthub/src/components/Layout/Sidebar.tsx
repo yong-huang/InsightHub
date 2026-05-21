@@ -17,7 +17,7 @@ export function Sidebar() {
   // Memoize tag filtering to avoid recomputing on every render
   const workspaceTags = useMemo(() => {
     const wsDocIds = new Set(
-      Array.from(documents.values()).filter(d => d.source === activeWorkspace).map(d => d.id)
+      Array.from(documents.values()).filter(d => d.source === activeWorkspace && !d.isDeprecated).map(d => d.id)
     )
     return tags
       .map(tag => ({

@@ -37,6 +37,8 @@ export const storageKeys = {
   INCEPTION: `${PREFIX}inception`,
   STUDY_PLANS: `${PREFIX}study-plans`,
   TOKEN_USAGE: `${PREFIX}token-usage`,
+  DEPRECATED_IDS: `${PREFIX}deprecated-ids`,
+  DEPRECATED_CATEGORIES: `${PREFIX}deprecated-categories`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -207,6 +209,22 @@ export const storageService = {
     const quizzes = storageService.getQuizzes()
     delete quizzes[documentId]
     setItem(storageKeys.QUIZZES, quizzes)
+  },
+
+  /** Save entire quizzes object at once (avoids N individual writes) */
+  saveQuizzesBulk: (quizzes: Record<string, any>) =>
+    setItem(storageKeys.QUIZZES, quizzes),
+
+  /** Trim quizzes to maxEntries by keeping newest (by createdAt), persist result */
+  trimQuizzes: (maxEntries: number) => {
+    const quizzes = storageService.getQuizzes()
+    const entries = Object.entries(quizzes)
+    if (entries.length <= maxEntries) return quizzes
+
+    entries.sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0))
+    const kept = Object.fromEntries(entries.slice(-maxEntries))
+    setItem(storageKeys.QUIZZES, kept)
+    return kept
   },
 
   appendQuizQuestions: (documentId: string, newQuestions: any[]) => {
@@ -403,6 +421,42 @@ export const storageService = {
       plans.unshift(plan)
     }
     setItem(storageKeys.STUDY_PLANS, plans.slice(0, 10))
+  },
+
+  // Deprecated (hidden) document IDs
+  getDeprecatedIds: () =>
+    getItem<string[]>(storageKeys.DEPRECATED_IDS, []),
+
+  setDeprecated: (docId: string) => {
+    const ids = storageService.getDeprecatedIds()
+    if (!ids.includes(docId)) {
+      ids.push(docId)
+      setItem(storageKeys.DEPRECATED_IDS, ids)
+    }
+  },
+
+  restoreDeprecated: (docId: string) => {
+    const ids = storageService.getDeprecatedIds().filter(id => id !== docId)
+    setItem(storageKeys.DEPRECATED_IDS, ids)
+  },
+
+  // Deprecated (hidden) categories — stored as "source:category" strings
+  getDeprecatedCategories: () =>
+    getItem<string[]>(storageKeys.DEPRECATED_CATEGORIES, []),
+
+  setDeprecatedCategory: (source: string, category: string) => {
+    const key = `${source}:${category}`
+    const list = storageService.getDeprecatedCategories()
+    if (!list.includes(key)) {
+      list.push(key)
+      setItem(storageKeys.DEPRECATED_CATEGORIES, list)
+    }
+  },
+
+  restoreDeprecatedCategory: (source: string, category: string) => {
+    const key = `${source}:${category}`
+    const list = storageService.getDeprecatedCategories().filter(k => k !== key)
+    setItem(storageKeys.DEPRECATED_CATEGORIES, list)
   },
 
   /** Low-level raw string getter for similarity cache */
