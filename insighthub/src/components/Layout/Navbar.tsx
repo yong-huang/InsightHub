@@ -1,7 +1,7 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Search, Sun, Moon, ChevronDown, Check, Settings, Upload,
+  Search, Sun, Moon, ChevronDown, Check, Settings, Upload, BarChart3, Brain,
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
   Coins, EyeOff,
 } from 'lucide-react'
