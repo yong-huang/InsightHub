@@ -1,10 +1,8 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Search, Sun, Moon, Brain, Cpu, Code2, ChevronDown, Check, Settings, Upload, BarChart3,
+  Search, Sun, Moon, ChevronDown, Check, Settings, Upload,
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
-  GraduationCap, BookOpen, Sparkles, Server, Cloud, Database, Terminal, GitBranch,
-  Briefcase, Globe, Layers, Lightbulb, ShieldCheck, FileText, FolderOpen, Box, Package,
   Coins, EyeOff,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -14,31 +12,11 @@ import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { ImportDialog } from '@/components/Import/ImportDialog'
 import { storageService } from '@/services/storageService'
+import { WORKSPACE_ICONS } from '@/utils/workspaceIcons'
 
-const ICON_MAP: Record<string, React.ReactNode> = {
-  Brain: <Brain size={18} />,
-  Cpu: <Cpu size={18} />,
-  Code2: <Code2 size={18} />,
-  GraduationCap: <GraduationCap size={18} />,
-  BookOpen: <BookOpen size={18} />,
-  Sparkles: <Sparkles size={18} />,
-  Server: <Server size={18} />,
-  Cloud: <Cloud size={18} />,
-  Database: <Database size={18} />,
-  Terminal: <Terminal size={18} />,
-  GitBranch: <GitBranch size={18} />,
-  Network: <Network size={18} />,
-  BarChart3: <BarChart3 size={18} />,
-  Briefcase: <Briefcase size={18} />,
-  Globe: <Globe size={18} />,
-  Layers: <Layers size={18} />,
-  Lightbulb: <Lightbulb size={18} />,
-  ShieldCheck: <ShieldCheck size={18} />,
-  FileText: <FileText size={18} />,
-  FolderOpen: <FolderOpen size={18} />,
-  Box: <Box size={18} />,
-  Package: <Package size={18} />,
-}
+const ICON_MAP: Record<string, React.ReactNode> = Object.fromEntries(
+  Object.entries(WORKSPACE_ICONS).map(([name, Icon]) => [name, <Icon key={name} size={18} />])
+)
 
 export function Navbar() {
   const {

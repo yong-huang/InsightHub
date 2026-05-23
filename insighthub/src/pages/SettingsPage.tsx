@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle2, AlertTriangle, Zap, KeyRound,
   Loader2, ArrowLeft, Database, Plus, Trash2, FolderOpen, Folder, FileText,
-  ChevronRight,
+  ChevronRight, ChevronDown,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import type { FeatureKey } from '@/stores/preferenceStore'
 import type { Difficulty, WorkspaceConfig, QuestionType } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
 import type { ExportData } from '@/utils/dataExporter'
+import { WORKSPACE_ICONS, AVAILABLE_ICON_NAMES } from '@/utils/workspaceIcons'
 
 interface AIProfile {
   id: string
@@ -26,12 +27,49 @@ interface AIConfig {
   quizQuestionCount: number
 }
 
-const AVAILABLE_ICONS = [
-  'Brain', 'Cpu', 'Code2', 'GraduationCap', 'BookOpen', 'Sparkles',
-  'Server', 'Cloud', 'Database', 'Terminal', 'GitBranch', 'Network',
-  'BarChart3', 'Briefcase', 'Globe', 'Layers', 'Lightbulb', 'ShieldCheck',
-  'FileText', 'FolderOpen', 'Box', 'Package',
-] as const
+function IconPicker({ value, onChange }: { value: string; onChange: (icon: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const SelectedIcon = WORKSPACE_ICONS[value]
+
+  return (
+    <div ref={ref} className="icon-picker">
+      <button type="button" className="icon-picker-trigger" onClick={() => setOpen(v => !v)}>
+        {SelectedIcon ? <SelectedIcon size={16} /> : <span style={{ width: 16 }} />}
+        <span>{value}</span>
+        <ChevronDown size={14} className="icon-picker-chevron" />
+      </button>
+      {open && (
+        <div className="icon-picker-dropdown">
+          {AVAILABLE_ICON_NAMES.map(name => {
+            const Icon = WORKSPACE_ICONS[name]
+            return (
+              <button
+                key={name}
+                type="button"
+                className={`icon-picker-option${name === value ? ' selected' : ''}`}
+                onClick={() => { onChange(name); setOpen(false) }}
+              >
+                <Icon size={16} />
+                <span>{name}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function SettingsPage() {
   const {
@@ -569,15 +607,19 @@ export function SettingsPage() {
                   />
                 </div>
                 <div className="cs-form-group">
+                  <label>SUBTITLE</label>
+                  <input
+                    type="text"
+                    value={editingWs.subtitle || ''}
+                    onChange={e => setEditingWs({ ...editingWs, subtitle: e.target.value })}
+                    placeholder="e.g.: Mind & Insight"
+                  />
+                </div>
+              </div>
+              <div className="cs-form-row">
+                <div className="cs-form-group">
                   <label>ICON</label>
-                  <select
-                    value={editingWs.icon}
-                    onChange={e => setEditingWs({ ...editingWs, icon: e.target.value })}
-                  >
-                    {AVAILABLE_ICONS.map(icon => (
-                      <option key={icon} value={icon}>{icon}</option>
-                    ))}
-                  </select>
+                  <IconPicker value={editingWs.icon} onChange={icon => setEditingWs({ ...editingWs, icon })} />
                 </div>
               </div>
               <div className="cs-form-row">
