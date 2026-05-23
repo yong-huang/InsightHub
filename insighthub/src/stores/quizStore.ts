@@ -121,24 +121,16 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
   loadSavedQuizzes: () => {
     const localQuizzes = storageService.getQuizzes()
-    const docCount = useDocumentStore.getState().documents.size || 1
-    // Also load from server (server takes priority on conflicts)
+    // Immediately set local data for fast initial render
+    set({ savedQuizzes: localQuizzes })
+    // Also load from server (server data overwrites local on conflicts)
     fetch('/api/quizzes')
       .then(r => r.json())
       .then((serverQuizzes: Record<string, any>) => {
-        // Merge: server data overwrites local, but keep local-only quizzes
         const merged = { ...localQuizzes, ...serverQuizzes }
-        // Trim to document count (keep newest) and save once
-        const trimmed = storageService.trimQuizzes(docCount)
-        set({ savedQuizzes: trimmed })
+        set({ savedQuizzes: merged })
       })
-      .catch(() => {
-        // Server unavailable, use local data — still trim to avoid quota issues
-        const trimmed = storageService.trimQuizzes(docCount)
-        set({ savedQuizzes: trimmed })
-      })
-    // Immediately set local data for fast initial render
-    set({ savedQuizzes: localQuizzes })
+      .catch(() => {})
   },
 
   startGeneration: async (docId, mode, doc, difficulty, count, enabledTypes) => {
