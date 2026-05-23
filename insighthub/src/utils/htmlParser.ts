@@ -1,18 +1,9 @@
 import type { Document, Section } from '@/types'
 import type { DocumentManifestEntry } from './documentManifest'
 
-const TITLE_SUFFIXES = [
-  ' - MindInsight',
-  ' - TechInsight',
-  ' - Tech Visual',
-  ' - LeetCodeInsight',
-  '| Mind & Insight MindInsight',
-  '| Tech & Insight TechInsight',
-]
-
-function stripTitleSuffix(title: string): string {
+function stripTitleSuffix(title: string, suffixes: string[]): string {
   let cleaned = title
-  for (const suffix of TITLE_SUFFIXES) {
+  for (const suffix of suffixes) {
     if (cleaned.endsWith(suffix)) {
       cleaned = cleaned.slice(0, -suffix.length).trim()
     }
@@ -63,14 +54,14 @@ function resolveDocPath(entry: DocumentManifestEntry): string {
   return `/docs/${entry.source}${middle}/${entry.fileName}`
 }
 
-export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): Omit<Document, 'isRead' | 'lastReadAt' | 'readCount' | 'tags' | 'indexedAt'> {
+export function parseHtmlDocument(html: string, entry: DocumentManifestEntry, titleSuffixes: string[] = []): Omit<Document, 'isRead' | 'lastReadAt' | 'readCount' | 'tags' | 'indexedAt'> {
   const parser = new DOMParser()
   const doc = parser.parseFromString(html, 'text/html')
 
   // Extract title
   const titleEl = doc.querySelector('title')
   const rawTitle = titleEl?.textContent || entry.fileName.replace(/\.html$/, '')
-  const title = stripTitleSuffix(rawTitle)
+  const title = stripTitleSuffix(rawTitle, titleSuffixes)
 
   // Remove non-content elements
   const removeSelectors = ['script', 'style', 'nav', 'footer', 'header', 'noscript']
@@ -107,14 +98,14 @@ export function parseHtmlDocument(html: string, entry: DocumentManifestEntry): O
   }
 }
 
-export async function fetchAndParseDocument(entry: DocumentManifestEntry): Promise<Document> {
+export async function fetchAndParseDocument(entry: DocumentManifestEntry, titleSuffixes: string[] = []): Promise<Document> {
   const url = resolveDocPath(entry)
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: ${response.status}`)
   }
   const html = await response.text()
-  const parsed = parseHtmlDocument(html, entry)
+  const parsed = parseHtmlDocument(html, entry, titleSuffixes)
   return {
     ...parsed,
     isRead: false,

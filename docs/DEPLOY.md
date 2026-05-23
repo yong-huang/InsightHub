@@ -11,20 +11,23 @@ InsightHub is a static single-page application. It can be deployed to any static
 
 ## Build
 
-### 1. Configure Document Paths
+### 1. Configure Workspaces
 
-Edit `vite.config.ts` to point to your document source directories:
+Edit `data/.insighthub-workspaces.json` to define your document workspaces:
 
-```typescript
-documentDiscovery({
-  mindInsightDir: '/path/to/MindInsight',
-  techInsightDir: '/path/to/TechInsight',
-  aiApiUrl: 'http://127.0.0.1:7001/v1',
-  aiModel: 'Qwen/Qwen3.5-27B-4bit',
-})
+```json
+[
+  {
+    "id": "myworkspace",
+    "label": "MyWorkspace",
+    "icon": "FolderOpen",
+    "path": "../MyDocuments",
+    "prefix": "my"
+  }
+]
 ```
 
-Also update `src/hooks/useDocumentUrl.ts` if it contains hardcoded absolute paths.
+Paths are relative to the `insighthub/` directory. You can also add and manage workspaces from the Settings page (`/settings`) at runtime.
 
 ### 2. Install Dependencies
 
@@ -106,8 +109,7 @@ WORKDIR /app
 COPY insighthub/package*.json ./
 RUN npm ci
 COPY insighthub/ ./
-COPY MindInsight/ /docs/MindInsight/
-COPY TechInsight/ /docs/TechInsight/
+COPY your-docs/ /docs/
 RUN npm run build
 
 FROM nginx:alpine
@@ -143,30 +145,20 @@ If no LLM server is running, the app works normally — only the quiz generation
 Document source directories contain HTML files organized as:
 
 ```
-MindInsight/
-├── philosophy/
+your-workspace/
+├── category/
 │   ├── article-1.html
 │   └── article-2.html
-├── film/
-│   └── ...
-└── ...
-
-TechInsight/
-├── ai/
-│   └── ...
-├── cloud/
+├── another-category/
 │   └── ...
 └── ...
 ```
 
-The Vite plugin scans these directories recursively, extracting metadata (title, sections, word count) from each HTML file.
+The Vite plugin scans workspace directories recursively, extracting metadata (title, sections, word count) from each HTML file. Workspace paths are configured in `data/.insighthub-workspaces.json`.
 
 ### Hardcoded Paths
 
-The following files contain hardcoded absolute paths that must be updated when the project moves:
-
-- `vite.config.ts` — `MINDINSIGHT_DIR`, `TECHINSIGHT_DIR`
-- `src/hooks/useDocumentUrl.ts` — Document URL resolution
+There are no hardcoded document paths. All workspace directories are configured via `data/.insighthub-workspaces.json`. The Vite plugin and build scripts resolve paths relative to the project root.
 
 ### Browser Compatibility
 

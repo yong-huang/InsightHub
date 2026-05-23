@@ -2,6 +2,8 @@
 export type Source = string
 
 // ========== Workspace Config ==========
+export type WorkspaceEntry = WorkspaceConfig
+
 export interface WorkspaceConfig {
   id: string
   label: string

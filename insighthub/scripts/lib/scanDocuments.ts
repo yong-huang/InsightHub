@@ -1,6 +1,5 @@
 import * as path from 'path'
-import type { Source } from '../../src/types'
-import type { WorkspaceEntry } from '../../src/config/defaultWorkspaces'
+import type { Source, WorkspaceEntry } from '../../src/types'
 import { scanWithManifest } from './manifestManager'
 export { scanWithManifest }
 

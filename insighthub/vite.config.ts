@@ -2,25 +2,24 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import * as fs from 'fs'
-import { DEFAULT_WORKSPACES } from './src/config/defaultWorkspaces'
 import { documentDiscovery } from './vite-plugins/documentDiscovery'
 
 const PROJECT_DIR = path.resolve(__dirname)
 
-// Read workspace config or use defaults
+// Read workspace paths from config
 function loadWorkspacePaths(): string[] {
   const configPath = path.resolve(PROJECT_DIR, '.insighthub-workspaces.json')
-  let workspaces = DEFAULT_WORKSPACES
+  let workspaces: any[] = []
   try {
     if (fs.existsSync(configPath)) {
       const wsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      if (Array.isArray(wsConfig) && wsConfig.length > 0) workspaces = wsConfig
+      if (Array.isArray(wsConfig)) workspaces = wsConfig
     }
   } catch {}
   return workspaces
-    .map(ws => ws.path)
+    .map((ws: any) => ws.path)
     .filter(Boolean)
-    .map(p => path.isAbsolute(p) ? p : path.resolve(PROJECT_DIR, p))
+    .map((p: string) => path.isAbsolute(p) ? p : path.resolve(PROJECT_DIR, p))
 }
 
 export default defineConfig({

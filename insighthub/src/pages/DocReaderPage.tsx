@@ -20,7 +20,7 @@ import { SpeechPanel } from '@/components/DocReader/SpeechPanel'
 import { generateDocumentSummary, evaluateDocumentAccuracy, generateSpeakerNotes } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
-import { getShortLabel } from '@/utils/workspaceUtils'
+import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
 import type { Source } from '@/types'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
@@ -32,6 +32,8 @@ import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
 
 import { SimilarDocsPanel } from '@/components/DocReader/SimilarDocsPanel'
 import { InceptionPanel } from '@/components/DocReader/InceptionPanel'
+import { QuizPanel } from '@/components/DocReader/QuizPanel'
+import { ConceptCardsPanel } from '@/components/DocReader/ConceptCardsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
@@ -149,6 +151,8 @@ export function DocReaderPage() {
   const [chatSelectedText, setChatSelectedText] = useState<string | undefined>(undefined)
   const [showChallengePanel, setShowChallengePanel] = useState(false)
   const [challengeSelectedText, setChallengeSelectedText] = useState<string | undefined>(undefined)
+  const [showQuizPanel, setShowQuizPanel] = useState(false)
+  const [showConceptPanel, setShowConceptPanel] = useState(false)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
@@ -186,6 +190,10 @@ export function DocReaderPage() {
     () => docId ? conceptCards.filter(c => c.sourceDocId === docId).length : 0,
     [docId, conceptCards],
   )
+
+  const wasGenerating = useRef(isGenerating)
+  const wasExtracting = useRef(isExtractingConcepts)
+
   const {
     selectionInfo,
     staleAnnotationIds,
@@ -341,6 +349,8 @@ export function DocReaderPage() {
     setChatSelectedText(undefined)
     setShowChallengePanel(false)
     setChallengeSelectedText(undefined)
+    setShowQuizPanel(false)
+    setShowConceptPanel(false)
     setExplainState(null)
     setTranslateState(null)
     if (docId) {
@@ -360,6 +370,24 @@ export function DocReaderPage() {
       setIsBookmarked(false)
     }
   }, [docId])
+
+  // Auto-open quiz panel when generation completes
+  useEffect(() => {
+    if (wasGenerating.current && !isGenerating && existingQuiz) {
+      setShowQuizPanel(true)
+      setShowConceptPanel(false)
+    }
+    wasGenerating.current = isGenerating
+  }, [isGenerating, existingQuiz])
+
+  // Auto-open concept cards panel when extraction completes
+  useEffect(() => {
+    if (wasExtracting.current && !isExtractingConcepts && docConceptCount > 0) {
+      setShowConceptPanel(true)
+      setShowQuizPanel(false)
+    }
+    wasExtracting.current = isExtractingConcepts
+  }, [isExtractingConcepts, docConceptCount])
 
   // Save scroll position on scroll (debounced)
   useEffect(() => {
@@ -693,7 +721,7 @@ export function DocReaderPage() {
         </button>
 
         <div className="doc-reader-toolbar-info">
-          <span className={`badge badge-${doc.source}`}>
+          <span className="badge" style={{ background: getSourceColorBg(doc.source, workspaces), color: getSourceColor(doc.source, workspaces) }}>
             {getShortLabel(doc.source, workspaces)}
           </span>
           {catInfo && <span className="badge">{catInfo.label}</span>}
@@ -905,11 +933,12 @@ export function DocReaderPage() {
           {/* Extract concepts button */}
           {enabledFeatures.aiConcept && (
           <button
-            className={`dr-action-btn ${docConceptCount > 0 ? 'active' : ''}`}
+            className={`dr-action-btn ${(docConceptCount > 0 || showConceptPanel) ? 'active' : ''}`}
             onClick={() => {
               if (isExtractingConcepts) return
               if (docConceptCount > 0) {
-                navigate(`/spaced-repetition?docId=${doc.id}`)
+                setShowConceptPanel(v => !v)
+                setShowQuizPanel(false)
               } else {
                 handleExtractConcepts('new')
               }
@@ -925,13 +954,14 @@ export function DocReaderPage() {
           {/* Quiz button area */}
           {enabledFeatures.aiQuiz && (
           <button
-            className={`dr-action-btn ${existingQuiz ? 'active' : ''}`}
+            className={`dr-action-btn ${(existingQuiz || showQuizPanel) ? 'active' : ''}`}
             onClick={() => {
               if (isGenerating) return
               if (generatingError) {
                 handleGenerate(existingQuiz ? 'regenerate' : 'new')
               } else if (existingQuiz) {
-                navigate(`/quiz/quiz-${doc.id}?docId=${doc.id}&from=${encodeURIComponent(fromPath || `/${doc.source}/${doc.category}`)}`)
+                setShowQuizPanel(v => !v)
+                setShowConceptPanel(false)
               } else {
                 handleGenerate('new')
               }
@@ -1021,11 +1051,11 @@ export function DocReaderPage() {
           ref={iframeRef}
           src={iframeSrc}
           className="doc-reader-iframe"
-          style={{ background: '#fff', border: 'none', flex: 1 }}
+          style={{ background: '#fff', border: 'none', flex: 1, display: (showQuizPanel || showConceptPanel) ? 'none' : undefined }}
           title={doc.title}
         />
 
-        {showAnnotationPanel && (
+        {showAnnotationPanel && !showQuizPanel && !showConceptPanel && (
           <AnnotationPanel
             annotations={docAnnotations}
             titleLookup={titleLookup}
@@ -1038,7 +1068,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiSummary && showSummaryPanel && (
+        {enabledFeatures.aiSummary && showSummaryPanel && !showQuizPanel && !showConceptPanel && (
           <SummaryPanel
             summaryText={summaryText}
             isGenerating={isSummaryGenerating}
@@ -1050,7 +1080,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiEvaluation && showEvalPanel && (
+        {enabledFeatures.aiEvaluation && showEvalPanel && !showQuizPanel && !showConceptPanel && (
           <EvaluationPanel
             resultText={evalResult}
             isGenerating={isEvalGenerating}
@@ -1062,7 +1092,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiSpeech && showSpeechPanel && (
+        {enabledFeatures.aiSpeech && showSpeechPanel && !showQuizPanel && !showConceptPanel && (
           <SpeechPanel
             scriptText={speechText}
             isGenerating={isSpeechGenerating}
@@ -1074,7 +1104,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiInception && showInceptionPanel && (
+        {enabledFeatures.aiInception && showInceptionPanel && !showQuizPanel && !showConceptPanel && (
           <InceptionPanel
             inceptionText={inceptionText}
             isGenerating={isInceptionGenerating}
@@ -1086,7 +1116,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showChatPanel && (
+        {showChatPanel && !showQuizPanel && !showConceptPanel && (
           <ChatPanel
             documentId={docId || ''}
             documentTitle={doc.title}
@@ -1098,7 +1128,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {showChallengePanel && (
+        {showChallengePanel && !showQuizPanel && !showConceptPanel && (
           <ChallengePanel
             key={docId}
             documentId={docId || ''}
@@ -1109,7 +1139,7 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiSimilarity && showSimilarPanel && (
+        {enabledFeatures.aiSimilarity && showSimilarPanel && !showQuizPanel && !showConceptPanel && (
           <SimilarDocsPanel
             docId={docId || ''}
             onClose={() => { setShowSimilarPanel(false); setSimilarPoppedOut(false) }}
@@ -1117,6 +1147,9 @@ export function DocReaderPage() {
             onTogglePopup={() => setSimilarPoppedOut(v => !v)}
           />
         )}
+
+        {showQuizPanel && <QuizPanel docId={doc.id} onClose={() => setShowQuizPanel(false)} />}
+        {showConceptPanel && <ConceptCardsPanel docId={doc.id} onClose={() => setShowConceptPanel(false)} />}
       </div>
 
       {/* Floating annotation bar */}

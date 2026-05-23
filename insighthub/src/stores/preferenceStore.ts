@@ -179,6 +179,14 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
 
       savePrefs({ workspaces: merged })
       set({ workspaces: merged })
+
+      // Auto-select first workspace if none is active
+      const currentActive = get().activeWorkspace
+      if (!currentActive || !merged.some(w => w.id === currentActive)) {
+        const firstId = merged[0]?.id || ''
+        savePrefs({ activeWorkspace: firstId })
+        set({ activeWorkspace: firstId })
+      }
     } catch {
       // Server unavailable — keep local workspaces
     }

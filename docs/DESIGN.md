@@ -24,7 +24,7 @@ InsightHub is a client-side single-page application built with React 19 and Type
 │  Document Discovery · API Proxy · LAN Sync       │
 ├─────────────────────────────────────────────────┤
 │           Document Source (HTML files)            │
-│  MindInsight/ · TechInsight/                     │
+│  Configured via .insighthub-workspaces.json      │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -36,7 +36,7 @@ InsightHub is a client-side single-page application built with React 19 and Type
 
 3. **Vite plugin for document discovery** — Instead of a build-time index, a custom Vite plugin scans source directories at dev time, providing `/api/documents` (manifest) and `/dev-docs/` (file serving). This avoids rebuilding when documents change.
 
-4. **Workspace isolation** — The app has two workspaces (MindInsight / TechInsight). Each workspace filters all data (documents, annotations, flashcards, tags) by document source.
+4. **Workspace isolation** — The app supports multiple user-defined workspaces configured in `data/.insighthub-workspaces.json`. Each workspace filters all data (documents, annotations, flashcards, tags) by document source.
 
 ## Data Flow
 

@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, FileText, Clock } from 'lucide-react'
 import type { Document } from '@/types'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText } from '@/services/searchService'
-import { getShortLabel } from '@/utils/workspaceUtils'
+import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { prefetchRoute } from '@/utils/prefetchRoute'
 import { useMemo, memo } from 'react'
@@ -41,7 +41,7 @@ export const DocCard = memo(function DocCard({ doc, snippet, query }: DocCardPro
   return (
     <Link to={`/doc/${doc.id}`} state={{ from: location.pathname }} className="doc-card card card-hover" onMouseEnter={() => prefetchRoute('/doc')}>
       <div className="doc-card-header">
-        <span className={`badge badge-${doc.source}`}>
+        <span className="badge" style={{ background: getSourceColorBg(doc.source, workspaces), color: getSourceColor(doc.source, workspaces) }}>
           {getShortLabel(doc.source, workspaces)}
         </span>
         <span className={`badge ${doc.isRead ? 'badge-read' : 'badge-unread'}`}>

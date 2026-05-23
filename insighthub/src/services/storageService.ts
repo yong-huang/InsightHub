@@ -1,20 +1,9 @@
 const PREFIX = 'insighthub:'
 
-import { DEFAULT_WORKSPACES as BASE_WORKSPACES } from '@/config/defaultWorkspaces'
 import type { WorkspaceConfig } from '@/types'
 import type { StudyPlanResult } from '@/services/studyPlanService'
 
-/** UI-only display fields for default workspaces */
-const UI_FIELDS: Record<string, Partial<WorkspaceConfig>> = {
-  mindinsight: { shortLabel: 'Mind', subtitle: 'Mind & Insight', gradientClass: 'gradient-text-warm', color: '#ff8c42', colorBg: 'rgba(255, 140, 66, 0.15)' },
-  techinsight: { shortLabel: 'Tech', subtitle: 'Tech & Insight', gradientClass: 'gradient-text', color: '#326ce5', colorBg: 'rgba(50, 108, 229, 0.15)' },
-  leetcodeinsight: { shortLabel: 'LC', subtitle: 'Algorithm Mastery', gradientClass: 'gradient-text-green', color: '#4ecdc4', colorBg: 'rgba(78, 205, 196, 0.15)' },
-}
-
-export const DEFAULT_WORKSPACES: WorkspaceConfig[] = BASE_WORKSPACES.map(ws => ({
-  ...ws,
-  ...UI_FIELDS[ws.id],
-}))
+export const DEFAULT_WORKSPACES: WorkspaceConfig[] = []
 
 export const storageKeys = {
   PREFERENCES: `${PREFIX}preferences`,
@@ -131,7 +120,7 @@ export const storageService = {
       aiApiUrl: 'http://127.0.0.1:7001/v1',
       aiModel: 'default',
       aiApiKey: '',
-      activeWorkspace: DEFAULT_WORKSPACES[0]?.id || 'mindinsight',
+      activeWorkspace: DEFAULT_WORKSPACES[0]?.id || '',
       conceptMaxCount: 10,
       quizEnabledTypes: ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion'],
       workspaces: DEFAULT_WORKSPACES,

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Document, ImportedDocumentRecord, SearchFilters, Source } from '@/types'
+import type { Document, ImportedDocumentRecord, SearchFilters, Source, WorkspaceConfig } from '@/types'
 import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
 import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
@@ -9,6 +9,14 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { getDirectoryFromSource } from '@/utils/workspaceUtils'
 import { fetchImportedDocs, importDocument, deleteImportedDocument, fetchImportedDocHtml } from '@/services/importService'
 import { addSnippet, clearSimilarityCache } from '@/services/similarityService'
+
+/** Build title suffixes to strip from workspace labels/subtitles */
+function buildTitleSuffixes(workspaces: WorkspaceConfig[]): string[] {
+  return workspaces.flatMap(ws => [
+    ` - ${ws.label}`,
+    ws.subtitle ? `| ${ws.subtitle} ${ws.label}` : null,
+  ]).filter(Boolean) as string[]
+}
 
 interface DocumentState {
   documents: Map<string, Document>
@@ -53,6 +61,7 @@ async function loadAllDocuments(
 
   const docs = new Map<string, Document>()
   const categoryCounts: Record<string, number> = {}
+  const titleSuffixes = buildTitleSuffixes(usePreferenceStore.getState().workspaces)
 
   clearIndex()
 
@@ -62,7 +71,7 @@ async function loadAllDocuments(
     const batch = manifest.slice(i, i + BATCH_SIZE)
     const promises = batch.map(async (entry) => {
       try {
-        const doc = await fetchAndParseDocument(entry)
+        const doc = await fetchAndParseDocument(entry, titleSuffixes)
         docs.set(doc.id, doc)
 
         // Count categories
@@ -427,7 +436,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
             fileName: meta.fileName,
             source: meta.source,
             category: meta.category,
-          })
+          }, buildTitleSuffixes(usePreferenceStore.getState().workspaces))
           doc = {
             ...parsed,
             isRead: false,
@@ -476,7 +485,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       fileName: file.name,
       source,
       category,
-    })
+    }, buildTitleSuffixes(usePreferenceStore.getState().workspaces))
 
     const result = await importDocument(file.name, htmlContent, source, category, {
       title: parsed.title,

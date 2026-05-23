@@ -153,21 +153,6 @@ a:hover {
   white-space: nowrap;
 }
 
-.badge-mindinsight {
-  background: rgba(255, 140, 66, 0.15);
-  color: var(--accent-orange);
-}
-
-.badge-techinsight {
-  background: rgba(50, 108, 229, 0.15);
-  color: var(--accent-blue-light);
-}
-
-.badge-leetcodeinsight {
-  background: rgba(78, 205, 196, 0.15);
-  color: var(--accent-green);
-}
-
 .badge-read {
   background: rgba(78, 205, 196, 0.15);
   color: var(--accent-green);

@@ -1,8 +1,7 @@
 import type { Plugin } from 'vite'
 import * as fs from 'fs'
 import * as path from 'path'
-import { DEFAULT_WORKSPACES } from '../src/config/defaultWorkspaces'
-import type { WorkspaceEntry } from '../src/config/defaultWorkspaces'
+import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
 
 export interface DocumentDiscoveryOptions {
@@ -208,7 +207,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
           }
         } catch {}
-        return DEFAULT_WORKSPACES
+        return []
       }
 
       // API endpoint: return document manifest (cached 1s to avoid redundant fs scans)
@@ -262,7 +261,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: 'Expected array' }))
                 return
               }
-              fs.writeFileSync(workspacesConfigPath, JSON.stringify(config, null, 2), 'utf-8')
+              // Normalize paths to relative (from project root) before saving
+              const normalized = config.map(ws => {
+                if (ws.path && path.isAbsolute(ws.path)) {
+                  try {
+                    ws.path = path.relative(BASE_DIR, ws.path)
+                  } catch {}
+                }
+                return ws
+              })
+              fs.writeFileSync(workspacesConfigPath, JSON.stringify(normalized, null, 2), 'utf-8')
               res.end(JSON.stringify({ ok: true }))
             } catch {
               res.statusCode = 400

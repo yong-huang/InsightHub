@@ -1,8 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
-import { DEFAULT_WORKSPACES } from '../src/config/defaultWorkspaces'
-import type { WorkspaceEntry } from '../src/config/defaultWorkspaces'
+import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from './lib/scanDocuments'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -19,7 +18,7 @@ function loadWorkspaces(): WorkspaceEntry[] {
       if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
     }
   } catch {}
-  return DEFAULT_WORKSPACES
+  return []
 }
 
 function main() {
