@@ -148,7 +148,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5600`. Document source directories must exist at the paths configured in `vite.config.ts`.
+Open `http://localhost:5600`. Add your document workspaces from the Settings page or by editing `data/.insighthub-workspaces.json`.
 
 > **Without a local LLM**, the app works fully — browsing, search, annotations, and all visualizations function normally. Only AI features (quiz, chat, concept extraction, etc.) require an LLM server.
 
@@ -240,29 +240,28 @@ insighthub/
 
 ### AI Model
 
-Configure from the Settings page (supports multiple AI model profiles with CRUD) or `vite.config.ts`:
-
-```typescript
-documentDiscovery({
-  aiApiUrl: 'http://127.0.0.1:7001/v1',
-  aiModel: 'Qwen/Qwen3.5-27B-4bit',
-})
-```
+Configure from the Settings page — supports multiple AI model profiles with full CRUD, persisted to localStorage and synced to the server.
 
 Compatible with any OpenAI-compatible server: llama.cpp, Ollama, vLLM, LM Studio, etc.
 
-### Document Sources
+### Document Workspaces
 
-Three knowledge bases, each dynamically discovering categories from documents:
+Workspaces are configured in `data/.insighthub-workspaces.json` or added via the Settings page. Each workspace maps to a local document directory with its own ID prefix. Categories are discovered dynamically from the document folder structure.
 
-| Workspace | Prefix | Example Categories |
-|-----------|--------|-------------------|
-| **MindInsight** | `mi-` | Academic, History, Finance, Literature, Media Analysis, Philosophy, Pop Culture |
-| **TechInsight** | `ti-` | AI Frameworks, Algorithms, Cloud, Database, DevOps, K8s, Linux, Networking, Programming, Security, VMware |
-| **LeetCodeInsight** | `li-` | Arrays, Strings, Linked List, Stack, Math, Dynamic Programming, Binary Search |
-| **SampleInsight** | `si-` | Bundled sample documents for first-time setup |
+```json
+[
+  {
+    "id": "mydocs",
+    "label": "MyDocuments",
+    "icon": "BookOpen",
+    "path": "../MyDocuments",
+    "prefix": "my",
+    "subtitle": "My Knowledge Base"
+  }
+]
+```
 
-Custom workspaces can be added in Settings with any local directory. The SampleInsight workspace ships with the project for initial exploration and can be deleted after setup.
+Paths are relative to the `insighthub/` directory. Any number of workspaces can be added.
 
 ### Workspace Switching
 
