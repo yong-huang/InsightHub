@@ -404,7 +404,7 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
             <button
               className="cs-btn cs-btn-ghost"
               style={{ fontSize: '0.75rem', color: 'var(--accent-red)' }}
-              onClick={() => { for (const c of workspaceCards) removeCard(c.id) }}
+              onClick={() => { if (!window.confirm(`Delete ${workspaceCards.length} card(s)?`)) return; for (const c of workspaceCards) removeCard(c.id) }}
               title="Delete all cards"
             >
               <Trash2 size={14} />

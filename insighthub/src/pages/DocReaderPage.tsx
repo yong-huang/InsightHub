@@ -371,23 +371,15 @@ export function DocReaderPage() {
     }
   }, [docId])
 
-  // Auto-open quiz panel when generation completes
+  // Track generation state (used by toolbar to show completion status)
   useEffect(() => {
-    if (wasGenerating.current && !isGenerating && existingQuiz) {
-      setShowQuizPanel(true)
-      setShowConceptPanel(false)
-    }
     wasGenerating.current = isGenerating
-  }, [isGenerating, existingQuiz])
+  }, [isGenerating])
 
-  // Auto-open concept cards panel when extraction completes
+  // Track extraction state
   useEffect(() => {
-    if (wasExtracting.current && !isExtractingConcepts && docConceptCount > 0) {
-      setShowConceptPanel(true)
-      setShowQuizPanel(false)
-    }
     wasExtracting.current = isExtractingConcepts
-  }, [isExtractingConcepts, docConceptCount])
+  }, [isExtractingConcepts])
 
   // Save scroll position on scroll (debounced)
   useEffect(() => {

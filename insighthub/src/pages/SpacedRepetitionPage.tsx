@@ -262,6 +262,7 @@ export function SpacedRepetitionPage() {
               className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
               onClick={() => {
+                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
                 for (const c of workspaceCards) removeCard(c.id)
                 navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
               }}
@@ -448,6 +449,7 @@ export function SpacedRepetitionPage() {
               className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
               onClick={() => {
+                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
                 for (const c of workspaceCards) removeCard(c.id)
                 navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
               }}
@@ -495,6 +497,7 @@ export function SpacedRepetitionPage() {
               className="cs-btn cs-btn-secondary"
               style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
               onClick={() => {
+                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
                 for (const c of workspaceCards) removeCard(c.id)
                 navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
               }}
