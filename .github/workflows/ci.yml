@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: insighthub/package-lock.json
+
+      - name: Install dependencies
+        run: cd insighthub && npm ci
+
+      - name: Lint
+        run: cd insighthub && npm run lint
+
+      - name: Type check
+        run: cd insighthub && npx tsc -b --noEmit
+
+      - name: Build
+        run: cd insighthub && npm run build
