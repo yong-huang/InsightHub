@@ -1,8 +1,33 @@
 {
   "name": "insighthub",
-  "private": false,
   "version": "1.0.0",
   "type": "module",
+  "description": "An intelligent knowledge management platform for browsing, annotating, and mastering HTML learning documents with AI-powered quizzes, spaced repetition, and interactive visualizations.",
+  "keywords": [
+    "knowledge-management",
+    "document-reader",
+    "ai-quiz",
+    "spaced-repetition",
+    "flashcards",
+    "annotations",
+    "knowledge-graph",
+    "react",
+    "vite",
+    "openai-compatible",
+    "local-llm"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yong-huang/InsightHub.git"
+  },
+  "homepage": "https://github.com/yong-huang/InsightHub#readme",
+  "bugs": {
+    "url": "https://github.com/yong-huang/InsightHub/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
