@@ -18,7 +18,7 @@ export function CommentDialog({ selectedText, onSave, onCancel }: CommentDialogP
   }
 
   return (
-    <div className="comment-dialog-overlay" onMouseDown={e => e.stopPropagation()}>
+    <div className="comment-dialog-overlay" onPointerDown={e => e.stopPropagation()}>
       <div className="comment-dialog">
         <div className="comment-dialog-header">
           <h3>Add Comment</h3>

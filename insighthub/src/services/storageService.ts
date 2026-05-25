@@ -167,7 +167,7 @@ export const storageService = {
   addQuizAttempt: (attempt: any) => {
     const history = storageService.getQuizHistory()
     history.unshift(attempt)
-    setItem(storageKeys.QUIZ_HISTORY, history.slice(0, 100))
+    setItem(storageKeys.QUIZ_HISTORY, history)
   },
 
   getSearchHistory: () => getItem<string[]>(storageKeys.SEARCH_HISTORY, []),

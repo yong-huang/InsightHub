@@ -62,6 +62,19 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
   const [sessionDone, setSessionDone] = useState(false)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
+  const handleRemoveCard = useCallback((cardId: string) => {
+    removeCard(cardId)
+    if (workspaceCards.filter(c => c.id !== cardId).length <= 1) {
+      onClose()
+    }
+  }, [removeCard, workspaceCards, onClose])
+
+  const handleDeleteAll = useCallback(() => {
+    for (const c of workspaceCards) removeCard(c.id)
+    setConfirmDeleteAll(false)
+    onClose()
+  }, [removeCard, workspaceCards, onClose])
+
   // Load cards once on mount
   useEffect(() => {
     if (!isLoaded) loadCards()
@@ -179,7 +192,7 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
             {workspaceCards.length > 0 && (confirmDeleteAll ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--accent-red)', whiteSpace: 'nowrap' }}>
                 Delete all?
-                <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem' }} onClick={() => { for (const c of workspaceCards) removeCard(c.id); setConfirmDeleteAll(false) }}>Yes</button>
+                <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem' }} onClick={handleDeleteAll}>Yes</button>
                 <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem' }} onClick={() => setConfirmDeleteAll(false)}>No</button>
               </div>
             ) : (
@@ -246,7 +259,7 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
                 <div className="cs-sr-list-section">
                   <div className="cs-sr-list-title"><Clock size={14} /> Due ({dueList.length})</div>
                   <div className="cs-item-list">
-                    {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+                    {pagedDue.map(c => <CardItem key={c.id} card={c} onRemove={handleRemoveCard} />)}
                   </div>
                 </div>
               )}
@@ -254,7 +267,7 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
                 <div className="cs-sr-list-section">
                   <div className="cs-sr-list-title"><CheckCircle2 size={14} /> Familiar ({familiarList.length})</div>
                   <div className="cs-item-list">
-                    {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={removeCard} />)}
+                    {pagedFamiliar.map(c => <CardItem key={c.id} card={c} onRemove={handleRemoveCard} />)}
                   </div>
                 </div>
               )}

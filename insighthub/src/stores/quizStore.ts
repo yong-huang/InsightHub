@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import type { Quiz, QuizAttempt, Difficulty, QuestionType } from '@/types'
 import { storageService } from '@/services/storageService'
 import { createQuiz } from '@/services/quizService'
-import { useDocumentStore } from '@/stores/documentStore'
 
 function syncQuizToServer(quiz: Quiz): Promise<void> {
   return fetch('/api/quizzes', {
@@ -92,8 +91,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
           const key = entry.id || `${entry.documentId}-${entry.completedAt}`
           if (!seen.has(key)) { seen.add(key); merged.push(entry) }
         }
-        set({ quizHistory: merged.slice(0, 100) })
-        storageService.setQuizHistory(merged.slice(0, 100))
+        set({ quizHistory: merged })
+        storageService.setQuizHistory(merged)
       })
       .catch(() => {})
   },
@@ -169,22 +168,16 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             createdAt: Date.now(),
           }
           storageService.saveQuiz(merged)
-          const updated = { ...get().savedQuizzes, [docId]: merged }
-          const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
-          set({ savedQuizzes: trimmed })
+          set({ savedQuizzes: { ...get().savedQuizzes, [docId]: merged } })
           syncQuizToServer(merged)
         } else {
           storageService.saveQuiz(quiz)
-          const updated = { ...get().savedQuizzes, [docId]: quiz }
-          const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
-          set({ savedQuizzes: trimmed })
+          set({ savedQuizzes: { ...get().savedQuizzes, [docId]: quiz } })
           syncQuizToServer(quiz)
         }
       } else {
         storageService.saveQuiz(quiz)
-        const updated = { ...get().savedQuizzes, [docId]: quiz }
-        const trimmed = storageService.trimQuizzes(useDocumentStore.getState().documents.size || 1)
-        set({ savedQuizzes: trimmed })
+        set({ savedQuizzes: { ...get().savedQuizzes, [docId]: quiz } })
         syncQuizToServer(quiz)
       }
     } catch (e: any) {

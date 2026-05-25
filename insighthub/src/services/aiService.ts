@@ -475,8 +475,8 @@ Format:
       console.warn('[generateQuizQuestions] retrying AI call after parse failure...')
     }
     const result = attempt === 0
-      ? await callAI(messages)
-      : await callAI(messages)
+      ? await callAI(messages, 120000, 16000)
+      : await callAI(messages, 120000, 16000)
     if (result.usage) recordUsage('quiz', result.usage)
     if (!result.success || !result.data) {
       return result
