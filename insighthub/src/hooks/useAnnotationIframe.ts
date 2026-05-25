@@ -219,9 +219,19 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
 
     let selectionChangeTimer: ReturnType<typeof setTimeout> | null = null
 
+    const isTouchDevice = 'ontouchstart' in window
+
     const onLoad = () => {
       const doc = getIframeDoc()
       if (!doc) return
+
+      // Prevent native context menu
+      doc.addEventListener('contextmenu', (e: Event) => e.preventDefault())
+
+      // Inject touch-friendly CSS
+      const style = doc.createElement('style')
+      style.textContent = 'body { -webkit-touch-callout: none; touch-action: manipulation; }'
+      doc.head.appendChild(style)
 
       // Desktop: mouseup fires after text drag selection
       doc.addEventListener('mouseup', handleMouseUp)
@@ -246,7 +256,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
               return
             }
             handleMouseUp()
-          }, 150) // debounce: wait for selection handles to settle
+          }, isTouchDevice ? 300 : 150) // longer debounce on touch: wait for Safari menu to settle
         })
       }
 
@@ -265,6 +275,19 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
           setActiveAnnotationRect(null)
         }
       })
+
+      // Touch: capture selection after touchend (before Safari menu fully settles)
+      if (isTouchDevice) {
+        doc.addEventListener('touchend', () => {
+          if (selectionChangeTimer) clearTimeout(selectionChangeTimer)
+          selectionChangeTimer = setTimeout(() => {
+            const sel = win?.getSelection()
+            if (sel && !sel.isCollapsed && sel.rangeCount) {
+              handleMouseUp()
+            }
+          }, 350)
+        }, { passive: true })
+      }
     }
 
     iframe.addEventListener('load', onLoad)
