@@ -112,8 +112,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'weekend-reader', name: 'Weekend Learner', description: 'Read on a weekend', icon: 'Calendar', color: '--accent-blue', category: 'special' },
   { id: 'speed-reader', name: 'Speed Reader', description: 'Read 5 documents in a single day', icon: 'Timer', color: '--accent-orange', category: 'special' },
   { id: 'ai-summary', name: 'AI Assistant', description: 'Generate your first AI summary', icon: 'Bot', color: '--accent-green', category: 'special' },
-  { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concepts from 5 different documents', icon: 'Lightbulb', color: '--accent-blue', category: 'special' },
-  { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concept cards from 5 different documents', icon: 'Sparkles', color: '--accent-blue', category: 'special' },
+  { id: 'concept-explorer', name: 'Concept Explorer', description: 'Extract concept cards from 5 different documents', icon: 'Lightbulb', color: '--accent-blue', category: 'special' },
   { id: 'summary-10', name: 'AI Scholar', description: 'Generate 10 AI summaries', icon: 'Bot', color: '--accent-purple', category: 'special' },
   { id: 'speed-reader-10', name: 'Speed Demon', description: 'Read 10 documents in a single day', icon: 'Timer', color: '--accent-red', category: 'special' },
 ]

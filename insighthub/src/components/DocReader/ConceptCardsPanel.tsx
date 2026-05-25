@@ -400,16 +400,22 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
           <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
             {currentIdx + 1} / {sessionQueue.length}
           </span>
-          {workspaceCards.length > 0 && (
+          {workspaceCards.length > 0 && (confirmDeleteAll ? (
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', whiteSpace: 'nowrap' }}>
+              Delete all?
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }} onClick={() => { for (const c of workspaceCards) removeCard(c.id); setConfirmDeleteAll(false) }}>Yes</button>
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.125rem' }} onClick={() => setConfirmDeleteAll(false)}>No</button>
+            </span>
+          ) : (
             <button
               className="cs-btn cs-btn-ghost"
               style={{ fontSize: '0.75rem', color: 'var(--accent-red)' }}
-              onClick={() => { if (!window.confirm(`Delete ${workspaceCards.length} card(s)?`)) return; for (const c of workspaceCards) removeCard(c.id) }}
+              onClick={() => setConfirmDeleteAll(true)}
               title="Delete all cards"
             >
               <Trash2 size={14} />
             </button>
-          )}
+          ))}
           <button className="quiz-panel-close" onClick={onClose}><X size={16} /></button>
         </div>
       </div>

@@ -62,6 +62,7 @@ export function SpacedRepetitionPage() {
 
   const [sessionResults, setSessionResults] = useState<{ cardId: string; grade: number }[]>([])
   const [sessionDone, setSessionDone] = useState(false)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
 
   // Load cards once on mount, clean up empty cards on initial load only
   useEffect(() => {
@@ -257,19 +258,21 @@ export function SpacedRepetitionPage() {
           >
             <Lightbulb size={14} /> All Cards
           </button>
-          {filterDocId && workspaceCards.length > 0 && (
+          {filterDocId && workspaceCards.length > 0 && (confirmDeleteAll ? (
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', whiteSpace: 'nowrap' }}>
+              Delete {workspaceCards.length} card(s)?
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }} onClick={() => { for (const c of workspaceCards) removeCard(c.id); setConfirmDeleteAll(false); navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } }) }}>Yes</button>
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.125rem' }} onClick={() => setConfirmDeleteAll(false)}>No</button>
+            </span>
+          ) : (
             <button
               className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
-              onClick={() => {
-                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
-                for (const c of workspaceCards) removeCard(c.id)
-                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
-              }}
+              onClick={() => setConfirmDeleteAll(true)}
             >
               <Trash2 size={14} /> Delete
             </button>
-          )}
+          ))}
         </div>
 
         {!isLoaded ? (
@@ -444,19 +447,21 @@ export function SpacedRepetitionPage() {
           <button className="cs-btn cs-btn-secondary" onClick={() => setViewMode('list')}>
             <Lightbulb size={14} /> All Cards
           </button>
-          {filterDocId && workspaceCards.length > 0 && (
+          {filterDocId && workspaceCards.length > 0 && (confirmDeleteAll ? (
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', whiteSpace: 'nowrap' }}>
+              Delete {workspaceCards.length} card(s)?
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }} onClick={() => { for (const c of workspaceCards) removeCard(c.id); setConfirmDeleteAll(false); navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } }) }}>Yes</button>
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.125rem' }} onClick={() => setConfirmDeleteAll(false)}>No</button>
+            </span>
+          ) : (
             <button
               className="cs-btn cs-btn-secondary"
               style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}
-              onClick={() => {
-                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
-                for (const c of workspaceCards) removeCard(c.id)
-                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
-              }}
+              onClick={() => setConfirmDeleteAll(true)}
             >
               <Trash2 size={14} /> Delete
             </button>
-          )}
+          ))}
         </div>
         <div className="cs-card">
           <div className="cs-card-body">
@@ -492,17 +497,21 @@ export function SpacedRepetitionPage() {
           >
             <ChevronLeft size={14} /> Exit
           </Link>
-          {filterDocId && workspaceCards.length > 0 && (
+          {filterDocId && workspaceCards.length > 0 && (confirmDeleteAll ? (
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)', whiteSpace: 'nowrap' }}>
+              Delete {workspaceCards.length} card(s)?
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }} onClick={() => { for (const c of workspaceCards) removeCard(c.id); setConfirmDeleteAll(false); navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } }) }}>Yes</button>
+              <button className="cs-btn cs-btn-ghost" style={{ fontSize: '0.75rem', marginLeft: '0.125rem' }} onClick={() => setConfirmDeleteAll(false)}>No</button>
+            </span>
+          ) : (
             <button
               className="cs-btn cs-btn-secondary"
               style={{ padding: '4px 10px', fontSize: '0.75rem', color: 'var(--accent-red)' }}
-              onClick={() => {
-                if (!window.confirm(`Delete ${workspaceCards.length} card(s) for this document?`)) return
-                for (const c of workspaceCards) removeCard(c.id)
-                navigate(`/doc/${filterDocId}`, { state: { from: fromPath || undefined } })
-              }}
+              onClick={() => setConfirmDeleteAll(true)}
             >
               <Trash2 size={14} /> Delete
+            </button>
+          ))}
             </button>
           )}
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
