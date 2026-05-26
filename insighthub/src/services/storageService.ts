@@ -204,18 +204,6 @@ export const storageService = {
   saveQuizzesBulk: (quizzes: Record<string, any>) =>
     setItem(storageKeys.QUIZZES, quizzes),
 
-  /** Trim quizzes to maxEntries by keeping newest (by createdAt), persist result */
-  trimQuizzes: (maxEntries: number) => {
-    const quizzes = storageService.getQuizzes()
-    const entries = Object.entries(quizzes)
-    if (entries.length <= maxEntries) return quizzes
-
-    entries.sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0))
-    const kept = Object.fromEntries(entries.slice(-maxEntries))
-    setItem(storageKeys.QUIZZES, kept)
-    return kept
-  },
-
   appendQuizQuestions: (documentId: string, newQuestions: any[]) => {
     const quizzes = storageService.getQuizzes()
     const existing = quizzes[documentId]

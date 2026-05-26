@@ -183,7 +183,7 @@ export function collectMetrics(): Metrics {
   }
 
   const difficulties = new Set<string>()
-  const quizzes = storageService.getQuizzes()
+  const quizzes = useQuizStore.getState().savedQuizzes
   let totalQuizQuestions = 0
   for (const attempt of quizHistory) {
     const quiz = quizzes[attempt.documentId]

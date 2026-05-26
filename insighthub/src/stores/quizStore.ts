@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { Quiz, QuizAttempt, Difficulty, QuestionType } from '@/types'
-import { storageService } from '@/services/storageService'
 import { createQuiz } from '@/services/quizService'
 
 function syncQuizToServer(quiz: Quiz): Promise<void> {
@@ -74,39 +73,24 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadHistory: () => {
-    const localHistory = storageService.getQuizHistory()
-    set({ quizHistory: localHistory })
-    // Merge from server
     fetch('/api/quiz-history')
       .then(r => r.json())
       .then((serverHistory: any[]) => {
-        // Deduplicate by id, server entries first
         const seen = new Set<string>()
-        const merged: any[] = []
+        const deduped: any[] = []
         for (const entry of serverHistory) {
           const key = entry.id || `${entry.documentId}-${entry.completedAt}`
-          if (!seen.has(key)) { seen.add(key); merged.push(entry) }
+          if (!seen.has(key)) { seen.add(key); deduped.push(entry) }
         }
-        for (const entry of localHistory) {
-          const key = entry.id || `${entry.documentId}-${entry.completedAt}`
-          if (!seen.has(key)) { seen.add(key); merged.push(entry) }
-        }
-        set({ quizHistory: merged })
-        storageService.setQuizHistory(merged)
+        set({ quizHistory: deduped })
       })
       .catch(() => {})
   },
 
   saveAttempt: (attempt) => {
-    // Dedup: skip if an entry with the same id already exists
-    const existing = storageService.getQuizHistory()
-    if (attempt.id && existing.some(e => e.id === attempt.id)) {
-      set({ quizHistory: existing })
-      return
-    }
-    storageService.addQuizAttempt(attempt)
-    const history = storageService.getQuizHistory()
-    set({ quizHistory: history })
+    const history = get().quizHistory
+    if (attempt.id && history.some(e => e.id === attempt.id)) return
+    set({ quizHistory: [attempt, ...history] })
     syncHistoryToServer(attempt)
   },
 
@@ -119,15 +103,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   }),
 
   loadSavedQuizzes: () => {
-    const localQuizzes = storageService.getQuizzes()
-    // Immediately set local data for fast initial render
-    set({ savedQuizzes: localQuizzes })
-    // Also load from server (server data overwrites local on conflicts)
     fetch('/api/quizzes')
       .then(r => r.json())
       .then((serverQuizzes: Record<string, any>) => {
-        const merged = { ...localQuizzes, ...serverQuizzes }
-        set({ savedQuizzes: merged })
+        set({ savedQuizzes: serverQuizzes })
       })
       .catch(() => {})
   },
@@ -155,7 +134,6 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       if (mode === 'append') {
         const existing = get().savedQuizzes[docId]
         if (existing) {
-          // Re-assign IDs to avoid collisions with existing questions
           const baseOffset = existing.questions.length
           const renumbered = quiz.questions.map((q, i) => ({
             ...q,
@@ -167,16 +145,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             maxScore: 100,
             createdAt: Date.now(),
           }
-          storageService.saveQuiz(merged)
           set({ savedQuizzes: { ...get().savedQuizzes, [docId]: merged } })
           syncQuizToServer(merged)
         } else {
-          storageService.saveQuiz(quiz)
           set({ savedQuizzes: { ...get().savedQuizzes, [docId]: quiz } })
           syncQuizToServer(quiz)
         }
       } else {
-        storageService.saveQuiz(quiz)
         set({ savedQuizzes: { ...get().savedQuizzes, [docId]: quiz } })
         syncQuizToServer(quiz)
       }
@@ -198,7 +173,6 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   }),
 
   removeSavedQuiz: async (docId) => {
-    storageService.removeQuiz(docId)
     set(s => {
       const updated = { ...s.savedQuizzes }
       delete updated[docId]
