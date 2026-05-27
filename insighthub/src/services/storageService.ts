@@ -28,6 +28,7 @@ export const storageKeys = {
   TOKEN_USAGE: `${PREFIX}token-usage`,
   DEPRECATED_IDS: `${PREFIX}deprecated-ids`,
   DEPRECATED_CATEGORIES: `${PREFIX}deprecated-categories`,
+  CODE_EDITOR: `${PREFIX}code-editor`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -51,9 +52,37 @@ const DEDICATED_SYNC_KEYS = new Set([
   `${PREFIX}concept-cards`,
 ])
 
+/** Keys that can be evicted to free space (ordered by priority: evict earlier items first) */
+const EVICTABLE_KEYS = [
+  `${PREFIX}chat-history`,       // per-doc chat, easily regenerated
+  `${PREFIX}reading-positions`,   // scroll positions, non-critical
+  `${PREFIX}inception`,           // progressive summaries, can regenerate
+  `${PREFIX}search-history`,      // recent searches, trivial
+  `${PREFIX}summaries`,           // AI summaries, can regenerate
+  `${PREFIX}quiz-history`,        // quiz attempts, synced to server
+  `${PREFIX}quizzes`,             // quiz data, synced to server
+]
+
+function tryRecoverQuota(requiredBytes: number): boolean {
+  for (const evictKey of EVICTABLE_KEYS) {
+    localStorage.removeItem(evictKey)
+    try {
+      // Test if we now have enough space
+      const test = 'x'.repeat(requiredBytes)
+      localStorage.setItem('__quota_test', test)
+      localStorage.removeItem('__quota_test')
+      return true
+    } catch {
+      // Still not enough, try next key
+    }
+  }
+  return false
+}
+
 function setItem<T>(key: string, value: T): boolean {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    const json = JSON.stringify(value)
+    localStorage.setItem(key, json)
     // Fire-and-forget sync to server for keys without dedicated endpoints
     if (key.startsWith(PREFIX) && !DEDICATED_SYNC_KEYS.has(key)) {
       fetch('/api/client-storage', {
@@ -65,7 +94,18 @@ function setItem<T>(key: string, value: T): boolean {
     return true
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.warn('localStorage quota exceeded')
+      console.warn(`localStorage quota exceeded for ${key}, attempting recovery...`)
+      const recovered = tryRecoverQuota(new Blob([JSON.stringify(value)]).size)
+      if (recovered) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value))
+          console.warn(`Recovered quota by evicting non-essential data`)
+          return true
+        } catch {
+          // Still not enough
+        }
+      }
+      console.warn('localStorage quota exceeded — could not recover')
       return false
     }
     return false

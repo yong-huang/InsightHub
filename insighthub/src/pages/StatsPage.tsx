@@ -30,18 +30,31 @@ const PERIODS: { key: ReportPeriod; label: string }[] = [
 
 export function StatsPage() {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+  const workspaces = usePreferenceStore(s => s.workspaces)
   const documents = useDocumentStore(s => s.documents)
   const quizHistory = useQuizStore(s => s.quizHistory)
   const tags = useTagStore(s => s.tags)
   const annotations = useAnnotationStore(s => s.annotations)
-  const readHistory = useMemo(() => storageService.getReadHistory(), [])
-  const achievementState = useMemo(() => storageService.getAchievementState(), [])
+  const isLoading = useDocumentStore(s => s.isLoading)
+  const readHistory = useMemo(() => storageService.getReadHistory(), [isLoading])
+  const achievementState = useMemo(() => storageService.getAchievementState(), [isLoading])
+
+  // Resolve activeWorkspace (may be id or prefix) to the document source prefix
+  const activeSource = useMemo(() => {
+    if (!activeWorkspace) return undefined
+    // If it matches a document source directly, use it
+    const docSources = new Set(Array.from(documents.values()).map(d => d.source))
+    if (docSources.has(activeWorkspace)) return activeWorkspace
+    // Otherwise look up the workspace config by id to get the prefix
+    const ws = workspaces.find(w => w.id === activeWorkspace)
+    return ws?.prefix || activeWorkspace
+  }, [activeWorkspace, documents, workspaces])
 
   const [period, setPeriod] = useState<ReportPeriod>('all')
 
   const report = useMemo(
-    () => buildReportData(documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeWorkspace),
-    [documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeWorkspace],
+    () => buildReportData(documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeSource),
+    [documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeSource],
   )
 
   return (
@@ -70,7 +83,7 @@ export function StatsPage() {
 
       {/* Heatmap */}
       <ChartCard title="Reading Heatmap">
-        <ReadingHeatmap entries={readHistory} documents={documents} source={activeWorkspace} />
+        <ReadingHeatmap entries={readHistory} documents={documents} source={activeSource} />
       </ChartCard>
 
       {/* Two-column: Category Radar + Quiz Performance */}

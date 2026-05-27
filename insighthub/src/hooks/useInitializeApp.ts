@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import { useDocumentStore } from '@/stores/documentStore'
+import { useDocumentStore, cleanupMigratedLocalData } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
 import { useSearchStore } from '@/stores/searchStore'
 import { useQuizStore } from '@/stores/quizStore'
@@ -27,6 +27,9 @@ export function useInitializeApp() {
 
     // Migrate legacy challenge storage (one-time)
     storageService.migrateChallengeStorage()
+
+    // Clean up stale ti- entries for categories moved to AIInsight (must run before any store writes)
+    cleanupMigratedLocalData()
 
     // Start document loading immediately — don't block on server sync
     const initDocs = useDocumentStore.getState().initializeDocuments()

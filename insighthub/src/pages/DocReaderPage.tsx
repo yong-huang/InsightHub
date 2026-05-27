@@ -1,11 +1,11 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, EyeOff,
-  ShieldCheck, Swords, GitBranch, Layers,
+  ShieldCheck, Swords, GitBranch, Layers, TerminalSquare,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -35,6 +35,7 @@ import { InceptionPanel } from '@/components/DocReader/InceptionPanel'
 import { QuizPanel } from '@/components/DocReader/QuizPanel'
 import { ConceptCardsPanel } from '@/components/DocReader/ConceptCardsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
+import { CodeEditorPanel } from '@/components/DocReader/CodeEditorPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
@@ -153,6 +154,8 @@ export function DocReaderPage() {
   const [challengeSelectedText, setChallengeSelectedText] = useState<string | undefined>(undefined)
   const [showQuizPanel, setShowQuizPanel] = useState(false)
   const [showConceptPanel, setShowConceptPanel] = useState(false)
+  const [showCodeEditor, setShowCodeEditor] = useState(false)
+  const [codeEditorText, setCodeEditorText] = useState<string | undefined>(undefined)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
@@ -966,6 +969,15 @@ export function DocReaderPage() {
           </button>
           )}
 
+          {/* Code editor button */}
+          <button
+            className={`dr-action-btn ${showCodeEditor ? 'active' : ''}`}
+            onClick={() => { setCodeEditorText(undefined); setShowCodeEditor(v => !v) }}
+          >
+            <TerminalSquare size={16} />
+            <span className="dr-action-label">Code</span>
+          </button>
+
           {/* Similar documents button */}
           {enabledFeatures.aiSimilarity && (
           <button
@@ -1144,6 +1156,13 @@ export function DocReaderPage() {
         {showConceptPanel && <ConceptCardsPanel docId={doc.id} onClose={() => setShowConceptPanel(false)} />}
       </div>
 
+      {/* Floating code editor panel — floats above iframe */}
+      {showCodeEditor && docId && (
+        <Suspense fallback={null}>
+          <CodeEditorPanel docId={docId} initialText={codeEditorText} onClose={() => setShowCodeEditor(false)} />
+        </Suspense>
+      )}
+
       {/* Floating annotation bar */}
       {selectionInfo && (
         <AnnotationBar
@@ -1153,6 +1172,7 @@ export function DocReaderPage() {
           onExplain={handleExplain}
           onTranslate={handleTranslate}
           onAskAI={handleAskAI}
+          onOpenCodeEditor={(text) => { setCodeEditorText(text); setShowCodeEditor(true) }}
           onRemoveHighlights={handleRemoveHighlights}
           onClose={clearSelection}
         />

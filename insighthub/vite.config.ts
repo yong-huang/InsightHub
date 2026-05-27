@@ -30,6 +30,7 @@ export default defineConfig({
           if (id.includes('node_modules/recharts')) return 'vendor-recharts'
           if (id.includes('node_modules/d3-force')) return 'vendor-d3'
           if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'vendor-react'
+          if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@uiw/react-codemirror')) return 'vendor-codemirror'
         },
       },
     },

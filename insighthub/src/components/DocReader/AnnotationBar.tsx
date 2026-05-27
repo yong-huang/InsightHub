@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { HIGHLIGHT_COLORS } from '@/types'
-import { MessageSquare, Eraser, Lightbulb, Languages, MessageCircle } from 'lucide-react'
+import { MessageSquare, Eraser, Lightbulb, Languages, MessageCircle, TerminalSquare } from 'lucide-react'
 import type { SelectionInfo } from '@/hooks/useAnnotationIframe'
 
 interface AnnotationBarProps {
@@ -10,6 +10,7 @@ interface AnnotationBarProps {
   onExplain: () => void
   onTranslate: () => void
   onAskAI: () => void
+  onOpenCodeEditor?: (text?: string) => void
   onRemoveHighlights: (annotationIds: string[]) => void
   onClose: () => void
 }
@@ -20,7 +21,7 @@ const stopAndPrevent = (e: React.PointerEvent) => {
   e.stopPropagation()
 }
 
-export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain, onTranslate, onAskAI, onRemoveHighlights, onClose }: AnnotationBarProps) {
+export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain, onTranslate, onAskAI, onOpenCodeEditor, onRemoveHighlights, onClose }: AnnotationBarProps) {
   const barRef = useRef<HTMLDivElement>(null)
   const rect = selectionInfo.rect
   const hasExisting = selectionInfo.existingAnnotationIds.length > 0
@@ -100,6 +101,18 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
       >
         <MessageCircle size={14} />
       </button>
+      {onOpenCodeEditor && (
+        <>
+          <div className="annotation-bar-divider" />
+          <button
+            className="annotation-bar-comment-btn"
+            onPointerDown={(e) => { stopAndPrevent(e); onOpenCodeEditor(selectionInfo.text); onClose() }}
+            title="Send to Code Editor"
+          >
+            <TerminalSquare size={14} />
+          </button>
+        </>
+      )}
       {hasExisting && (
         <>
           <div className="annotation-bar-divider" />

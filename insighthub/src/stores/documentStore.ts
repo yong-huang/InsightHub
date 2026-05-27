@@ -48,6 +48,142 @@ interface DocumentState {
 
 const DEFAULT_FILTERS: SearchFilters = { sortBy: 'title-asc' }
 
+/** One-time cleanup: remove stale ti- entries for categories moved to AIInsight.
+ *  Exported so it can run synchronously before any store initialization. */
+const MIGRATE_RE = /^ti-(ai-frameworks|dl-fundamentals|llm-comparisons|llm-fundamentals|rag-comparisons|mlops)-/
+
+export function cleanupMigratedLocalData(): void {
+  const PREFIX = 'insighthub:'
+
+  // 1. Read history — rewrite ti- entries to ai- (don't duplicate)
+  try {
+    const raw = localStorage.getItem(`${PREFIX}read-history`)
+    if (raw) {
+      const arr = JSON.parse(raw) as any[]
+      const cleaned = arr.map((h: any) =>
+        MIGRATE_RE.test(h.documentId)
+          ? { ...h, documentId: h.documentId.replace(/^ti-/, 'ai-') }
+          : h
+      )
+      // Dedup after migration (same docId, keep earliest readAt)
+      const seen = new Map<string, any>()
+      for (const e of cleaned) {
+        const prev = seen.get(e.documentId)
+        if (!prev || e.readAt < prev.readAt) seen.set(e.documentId, e)
+        else if (prev.readAt < e.readAt) seen.set(e.documentId, e)  // keep later (newer)
+      }
+      // Actually keep the latest readAt per doc
+      const deduped = Array.from(seen.values()).sort((a, b) => b.readAt - a.readAt).slice(0, 365)
+      localStorage.setItem(`${PREFIX}read-history`, JSON.stringify(deduped))
+    }
+  } catch { /* quota — try removing instead */ }
+
+  // 2. Annotations — remove ti- entries (server will re-sync ai- versions)
+  try {
+    const raw = localStorage.getItem(`${PREFIX}annotations`)
+    if (raw) {
+      const arr = JSON.parse(raw) as any[]
+      const cleaned = arr.filter(a => !MIGRATE_RE.test(a.documentId))
+      localStorage.setItem(`${PREFIX}annotations`, JSON.stringify(cleaned))
+    }
+  } catch { /* quota — just remove the whole key */ localStorage.removeItem(`${PREFIX}annotations`) }
+
+  // 3. Concept cards — remove ti- entries
+  try {
+    const raw = localStorage.getItem(`${PREFIX}concept-cards`)
+    if (raw) {
+      const arr = JSON.parse(raw) as any[]
+      const cleaned = arr.filter(c => !MIGRATE_RE.test(c.sourceDocId))
+      localStorage.setItem(`${PREFIX}concept-cards`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}concept-cards`) }
+
+  // 4. Quizzes — remove ti- keys
+  try {
+    const raw = localStorage.getItem(`${PREFIX}quizzes`)
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+      }
+      localStorage.setItem(`${PREFIX}quizzes`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}quizzes`) }
+
+  // 5. Quiz history — remove ti- entries
+  try {
+    const raw = localStorage.getItem(`${PREFIX}quiz-history`)
+    if (raw) {
+      const arr = JSON.parse(raw) as any[]
+      const cleaned = arr.filter(q => !MIGRATE_RE.test(q.documentId))
+      localStorage.setItem(`${PREFIX}quiz-history`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}quiz-history`) }
+
+  // 6. Document meta — remove ti- keys
+  try {
+    const raw = localStorage.getItem(`${PREFIX}document-meta`)
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+      }
+      localStorage.setItem(`${PREFIX}document-meta`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}document-meta`) }
+
+  // 7. Chat history — remove ti- keys
+  try {
+    const raw = localStorage.getItem(`${PREFIX}chat-history`)
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+      }
+      localStorage.setItem(`${PREFIX}chat-history`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}chat-history`) }
+
+  // 8. Summaries — remove ti- keys
+  try {
+    const raw = localStorage.getItem(`${PREFIX}summaries`)
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+      }
+      localStorage.setItem(`${PREFIX}summaries`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}summaries`) }
+
+  // 9. Reading positions — remove ti- keys
+  try {
+    const raw = localStorage.getItem(`${PREFIX}reading-positions`)
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, any>
+      const cleaned: Record<string, any> = {}
+      for (const [k, v] of Object.entries(obj)) {
+        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+      }
+      localStorage.setItem(`${PREFIX}reading-positions`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}reading-positions`) }
+
+  // 10. Read later — remove ti- entries
+  try {
+    const raw = localStorage.getItem(`${PREFIX}read-later`)
+    if (raw) {
+      const arr = JSON.parse(raw) as any[]
+      const cleaned = arr.filter(e => !MIGRATE_RE.test(e.documentId))
+      localStorage.setItem(`${PREFIX}read-later`, JSON.stringify(cleaned))
+    }
+  } catch { localStorage.removeItem(`${PREFIX}read-later`) }
+}
+
 async function loadAllDocuments(
   get: () => DocumentState,
   set: (partial: Partial<DocumentState>) => void,
@@ -108,7 +244,7 @@ async function loadAllDocuments(
   }
   if (Array.isArray(serverHistory) && serverHistory.length > 0) {
     const localHistory = storageService.getReadHistory()
-    const localIds = new Set(localHistory.map(h => h.documentId))
+    const localIds = new Set(localHistory.map((h: any) => h.documentId))
     const newEntries = serverHistory.filter((h: any) => !localIds.has(h.documentId))
     if (newEntries.length > 0) {
       const merged = [...newEntries, ...localHistory].slice(0, 365)
