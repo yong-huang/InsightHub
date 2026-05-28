@@ -13,8 +13,9 @@ import { markdown } from '@codemirror/lang-markdown'
 import { xml } from '@codemirror/lang-xml'
 import { go } from '@codemirror/lang-go'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react'
+import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff, GraduationCap } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
+import { useDocumentStore } from '@/stores/documentStore'
 
 const LANGUAGES = [
   { value: 'python', label: 'Python' },
@@ -110,7 +111,13 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
   const [code, setCode] = useState(initialText ?? '')
   const [isReviewing, setIsReviewing] = useState(false)
   const [isTranslucent, setIsTranslucent] = useState(false)
+  const [coachMode, setCoachMode] = useState(false)
+  const [hint, setHint] = useState('')
+  const [isCoaching, setIsCoaching] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const coachBodyRef = useRef<HTMLDivElement>(null)
+  const coachTimer = useRef<ReturnType<typeof setTimeout>>()
+  const coachAbortRef = useRef<AbortController | null>(null)
   const [themeKey, setThemeKey] = useState(0)
 
   const globalIsDark = document.documentElement.getAttribute('data-theme') === 'dark'
@@ -122,6 +129,84 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     return () => observer.disconnect()
   }, [])
 
+  // Pinned horizontal scrollbar: hide native, sync a fake one at the bottom of code-editor-body
+  const hscrollBarRef = useRef<HTMLDivElement>(null)
+  const hscrollThumbRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const body = panelRef.current?.querySelector('.code-editor-body')
+      const scroller = body?.querySelector('.cm-scroller') as HTMLElement | null
+      const bar = hscrollBarRef.current
+      const thumb = hscrollThumbRef.current
+      if (!scroller || !bar || !thumb) return
+
+      // Hide native horizontal scrollbar
+      scroller.style.overflowX = 'hidden'
+
+      const sync = () => {
+        const sw = scroller.scrollWidth
+        const vw = scroller.clientWidth
+        if (sw <= vw + 1) { bar.style.opacity = '0'; return }
+        bar.style.opacity = '1'
+        const ratio = vw / sw
+        const thumbW = Math.max(30, vw * ratio)
+        const trackW = vw - thumbW
+        const pos = sw > vw ? scroller.scrollLeft / (sw - vw) : 0
+        thumb.style.width = `${thumbW}px`
+        thumb.style.transform = `translateX(${pos * trackW}px)`
+      }
+
+      // Drag thumb to scroll
+      let dragging = false, startX = 0, startScroll = 0
+      const onDown = (e: PointerEvent) => {
+        e.preventDefault()
+        dragging = true
+        startX = e.clientX
+        startScroll = scroller.scrollLeft
+        thumb.setPointerCapture(e.pointerId)
+      }
+      const onMove = (e: PointerEvent) => {
+        if (!dragging) return
+        const scrollable = scroller.scrollWidth - scroller.clientWidth
+        if (scrollable <= 0) return
+        const trackW = scroller.clientWidth - 30
+        scroller.scrollLeft = startScroll + ((e.clientX - startX) / Math.max(30, trackW)) * scrollable
+      }
+      const onUp = () => { dragging = false }
+
+      thumb.addEventListener('pointerdown', onDown)
+      thumb.addEventListener('pointermove', onMove)
+      thumb.addEventListener('pointerup', onUp)
+      thumb.addEventListener('lostpointercapture', onUp)
+
+      // Shift+wheel → horizontal scroll
+      const onWheel = (e: WheelEvent) => {
+        if (e.shiftKey) {
+          e.preventDefault()
+          scroller.scrollLeft += e.deltaY || e.deltaX
+        }
+      }
+      body!.addEventListener('wheel', onWheel, { passive: false })
+
+      scroller.addEventListener('scroll', sync)
+      const ro = new ResizeObserver(sync)
+      ro.observe(scroller)
+      ro.observe(body!)
+      sync()
+
+      return () => {
+        thumb.removeEventListener('pointerdown', onDown)
+        thumb.removeEventListener('pointermove', onMove)
+        thumb.removeEventListener('pointerup', onUp)
+        thumb.removeEventListener('lostpointercapture', onUp)
+        body!.removeEventListener('wheel', onWheel)
+        scroller.removeEventListener('scroll', sync)
+        ro.disconnect()
+        scroller.style.overflowX = ''
+      }
+    })
+  }, [themeKey])
+
   // Set initial position/size once via DOM (not React style) to avoid re-render overwrites
   useEffect(() => {
     const el = panelRef.current
@@ -132,9 +217,70 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     el.style.height = `${initial.current.size.height}px`
   }, [])
 
+  // Widen panel when coach opens, shrink back when closed
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    el.style.width = coachMode ? '800px' : `${initial.current.size.width}px`
+    saveEditorData(docId, { size: { width: el.offsetWidth, height: el.offsetHeight } })
+  }, [coachMode, docId])
+
+  const requestCoachHint = useCallback(async (userCode: string) => {
+    // Abort previous request
+    coachAbortRef.current?.abort()
+    const controller = new AbortController()
+    coachAbortRef.current = controller
+
+    setIsCoaching(true)
+    setHint('')
+
+    try {
+      const doc = await useDocumentStore.getState().ensureContentText(docId)
+      const docContent = doc?.contentText || ''
+      const truncatedDoc = docContent.length > 3000 ? docContent.slice(0, 3000) : docContent
+
+      await callAIStream(
+        [
+          { role: 'system', content: '<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. Based on the reference code below, provide brief hints (1-2 sentences, max 50 words) to help them continue. Do NOT give the full answer or rewrite their code. Reference the document code to guide them. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).' },
+          { role: 'user', content: `Reference code from document:\n${truncatedDoc}\n\nStudent's current code:\n${userCode}` },
+        ],
+        (chunk) => {
+          setHint(chunk)
+        },
+        controller.signal,
+      )
+    } catch {
+      if (!controller.signal.aborted) setHint('')
+    } finally {
+      if (coachAbortRef.current === controller) {
+        setIsCoaching(false)
+      }
+    }
+  }, [docId])
+
+  // Auto-scroll coach panel to bottom as hints stream in
+  useEffect(() => {
+    if (coachBodyRef.current) {
+      coachBodyRef.current.scrollTop = coachBodyRef.current.scrollHeight
+    }
+  }, [hint])
+
+  // Cleanup coach timer and abort on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(coachTimer.current)
+      coachAbortRef.current?.abort()
+    }
+  }, [])
+
   const handleCodeChange = useCallback((newCode: string) => {
     setCode(newCode)
-  }, [])
+    // Debounce coach hint request
+    if (coachMode && newCode.trim()) {
+      clearTimeout(coachTimer.current)
+      coachTimer.current = setTimeout(() => requestCoachHint(newCode), 2000)
+    }
+  }, [coachMode, requestCoachHint])
 
   const handleLanguageChange = useCallback((newLang: LangValue) => {
     setLanguage(newLang)
@@ -204,27 +350,43 @@ Rules:
     el.addEventListener('lostpointercapture', lost)
   }, [docId])
 
-  // Resize via pointer capture
+  // Resize via pointer capture — supports all edges and corners
   const onResizePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    const direction = (e.currentTarget as HTMLElement).dataset.resize as string
     const el = panelRef.current
     if (!el) return
     el.setPointerCapture(e.pointerId)
     const startX = e.clientX
     const startY = e.clientY
-    const startW = el.offsetWidth
-    const startH = el.offsetHeight
+    const startRect = el.getBoundingClientRect()
+    const startW = startRect.width
+    const startH = startRect.height
+    const startL = startRect.left
+    const startT = startRect.top
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault()
-      el.style.width = `${Math.max(MIN_W, startW + ev.clientX - startX)}px`
-      el.style.height = `${Math.max(MIN_H, startH + ev.clientY - startY)}px`
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      let newL = startL, newT = startT, newW = startW, newH = startH
+      if (direction.includes('e')) newW = startW + dx
+      if (direction.includes('w')) { newW = startW - dx; newL = startL + dx }
+      if (direction.includes('s')) newH = startH + dy
+      if (direction.includes('n')) { newH = startH - dy; newT = startT + dy }
+      newW = Math.max(MIN_W, newW)
+      newH = Math.max(MIN_H, newH)
+      el.style.left = `${newL}px`
+      el.style.top = `${newT}px`
+      el.style.width = `${newW}px`
+      el.style.height = `${newH}px`
     }
     const lost = () => {
       el.removeEventListener('pointermove', onMove)
       el.removeEventListener('lostpointercapture', lost)
       saveEditorData(docId, {
+        position: { x: parseFloat(el.style.left), y: parseFloat(el.style.top) },
         size: { width: el.offsetWidth, height: el.offsetHeight },
       })
     }
@@ -262,6 +424,28 @@ Rules:
         </select>
         <div style={{ display: 'flex', gap: '2px', marginLeft: 'auto' }}>
           <button
+            className={`code-editor-action-btn${coachMode ? ' active' : ''}`}
+            onClick={() => {
+              setCoachMode(v => !v)
+              setHint('')
+              clearTimeout(coachTimer.current)
+              coachAbortRef.current?.abort()
+            }}
+            onMouseDown={e => e.stopPropagation()}
+            title={coachMode ? 'Close Coach' : 'AI Coach'}
+          >
+            <GraduationCap size={13} />
+          </button>
+          <button
+            className="code-editor-action-btn"
+            onClick={handleAIReview}
+            onMouseDown={e => e.stopPropagation()}
+            title="AI Review"
+            disabled={!code.trim() || isReviewing}
+          >
+            {isReviewing ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+          </button>
+          <button
             className="code-editor-action-btn"
             onClick={() => setIsTranslucent(v => !v)}
             onMouseDown={e => e.stopPropagation()}
@@ -278,44 +462,71 @@ Rules:
           >
             <Trash2 size={13} />
           </button>
-          <button
-            className="code-editor-action-btn"
-            onClick={handleAIReview}
-            onMouseDown={e => e.stopPropagation()}
-            title="AI Review"
-            disabled={!code.trim() || isReviewing}
-          >
-            {isReviewing ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
-          </button>
         </div>
         <button className="code-editor-close-btn" onClick={onClose}>
           <X size={14} />
         </button>
       </div>
 
-      <div className="code-editor-body" key={themeKey} onClick={() => {
-        const editor = panelRef.current?.querySelector('.cm-content')
-        if (editor) (editor as HTMLElement).focus()
-      }}>
-        <CodeMirror
-          value={code}
-          onChange={handleCodeChange}
-          extensions={[getLangExtension(language)]}
-          theme={isDark ? oneDark : undefined}
-          basicSetup={{
-            lineNumbers: true,
-            highlightActiveLineGutter: true,
-            highlightActiveLine: true,
-            foldGutter: true,
-            autocompletion: true,
-            bracketMatching: true,
-            closeBrackets: true,
-            indentOnInput: true,
-          }}
-        />
+      <div className={`code-editor-content-area${coachMode ? ' with-coach' : ''}`}>
+        <div className="code-editor-body" key={themeKey} onClick={() => {
+          const editor = panelRef.current?.querySelector('.cm-content')
+          if (editor) (editor as HTMLElement).focus()
+        }}>
+          <CodeMirror
+            value={code}
+            onChange={handleCodeChange}
+            extensions={[getLangExtension(language)]}
+            theme={isDark ? oneDark : undefined}
+            basicSetup={{
+              lineNumbers: true,
+              highlightActiveLineGutter: true,
+              highlightActiveLine: true,
+              foldGutter: true,
+              autocompletion: true,
+              bracketMatching: true,
+              closeBrackets: true,
+              indentOnInput: true,
+              tabSize: 4,
+              indentUnit: 4,
+            }}
+          />
+          <div className="ce-hscroll" ref={hscrollBarRef}>
+            <div className="ce-hscroll-thumb" ref={hscrollThumbRef} />
+          </div>
+        </div>
+        {coachMode && (
+          <div className="code-editor-coach">
+            <div className="code-editor-coach-header">
+              <GraduationCap size={13} />
+              <span>Coach</span>
+              {isCoaching && <Loader2 size={12} className="spin" />}
+              <button
+                className="code-editor-action-btn"
+                onClick={() => { setCoachMode(false); setHint(''); clearTimeout(coachTimer.current); coachAbortRef.current?.abort() }}
+                onMouseDown={e => e.stopPropagation()}
+                title="Close Coach"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div className="code-editor-coach-body" ref={coachBodyRef}>
+              {hint || (isCoaching ? '' : 'Start typing code to get hints...')}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="code-editor-resize-handle" onPointerDown={onResizePointerDown} />
+      {/* Edge resize handles */}
+      <div className="ce-resize ce-resize-n" data-resize="n" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-s" data-resize="s" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-e" data-resize="e" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-w" data-resize="w" onPointerDown={onResizePointerDown} />
+      {/* Corner resize handles */}
+      <div className="ce-resize ce-resize-ne" data-resize="ne" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-se" data-resize="se" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-nw" data-resize="nw" onPointerDown={onResizePointerDown} />
+      <div className="ce-resize ce-resize-sw" data-resize="sw" onPointerDown={onResizePointerDown} />
     </div>
   )
 }

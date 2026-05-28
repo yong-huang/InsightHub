@@ -3987,9 +3987,6 @@
   background: rgba(255, 255, 255, 0.1);
   color: #e6edf3;
 }
-.code-editor-panel.ce-dark .code-editor-resize-handle::before {
-  border-color: #8b949e;
-}
 .code-editor-panel.ce-light {
   background: #ffffff;
   border-color: rgba(0, 0, 0, 0.1);
@@ -4093,6 +4090,7 @@
   overflow: hidden;
   font-family: var(--font-mono);
   min-height: 0;
+  position: relative;
 }
 .code-editor-body .cm-editor {
   height: 100% !important;
@@ -4102,26 +4100,114 @@
 .code-editor-body .cm-scroller {
   overflow: auto;
 }
-
-.code-editor-resize-handle {
+/* Pinned horizontal scrollbar at the bottom of the editor */
+.ce-hscroll {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 18px;
-  height: 18px;
-  cursor: nwse-resize;
-  opacity: 0.5;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 1;
 }
-.code-editor-resize-handle::before {
+.ce-hscroll-thumb {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  min-width: 30px;
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 4px;
+  cursor: grab;
+  pointer-events: auto;
+}
+.ce-hscroll-thumb:active {
+  cursor: grabbing;
+  background: rgba(128, 128, 128, 0.55);
+}
+
+/* 8-directional resize handles */
+.ce-resize {
+  position: absolute;
+  z-index: 2;
+}
+.ce-resize-n { top: -4px; left: 8px; right: 8px; height: 8px; cursor: n-resize; }
+.ce-resize-s { bottom: -4px; left: 8px; right: 8px; height: 8px; cursor: s-resize; }
+.ce-resize-e { right: -4px; top: 8px; bottom: 8px; width: 8px; cursor: e-resize; }
+.ce-resize-w { left: -4px; top: 8px; bottom: 8px; width: 8px; cursor: w-resize; }
+.ce-resize-ne { top: -4px; right: -4px; width: 14px; height: 14px; cursor: ne-resize; }
+.ce-resize-se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: se-resize; }
+.ce-resize-nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nw-resize; }
+.ce-resize-sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: sw-resize; }
+/* Corner visual indicator */
+.ce-resize-se::before,
+.ce-resize-ne::before,
+.ce-resize-sw::before,
+.ce-resize-nw::before {
   content: '';
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-right: 2px solid var(--text-secondary);
   border-bottom: 2px solid var(--text-secondary);
+  opacity: 0.4;
 }
-.code-editor-resize-handle:hover {
-  opacity: 0.8;
+.ce-resize-se::before { right: 1px; bottom: 1px; transform: none; }
+.ce-resize-ne::before { right: 1px; top: 1px; transform: rotate(-90deg); }
+.ce-resize-sw::before { left: 1px; bottom: 1px; transform: rotate(90deg); }
+.ce-resize-nw::before { left: 1px; top: 1px; transform: rotate(180deg); }
+
+/* ========== Code Editor Coach Panel ========== */
+.code-editor-content-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.code-editor-content-area.with-coach .code-editor-body {
+  flex: 1;
+  min-width: 0;
+}
+.code-editor-coach {
+  width: 280px;
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.code-editor-panel.ce-dark .code-editor-coach {
+  border-left-color: rgba(255, 255, 255, 0.06);
+}
+.code-editor-coach-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.78rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.code-editor-panel.ce-dark .code-editor-coach-header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.code-editor-coach-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+}
+.code-editor-action-btn.active {
+  color: var(--color-primary, #6366f1);
+  background: rgba(99, 102, 241, 0.1);
+}
+.code-editor-panel.ce-dark .code-editor-action-btn.active {
+  color: #818cf8;
+  background: rgba(129, 140, 248, 0.15);
 }

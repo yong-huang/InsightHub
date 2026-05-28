@@ -106,7 +106,12 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
           <div className="annotation-bar-divider" />
           <button
             className="annotation-bar-comment-btn"
-            onPointerDown={(e) => { stopAndPrevent(e); onOpenCodeEditor(selectionInfo.text); onClose() }}
+            onPointerDown={(e) => {
+              stopAndPrevent(e)
+              const rawText = selectionInfo.range.toString().trim()
+              onOpenCodeEditor(rawText)
+              onClose()
+            }}
             title="Send to Code Editor"
           >
             <TerminalSquare size={14} />
