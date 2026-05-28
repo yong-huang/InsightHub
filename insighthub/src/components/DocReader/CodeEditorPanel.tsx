@@ -13,7 +13,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { xml } from '@codemirror/lang-xml'
 import { go } from '@codemirror/lang-go'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { GripVertical, X, Trash2, Sparkles, Loader2 } from 'lucide-react'
+import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
 
 const LANGUAGES = [
@@ -32,6 +32,8 @@ const LANGUAGES = [
   { value: 'xml', label: 'XML' },
   { value: 'plaintext', label: 'Plain Text' },
 ] as const
+
+type EditorTheme = 'auto' | 'light' | 'dark'
 
 type LangValue = (typeof LANGUAGES)[number]['value']
 
@@ -56,6 +58,7 @@ function getLangExtension(lang: LangValue) {
 
 interface EditorData {
   language: LangValue
+  editorTheme: EditorTheme
   position: { x: number; y: number }
   size: { width: number; height: number }
 }
@@ -67,6 +70,7 @@ const MIN_H = 240
 function loadEditorData(docId: string): EditorData {
   const defaults: EditorData = {
     language: 'python' as LangValue,
+    editorTheme: 'auto' as EditorTheme,
     position: { x: Math.max(40, window.innerWidth - DEFAULT_SIZE.width - 40), y: 80 },
     size: DEFAULT_SIZE,
   }
@@ -76,6 +80,7 @@ function loadEditorData(docId: string): EditorData {
     if (!saved) return defaults
     return {
       language: saved.language || defaults.language,
+      editorTheme: saved.editorTheme || defaults.editorTheme,
       position: saved.position || defaults.position,
       size: saved.size || defaults.size,
     }
@@ -101,12 +106,15 @@ interface CodeEditorPanelProps {
 export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanelProps) {
   const initial = useRef(loadEditorData(docId))
   const [language, setLanguage] = useState<LangValue>(initial.current.language)
+  const [editorTheme, setEditorTheme] = useState<EditorTheme>(initial.current.editorTheme)
   const [code, setCode] = useState(initialText ?? '')
   const [isReviewing, setIsReviewing] = useState(false)
+  const [isTranslucent, setIsTranslucent] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const [themeKey, setThemeKey] = useState(0)
 
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const globalIsDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const isDark = editorTheme !== 'auto' ? editorTheme === 'dark' : globalIsDark
 
   useEffect(() => {
     const observer = new MutationObserver(() => setThemeKey(k => k + 1))
@@ -131,6 +139,11 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
   const handleLanguageChange = useCallback((newLang: LangValue) => {
     setLanguage(newLang)
     saveEditorData(docId, { language: newLang })
+  }, [docId])
+
+  const handleEditorThemeChange = useCallback((t: EditorTheme) => {
+    setEditorTheme(t)
+    saveEditorData(docId, { editorTheme: t })
   }, [docId])
 
   const handleAIReview = useCallback(async () => {
@@ -222,7 +235,7 @@ Rules:
   return (
     <div
       ref={panelRef}
-      className="code-editor-panel"
+      className={`code-editor-panel${isTranslucent ? ' translucent' : ''}${isDark ? ' ce-dark' : ' ce-light'}`}
     >
       <div className="code-editor-titlebar" onPointerDown={onTitleBarPointerDown}>
         <GripVertical size={14} className="code-editor-grip" />
@@ -237,7 +250,25 @@ Rules:
             <option key={l.value} value={l.value}>{l.label}</option>
           ))}
         </select>
+        <select
+          className="code-editor-lang-select"
+          value={editorTheme}
+          onChange={e => handleEditorThemeChange(e.target.value as EditorTheme)}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
         <div style={{ display: 'flex', gap: '2px', marginLeft: 'auto' }}>
+          <button
+            className="code-editor-action-btn"
+            onClick={() => setIsTranslucent(v => !v)}
+            onMouseDown={e => e.stopPropagation()}
+            title={isTranslucent ? 'Opaque' : 'Translucent'}
+          >
+            {isTranslucent ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
           <button
             className="code-editor-action-btn"
             onClick={() => setCode('')}
