@@ -16,7 +16,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { acceptCompletion, closeCompletion, completionStatus } from '@codemirror/autocomplete'
 import { keymap, EditorView } from '@codemirror/view'
 import { Prec } from '@codemirror/state'
-import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff, GraduationCap } from 'lucide-react'
+import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff, GraduationCap, Play } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
 import { useDocumentStore } from '@/stores/documentStore'
 
@@ -116,10 +116,16 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
   const [editorTheme, setEditorTheme] = useState<EditorTheme>(initial.current.editorTheme)
   const [code, setCode] = useState(initialText ?? '')
   const [isReviewing, setIsReviewing] = useState(false)
-  const [isTranslucent, setIsTranslucent] = useState(false)
+  const [isTranslucent, setIsTranslucent] = useState(true)
   const [coachMode, setCoachMode] = useState(false)
   const [hint, setHint] = useState('')
   const [isCoaching, setIsCoaching] = useState(false)
+  const [runOutput, setRunOutput] = useState('')
+  const [isRunning, setIsRunning] = useState(false)
+  const [showOutput, setShowOutput] = useState(false)
+  const [availableRuntimes, setAvailableRuntimes] = useState<Set<string>>(new Set())
+  const runAbortRef = useRef<AbortController | null>(null)
+  const outputBodyRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const coachBodyRef = useRef<HTMLDivElement>(null)
   const coachTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -249,8 +255,8 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
 
       await callAIStream(
         [
-          { role: 'system', content: '<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).' },
-          { role: 'user', content: `Reference code from document:\n${truncatedDoc}\n\nStudent's current code:\n${userCode}` },
+          { role: 'system', content: `<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. The programming language is ${LANGUAGES.find(l => l.value === language)?.label || language}. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).` },
+          { role: 'user', content: `Reference code from document (${language}):\n${truncatedDoc}\n\nStudent's current ${language} code:\n${userCode}` },
         ],
         (chunk) => {
           setHint(chunk)
@@ -264,7 +270,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
         setIsCoaching(false)
       }
     }
-  }, [docId])
+  }, [docId, language])
 
   // Auto-scroll coach panel to bottom as hints stream in
   useEffect(() => {
@@ -278,8 +284,78 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     return () => {
       clearTimeout(coachTimer.current)
       coachAbortRef.current?.abort()
+      runAbortRef.current?.abort()
     }
   }, [])
+
+  // Fetch available runtimes on mount
+  useEffect(() => {
+    fetch('/api/code-runtimes')
+      .then(r => r.json())
+      .then((langs: string[]) => setAvailableRuntimes(new Set(langs)))
+      .catch(() => {})
+  }, [])
+
+  // Auto-scroll output panel
+  useEffect(() => {
+    if (outputBodyRef.current) {
+      outputBodyRef.current.scrollTop = outputBodyRef.current.scrollHeight
+    }
+  }, [runOutput])
+
+  const handleRunCode = useCallback(async () => {
+    if (!code.trim() || isRunning || !availableRuntimes.has(language)) return
+    runAbortRef.current?.abort()
+    const controller = new AbortController()
+    runAbortRef.current = controller
+
+    setIsRunning(true)
+    setRunOutput('')
+    setShowOutput(true)
+
+    try {
+      const res = await fetch('/api/code-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language }),
+        signal: controller.signal,
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('No response body')
+
+      const decoder = new TextDecoder()
+      let output = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value, { stream: true })
+        // Parse SSE lines: data: "content"\n\n
+        const lines = text.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const chunk = JSON.parse(line.slice(6))
+              output += chunk
+              setRunOutput(output)
+            } catch {
+              // Append raw if not valid JSON
+              output += line.slice(6)
+              setRunOutput(output)
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      if (!controller.signal.aborted) {
+        setRunOutput(prev => prev + `\n[Error] ${e.message}\n`)
+      }
+    } finally {
+      if (runAbortRef.current === controller) setIsRunning(false)
+    }
+  }, [code, language, isRunning, availableRuntimes])
 
   const handleCodeChange = useCallback((newCode: string) => {
     setCode(newCode)
@@ -450,6 +526,15 @@ Rules:
             <GraduationCap size={13} />
           </button>
           <button
+            className={`code-editor-action-btn${showOutput ? ' active' : ''}`}
+            onClick={handleRunCode}
+            onMouseDown={e => e.stopPropagation()}
+            title="Run Code"
+            disabled={!code.trim() || isRunning || !availableRuntimes.has(language)}
+          >
+            {isRunning ? <Loader2 size={13} className="spin" /> : <Play size={13} />}
+          </button>
+          <button
             className="code-editor-action-btn"
             onClick={handleAIReview}
             onMouseDown={e => e.stopPropagation()}
@@ -481,71 +566,93 @@ Rules:
         </button>
       </div>
 
-      <div className={`code-editor-content-area${coachMode ? ' with-coach' : ''}`}>
-        <div className="code-editor-body" key={themeKey} onClick={() => {
-          const editor = panelRef.current?.querySelector('.cm-content')
-          if (editor) (editor as HTMLElement).focus()
-        }}>
-          <CodeMirror
-            value={code}
-            onChange={handleCodeChange}
-            extensions={[
-              getLangExtension(language),
-              Prec.highest(keymap.of([
-                { key: 'Tab', run: (view) => {
-                  if (completionStatus(view.state) !== null) return acceptCompletion(view)
-                  const { from } = view.state.selection.main
-                  view.dispatch({ changes: { from, insert: '    ' }, selection: { anchor: from + 4 } })
-                  return true
-                }},
-              ])),
-              EditorView.domEventHandlers({
-                keydown: (event, view) => {
-                  if (event.key === 'Escape' && completionStatus(view.state) !== null) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    closeCompletion(view)
+      <div className={`code-editor-content-area${showOutput ? ' with-output' : ''}`}>
+        <div className={`code-editor-main${coachMode ? ' with-coach' : ''}`}>
+          <div className="code-editor-body" key={themeKey} onClick={() => {
+            const editor = panelRef.current?.querySelector('.cm-content')
+            if (editor) (editor as HTMLElement).focus()
+          }}>
+            <CodeMirror
+              value={code}
+              onChange={handleCodeChange}
+              extensions={[
+                getLangExtension(language),
+                Prec.highest(keymap.of([
+                  { key: 'Tab', run: (view) => {
+                    if (completionStatus(view.state) !== null) return acceptCompletion(view)
+                    const { from } = view.state.selection.main
+                    view.dispatch({ changes: { from, insert: '    ' }, selection: { anchor: from + 4 } })
                     return true
-                  }
-                  return false
-                },
-              }),
-            ]}
-            theme={isDark ? oneDark : undefined}
-            basicSetup={{
-              lineNumbers: true,
-              highlightActiveLineGutter: true,
-              highlightActiveLine: true,
-              foldGutter: true,
-              autocompletion: true,
-              bracketMatching: true,
-              closeBrackets: true,
-              indentOnInput: true,
-              tabSize: 4,
-              indentUnit: 4,
-            }}
-          />
-          <div className="ce-hscroll" ref={hscrollBarRef}>
-            <div className="ce-hscroll-thumb" ref={hscrollThumbRef} />
+                  }},
+                ])),
+                EditorView.domEventHandlers({
+                  keydown: (event, view) => {
+                    if (event.key === 'Escape' && completionStatus(view.state) !== null) {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      closeCompletion(view)
+                      return true
+                    }
+                    return false
+                  },
+                }),
+              ]}
+              theme={isDark ? oneDark : undefined}
+              basicSetup={{
+                lineNumbers: true,
+                highlightActiveLineGutter: true,
+                highlightActiveLine: true,
+                foldGutter: true,
+                autocompletion: true,
+                bracketMatching: true,
+                closeBrackets: true,
+                indentOnInput: true,
+                tabSize: 4,
+                indentUnit: 4,
+              }}
+            />
+            <div className="ce-hscroll" ref={hscrollBarRef}>
+              <div className="ce-hscroll-thumb" ref={hscrollThumbRef} />
+            </div>
           </div>
+          {coachMode && (
+            <div className="code-editor-coach">
+              <div className="code-editor-coach-header">
+                <GraduationCap size={13} />
+                <span>Coach</span>
+                {isCoaching && <Loader2 size={12} className="spin" />}
+                <button
+                  className="code-editor-action-btn"
+                  onClick={() => { setCoachMode(false); setHint(''); clearTimeout(coachTimer.current); coachAbortRef.current?.abort() }}
+                  onMouseDown={e => e.stopPropagation()}
+                  title="Close Coach"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="code-editor-coach-body" ref={coachBodyRef}>
+                {hint || (isCoaching ? '' : 'Start typing code to get hints...')}
+              </div>
+            </div>
+          )}
         </div>
-        {coachMode && (
-          <div className="code-editor-coach">
-            <div className="code-editor-coach-header">
-              <GraduationCap size={13} />
-              <span>Coach</span>
-              {isCoaching && <Loader2 size={12} className="spin" />}
+        {showOutput && (
+          <div className="code-editor-output">
+            <div className="code-editor-output-header">
+              <Play size={13} />
+              <span>Output</span>
+              {isRunning && <Loader2 size={12} className="spin" />}
               <button
                 className="code-editor-action-btn"
-                onClick={() => { setCoachMode(false); setHint(''); clearTimeout(coachTimer.current); coachAbortRef.current?.abort() }}
+                onClick={() => setShowOutput(false)}
                 onMouseDown={e => e.stopPropagation()}
-                title="Close Coach"
+                title="Close Output"
               >
                 <X size={12} />
               </button>
             </div>
-            <div className="code-editor-coach-body" ref={coachBodyRef}>
-              {hint || (isCoaching ? '' : 'Start typing code to get hints...')}
+            <div className="code-editor-output-body" ref={outputBodyRef}>
+              {runOutput || (isRunning ? '' : 'Run code to see output here...')}
             </div>
           </div>
         )}

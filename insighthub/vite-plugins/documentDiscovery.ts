@@ -1,6 +1,8 @@
 import type { Plugin } from 'vite'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync, exec } from 'child_process'
+import * as os from 'os'
 import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
 
@@ -1438,6 +1440,134 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
 
         sendFile(res, absPath)
+      })
+
+      // Runtime detection: probe for available language runtimes on startup
+      interface RuntimeInfo { command: string; label: string }
+      const RUNTIME_MAP: Record<string, RuntimeInfo> = {
+        python:     { command: 'python3', label: 'Python' },
+        javascript: { command: 'node', label: 'Node.js' },
+        typescript: { command: 'npx', label: 'npx (TypeScript)' },
+        go:         { command: 'go', label: 'Go' },
+        java:       { command: 'javac', label: 'Java' },
+        cpp:        { command: 'g++', label: 'C++ (g++)' },
+        rust:       { command: 'rustc', label: 'Rust' },
+      }
+      const availableRuntimes = new Set<string>()
+      for (const [lang, info] of Object.entries(RUNTIME_MAP)) {
+        try { execSync(`which ${info.command} 2>/dev/null`, { timeout: 2000 }); availableRuntimes.add(lang) } catch {}
+      }
+
+      // GET /api/code-runtimes — return list of available language runtimes
+      server.middlewares.use('/api/code-runtimes', (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end('Method Not Allowed'); return }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify([...availableRuntimes]))
+      })
+
+      // POST /api/code-run — execute code and stream stdout+stderr via SSE
+      server.middlewares.use('/api/code-run', async (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('Method Not Allowed'); return }
+        if (!availableRuntimes.size) { res.statusCode = 503; res.end(JSON.stringify({ error: 'No runtimes available' })); return }
+
+        const reqChunks: Buffer[] = []
+        for await (const chunk of req) reqChunks.push(chunk as Buffer)
+        let parsed: { code: string; language: string }
+        try { parsed = JSON.parse(Buffer.concat(reqChunks).toString()) } catch { res.statusCode = 400; res.end('Invalid JSON'); return }
+
+        const { code, language } = parsed
+        if (!code || !language) { res.statusCode = 400; res.end('Missing code or language'); return }
+        if (!availableRuntimes.has(language)) { res.statusCode = 400; res.end(`Runtime for ${language} not found`); return }
+
+        const tmpDir = os.tmpdir()
+        const tmpId = `insighthub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const TIMEOUT_MS = 10_000
+
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.setHeader('Connection', 'keep-alive')
+
+        const sendEvent = (data: string) => res.write(`data: ${JSON.stringify(data)}\n\n`)
+
+        let command: string
+        let needsCleanup: string[] = []
+
+        try {
+          switch (language) {
+            case 'python':
+              command = 'python3 -u -'
+              break
+            case 'javascript':
+              command = 'node --input-type=module -'
+              break
+            case 'typescript':
+              command = 'npx tsx -'
+              break
+            case 'go': {
+              const goFile = path.join(tmpDir, `${tmpId}.go`)
+              fs.writeFileSync(goFile, code)
+              needsCleanup.push(goFile)
+              command = `go run "${goFile}"`
+              break
+            }
+            case 'java': {
+              const javaFile = path.join(tmpDir, `${tmpId}.java`)
+              const classMatch = code.match(/public\s+class\s+(\w+)/)
+              const className = classMatch ? classMatch[1] : 'Main'
+              fs.writeFileSync(javaFile, code)
+              needsCleanup.push(javaFile)
+              command = `cd "${tmpDir}" && javac "${javaFile}" && java ${className}`
+              break
+            }
+            case 'cpp': {
+              const cppFile = path.join(tmpDir, `${tmpId}.cpp`)
+              const outFile = path.join(tmpDir, `${tmpId}_out`)
+              fs.writeFileSync(cppFile, code)
+              needsCleanup.push(cppFile, outFile)
+              command = `g++ -o "${outFile}" "${cppFile}" && "${outFile}"`
+              break
+            }
+            case 'rust': {
+              const rsFile = path.join(tmpDir, `${tmpId}.rs`)
+              const outFile = path.join(tmpDir, `${tmpId}_out`)
+              fs.writeFileSync(rsFile, code)
+              needsCleanup.push(rsFile, outFile)
+              command = `rustc -o "${outFile}" "${rsFile}" && "${outFile}"`
+              break
+            }
+            default:
+              res.statusCode = 400
+              res.end(`Unsupported language: ${language}`)
+              return
+          }
+
+          const isStdin = (language === 'python' || language === 'javascript' || language === 'typescript')
+          const proc = exec(command, {
+            timeout: TIMEOUT_MS,
+            maxBuffer: 1024 * 1024,
+            env: { ...process.env },
+          })
+
+          if (isStdin) proc.stdin!.end(code)
+
+          let done = false
+          const finish = () => {
+            if (done) return
+            done = true
+            res.end()
+            for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch {} }
+          }
+
+          proc.stdout?.on('data', (d: Buffer) => sendEvent(d.toString()))
+          proc.stderr?.on('data', (d: Buffer) => sendEvent(d.toString()))
+          proc.on('error', (err) => { sendEvent(`\n[Error] ${err.message}\n`); finish() })
+          proc.on('close', (code) => { if (code) sendEvent(`\n[Exit ${code}]\n`); finish() })
+          req.on('close', () => { proc.kill(); finish() })
+        } catch (err: any) {
+          sendEvent(`\n[Error] ${err.message}\n`)
+          res.end()
+          for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch {} }
+        }
       })
     },
   }
