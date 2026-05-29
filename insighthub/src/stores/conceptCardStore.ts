@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { ConceptCard } from '@/types'
-import { storageService } from '@/services/storageService'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 
 interface ConceptCardState {
@@ -67,33 +66,19 @@ function syncCardsToServer(cards: ConceptCard[]): Promise<void> {
   }).then(() => {}).catch(() => {})
 }
 
-/** Debounced persistence — avoids blocking the UI on every grade click */
-let persistTimer: ReturnType<typeof setTimeout> | null = null
+/** Debounced server sync — avoids blocking the UI on every grade click */
 let syncTimer: ReturnType<typeof setTimeout> | null = null
-
-function schedulePersist() {
-  if (persistTimer) clearTimeout(persistTimer)
-  persistTimer = setTimeout(() => {
-    storageService.setConceptCards(useConceptCardStore.getState().cards)
-    persistTimer = null
-  }, 500)
-}
 
 function scheduleSync() {
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(() => {
     syncCardsToServer(useConceptCardStore.getState().cards)
     syncTimer = null
-  }, 2000)
+  }, 1000)
 }
 
-/** Flush any pending persistence (e.g. on page unload) */
+/** Flush any pending sync (e.g. on page unload) */
 export function flushConceptCardPersistence() {
-  if (persistTimer) {
-    clearTimeout(persistTimer)
-    storageService.setConceptCards(useConceptCardStore.getState().cards)
-    persistTimer = null
-  }
   if (syncTimer) {
     clearTimeout(syncTimer)
     syncCardsToServer(useConceptCardStore.getState().cards)
@@ -110,10 +95,8 @@ if (typeof window !== 'undefined') {
  * Migrate old concept cards that don't have SM-2 fields.
  */
 function migrateCards(cards: ConceptCard[]): ConceptCard[] {
-  let changed = false
-  const updated = cards.map(c => {
+  return cards.map(c => {
     if (c.interval !== undefined) return c
-    changed = true
     return {
       ...c,
       interval: 0,
@@ -123,8 +106,6 @@ function migrateCards(cards: ConceptCard[]): ConceptCard[] {
       lastReview: 0,
     }
   })
-  if (changed) storageService.setConceptCards(updated)
-  return updated
 }
 
 /** Enforce per-document concept card limit based on current preference */
@@ -149,30 +130,25 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
   extractingErrors: {},
 
   loadCards: () => {
-    const localCards = storageService.getConceptCards() as ConceptCard[]
-    const migrated = migrateCards(localCards)
-    const enforced = enforcePerDocLimit(migrated)
-    set({ cards: enforced, isLoaded: true })
-    if (enforced.length !== migrated.length) {
-      storageService.setConceptCards(enforced)
-      syncCardsToServer(enforced)
-    }
-    // Merge from server (LAN sync)
+    set({ isLoaded: false })
+    // Load from server (primary), fall back to localStorage for offline
     fetch('/api/concept-cards')
       .then(r => r.json())
       .then((serverCards: ConceptCard[]) => {
-        const localIds = new Set(enforced.map(c => c.id))
-        const merged = [...enforced]
-        for (const c of serverCards) {
-          if (!localIds.has(c.id)) merged.push(c)
-        }
-        const trimmed = enforcePerDocLimit(merged)
-        storageService.setConceptCards(trimmed)
-        set({ cards: trimmed })
-        // Sync merged state back to server
-        syncCardsToServer(trimmed)
+        const cards = enforcePerDocLimit(migrateCards(serverCards))
+        set({ cards, isLoaded: true })
       })
-      .catch(() => {})
+      .catch(() => {
+        // Offline fallback: try localStorage
+        try {
+          const raw = localStorage.getItem('insighthub:concept-cards')
+          const localCards = raw ? JSON.parse(raw) : []
+          const cards = enforcePerDocLimit(migrateCards(localCards))
+          set({ cards, isLoaded: true })
+        } catch {
+          set({ isLoaded: true })
+        }
+      })
   },
 
   addCards: (newCards: ConceptCard[]) => {
@@ -184,7 +160,6 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
     const unique = newCards.filter(c => !existingKeys.has(`${c.sourceDocId}::${c.conceptName}`))
     if (unique.length === 0) return
 
-    // Enforce per-document limit: count existing cards per doc, only add up to maxCount
     const docCounts = new Map<string, number>()
     for (const c of cards) {
       docCounts.set(c.sourceDocId, (docCounts.get(c.sourceDocId) || 0) + 1)
@@ -200,14 +175,12 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
 
     const updated = [...cards, ...limited]
     set({ cards: updated })
-    storageService.setConceptCards(updated)
     syncCardsToServer(updated)
   },
 
   removeCard: async (id: string) => {
     const updated = get().cards.filter(c => c.id !== id)
     set({ cards: updated })
-    storageService.setConceptCards(updated)
     await syncCardsToServer(updated)
   },
 
@@ -235,7 +208,6 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
         c.id === cardId ? sm2Review(c, grade) : c
       )
     }))
-    schedulePersist()
     scheduleSync()
   },
 
@@ -246,7 +218,6 @@ export const useConceptCardStore = create<ConceptCardState>((set, get) => ({
         c.id === cardId ? { ...c, nextReview: tomorrow } : c
       )
     }))
-    schedulePersist()
     scheduleSync()
   },
 

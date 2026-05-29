@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Search, Sun, Moon, ChevronDown, Check, Settings, Upload, BarChart3, Brain,
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
@@ -176,17 +176,17 @@ export function Navbar() {
           </button>
 
           {navButtons.map(btn => (
-            <Link
+            <button
               key={btn.to}
-              to={btn.to}
               className="navbar-icon-btn"
               title={btn.label}
               onMouseEnter={() => prefetchRoute(btn.to)}
+              onPointerDown={() => navigate(btn.to)}
             >
               <btn.icon size={18} />
               {btn.badge > 0 && <span className="navbar-icon-badge">{btn.badge}</span>}
               <span className="navbar-icon-tooltip">{btn.label}</span>
-            </Link>
+            </button>
           ))}
 
           <button className="navbar-icon-btn theme-toggle" onClick={toggleTheme} title="Toggle Theme">

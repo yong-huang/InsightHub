@@ -140,8 +140,9 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
       const thumb = hscrollThumbRef.current
       if (!scroller || !bar || !thumb) return
 
-      // Hide native horizontal scrollbar
+      // Hide native horizontal scrollbar, keep vertical scroll
       scroller.style.overflowX = 'hidden'
+      scroller.style.overflowY = 'auto'
 
       const sync = () => {
         const sw = scroller.scrollWidth
@@ -203,6 +204,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
         scroller.removeEventListener('scroll', sync)
         ro.disconnect()
         scroller.style.overflowX = ''
+        scroller.style.overflowY = ''
       }
     })
   }, [themeKey])
@@ -241,7 +243,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
 
       await callAIStream(
         [
-          { role: 'system', content: '<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. Based on the reference code below, provide brief hints (1-2 sentences, max 50 words) to help them continue. Do NOT give the full answer or rewrite their code. Reference the document code to guide them. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).' },
+          { role: 'system', content: '<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).' },
           { role: 'user', content: `Reference code from document:\n${truncatedDoc}\n\nStudent's current code:\n${userCode}` },
         ],
         (chunk) => {
@@ -319,7 +321,12 @@ Rules:
 - Output ONLY the annotated code, no extra text, no markdown fences` },
         { role: 'user', content: code },
       ])
-      if (result.data) setCode(result.data)
+      if (result.data) {
+        let reviewed = result.data
+        // Strip markdown code fences if the model wraps output in them
+        reviewed = reviewed.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '')
+        setCode(reviewed)
+      }
     } catch { /* ignore AI errors */ }
     finally { setIsReviewing(false) }
   }, [code, language, isReviewing])
