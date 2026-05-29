@@ -224,30 +224,9 @@ export function DocReaderPage() {
     }
   }, [isFullscreen])
 
-  // If Fullscreen API exits for any reason (Esc, system gesture),
-  // sync CSS overlay state to match.
-  useEffect(() => {
-    const onFsChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullscreen(false)
-      }
-    }
-    document.addEventListener('fullscreenchange', onFsChange)
-    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(v => !v)
   }, [])
-
-  const toggleFullscreen = useCallback(async () => {
-    const entering = !isFullscreen
-    setIsFullscreen(entering)
-
-    try {
-      if (entering) {
-        await document.documentElement.requestFullscreen()
-      } else if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      }
-    } catch {}
-  }, [isFullscreen])
 
   const allTags = useTagStore(s => s.tags)
   const addTag = useTagStore(s => s.addTag)

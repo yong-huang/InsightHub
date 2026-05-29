@@ -13,6 +13,9 @@ import { markdown } from '@codemirror/lang-markdown'
 import { xml } from '@codemirror/lang-xml'
 import { go } from '@codemirror/lang-go'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { acceptCompletion, closeCompletion, completionStatus } from '@codemirror/autocomplete'
+import { keymap, EditorView } from '@codemirror/view'
+import { Prec } from '@codemirror/state'
 import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff, GraduationCap } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -72,7 +75,7 @@ function loadEditorData(docId: string): EditorData {
   const defaults: EditorData = {
     language: 'python' as LangValue,
     editorTheme: 'auto' as EditorTheme,
-    position: { x: Math.max(40, window.innerWidth - DEFAULT_SIZE.width - 40), y: 80 },
+    position: { x: Math.max(40, window.innerWidth - DEFAULT_SIZE.width - 40), y: 120 },
     size: DEFAULT_SIZE,
   }
   try {
@@ -82,7 +85,10 @@ function loadEditorData(docId: string): EditorData {
     return {
       language: saved.language || defaults.language,
       editorTheme: saved.editorTheme || defaults.editorTheme,
-      position: saved.position || defaults.position,
+      position: {
+        x: saved.position?.x ?? defaults.position.x,
+        y: Math.max(120, saved.position?.y ?? defaults.position.y),
+      },
       size: saved.size || defaults.size,
     }
   } catch {
@@ -483,7 +489,28 @@ Rules:
           <CodeMirror
             value={code}
             onChange={handleCodeChange}
-            extensions={[getLangExtension(language)]}
+            extensions={[
+              getLangExtension(language),
+              Prec.highest(keymap.of([
+                { key: 'Tab', run: (view) => {
+                  if (completionStatus(view.state) !== null) return acceptCompletion(view)
+                  const { from } = view.state.selection.main
+                  view.dispatch({ changes: { from, insert: '    ' }, selection: { anchor: from + 4 } })
+                  return true
+                }},
+              ])),
+              EditorView.domEventHandlers({
+                keydown: (event, view) => {
+                  if (event.key === 'Escape' && completionStatus(view.state) !== null) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    closeCompletion(view)
+                    return true
+                  }
+                  return false
+                },
+              }),
+            ]}
             theme={isDark ? oneDark : undefined}
             basicSetup={{
               lineNumbers: true,
