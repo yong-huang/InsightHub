@@ -230,6 +230,38 @@ export function DocReaderPage() {
     setIsFullscreen(v => !v)
   }, [])
 
+  // Scroll iframe to text matching a keyword (used by ShadowTypingPanel refs)
+  const scrollToText = useCallback((keyword: string) => {
+    const iframe = iframeRef.current
+    if (!iframe?.contentDocument) return
+    const doc = iframe.contentDocument
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+    const lower = keyword.toLowerCase()
+    let node: Node | null
+    while ((node = walker.nextNode())) {
+      if (node.textContent && node.textContent.toLowerCase().includes(lower)) {
+        const range = doc.createRange()
+        const idx = node.textContent.toLowerCase().indexOf(lower)
+        range.setStart(node, idx)
+        range.setEnd(node, idx + keyword.length)
+        range.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Flash highlight — use CSS outline on parent to avoid DOM mutation issues
+        const parent = range.startContainer.parentElement
+        if (parent) {
+          parent.style.transition = 'outline-color 0.3s'
+          parent.style.outline = '2px solid rgba(99, 102, 241, 0.6)'
+          parent.style.outlineOffset = '1px'
+          parent.style.borderRadius = '2px'
+          setTimeout(() => {
+            parent.style.outline = ''
+            parent.style.outlineOffset = ''
+          }, 1500)
+        }
+        return
+      }
+    }
+  }, [])
+
   // Escape exits CSS fullscreen (listen on both parent doc and iframe)
   useEffect(() => {
     if (!isFullscreen) return
@@ -1215,7 +1247,7 @@ export function DocReaderPage() {
       {/* Floating shadow typing panel */}
       {showShadowTyping && docId && (
         <Suspense fallback={null}>
-          <ShadowTypingPanel docId={docId} onClose={() => setShowShadowTyping(false)} />
+          <ShadowTypingPanel docId={docId} onClose={() => setShowShadowTyping(false)} onScrollToText={scrollToText} />
         </Suspense>
       )}
 

@@ -4283,7 +4283,7 @@
   color: var(--text-secondary);
 }
 
-/* ========== Shadow Typing Panel ========== */
+/* ========== Shadow Typing Panel (Tutor Mode) ========== */
 .shadow-typing-panel {
   position: fixed;
   z-index: 100001;
@@ -4291,51 +4291,160 @@
 .doc-fullscreen-active .shadow-typing-panel {
   z-index: 100001;
 }
-.shadow-typing-content {
+
+/* Conversation layout */
+.shadow-tutor-content {
   display: flex;
+  flex-direction: column;
   flex: 1;
   overflow: hidden;
   min-height: 0;
 }
-.shadow-typing-editor {
+
+/* Message list */
+.shadow-tutor-messages {
   flex: 1;
-  min-width: 0;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+.shadow-tutor-msg {
+  display: flex;
+  max-width: 88%;
+}
+.shadow-tutor-msg-ai {
+  align-self: flex-start;
+}
+.shadow-tutor-msg-user {
+  align-self: flex-end;
+}
+.shadow-tutor-msg-bubble {
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.shadow-tutor-msg-ai .shadow-tutor-msg-bubble {
+  background: var(--bg-secondary, #f0f0f5);
+  color: var(--text-primary);
+  border-bottom-left-radius: 3px;
+}
+.shadow-tutor-msg-user .shadow-tutor-msg-bubble {
+  background: var(--color-primary, #6366f1);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.shadow-tutor-cursor {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+.shadow-tutor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+/* Reference links */
+.shadow-tutor-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.shadow-tutor-ref-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: 1px solid var(--color-primary, #6366f1);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-primary, #6366f1);
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
   overflow: hidden;
 }
-.shadow-typing-textarea {
-  width: 100%;
-  height: 100%;
-  padding: 0.8rem;
-  border: none;
+.shadow-tutor-ref-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shadow-tutor-ref-link:hover {
+  background: var(--color-primary, #6366f1);
+  color: #fff;
+}
+
+/* Input area */
+.shadow-tutor-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0.5rem 0.65rem;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.shadow-tutor-textarea {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
   outline: none;
   resize: none;
   appearance: none;
   -webkit-appearance: none;
   font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.88rem;
+  line-height: 1.5;
   color: var(--text-primary);
-  background: transparent;
+  background: var(--bg-card);
+  max-height: 120px;
+  min-height: 32px;
 }
-.shadow-typing-textarea:focus {
-  outline: none;
+.shadow-tutor-textarea:focus {
+  border-color: var(--color-primary, #6366f1);
   box-shadow: none;
 }
-.shadow-typing-textarea::placeholder {
+.shadow-tutor-textarea::placeholder {
   color: var(--text-tertiary);
   font-style: italic;
+  font-size: 0.82rem;
 }
-.shadow-typing-hint {
-  width: 280px;
-  border-left: 1px solid var(--border-subtle);
+.shadow-tutor-send {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary, #6366f1);
+  color: #fff;
+  cursor: pointer;
   flex-shrink: 0;
 }
-.shadow-typing-panel.ce-light .shadow-typing-hint {
-  border-left-color: rgba(0, 0, 0, 0.06);
+.shadow-tutor-send:hover:not(.disabled) {
+  opacity: 0.85;
 }
+.shadow-tutor-send.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Dark theme overrides */
 [data-theme="dark"] .shadow-typing-panel {
   background: #1e1e2e;
   border-color: rgba(255, 255, 255, 0.1);
@@ -4359,12 +4468,22 @@
   background: rgba(255, 255, 255, 0.1);
   color: #e6edf3;
 }
-[data-theme="dark"] .shadow-typing-textarea {
+[data-theme="dark"] .shadow-tutor-msg-ai .shadow-tutor-msg-bubble {
+  background: #313244;
+  color: #cdd6f4;
+}
+[data-theme="dark"] .shadow-tutor-msg-user .shadow-tutor-msg-bubble {
+  background: #6366f1;
+  color: #fff;
+}
+[data-theme="dark"] .shadow-tutor-textarea {
+  background: #21262d;
+  border-color: rgba(255, 255, 255, 0.1);
   color: #e6edf3;
 }
-[data-theme="dark"] .shadow-typing-textarea::placeholder {
+[data-theme="dark"] .shadow-tutor-textarea::placeholder {
   color: #484f58;
 }
-[data-theme="dark"] .shadow-typing-hint {
-  border-left-color: rgba(255, 255, 255, 0.06);
+[data-theme="dark"] .shadow-tutor-input {
+  border-top-color: rgba(255, 255, 255, 0.06);
 }

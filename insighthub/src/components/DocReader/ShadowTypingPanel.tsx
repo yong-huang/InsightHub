@@ -1,11 +1,48 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { GripVertical, X, Loader2, Languages, Eye, EyeOff } from 'lucide-react'
+import { GripVertical, X, Loader2, Languages, Eye, EyeOff, Send, RotateCcw, BookOpen } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
+import { recordUsage } from '@/services/tokenUsageService'
 import { useDocumentStore } from '@/stores/documentStore'
 
-const DEFAULT_SIZE = { width: 560, height: 420 }
+const DEFAULT_SIZE = { width: 480, height: 460 }
 const MIN_W = 340
-const MIN_H = 220
+const MIN_H = 260
+
+interface TutorMessage {
+  role: 'ai' | 'user'
+  content: string
+  refs?: string[]
+}
+
+const SYSTEM_PROMPT = `You are a friendly interactive English tutor. The student has been reading a learning document. Your job is to guide them through typing exercises based on the document content.
+
+How it works:
+1. First, read the document to understand the topic and key English expressions.
+2. Greet the student briefly (1 sentence, Chinese), then pose your first exercise.
+3. Each exercise should ask the student to TYPE something in English — e.g. "请用英语写出会议开场时你会怎么说" or "Try writing a short email confirming the meeting time".
+4. After the student responds: give brief encouraging feedback on their English (grammar, vocabulary, naturalness), then pose the NEXT exercise.
+5. Make exercises progressive: start with simple phrases, build up to full sentences/paragraphs.
+
+Rules:
+- Each response: 2-4 sentences max. Keep it concise.
+- Instructions and feedback in Chinese. Exercises/prompts mix Chinese instructions with English examples.
+- Be warm and encouraging. Praise what's good before suggesting improvements.
+- Vary exercise types: fill-in phrases, write a dialogue line, summarize a point, etc.
+- Always base exercises on the document's actual content and vocabulary.
+- Never repeat the same exercise. Always move forward.
+- IMPORTANT: Progress through the ENTIRE document, not just the beginning. After covering the first section's content, move on to the next topic/section. The document has multiple sections — cover them all over the course of the session.
+- IMPORTANT: At the end of each response, append a reference line in this exact format: [ref:keyword1, keyword2]
+  These are 1-2 short keywords or phrases from the document that are topically relevant to the current exercise.
+  The two refs should be on the same topic but from DIFFERENT parts of the document (e.g. different examples, different contexts, or different sections covering the same theme).
+  Do NOT pick refs from adjacent paragraphs or the same block of text.
+  Example for an exercise about meeting openings: [ref:Good morning everyone, I'd like to call this meeting to order] — both about opening a meeting, but from different examples in the document.`
+
+function parseRefs(text: string): { content: string; refs: string[] } {
+  const match = text.match(/\[ref:(.+?)\]\s*$/)
+  if (!match) return { content: text, refs: [] }
+  const refs = match[1].split(',').map(s => s.trim()).filter(Boolean)
+  return { content: text.slice(0, match.index).trimEnd(), refs }
+}
 
 function loadShadowData(docId: string): { position: { x: number; y: number }; size: { width: number; height: number } } {
   const defaults = {
@@ -39,19 +76,21 @@ function saveShadowData(docId: string, data: Partial<{ position: { x: number; y:
 interface ShadowTypingPanelProps {
   docId: string
   onClose: () => void
+  onScrollToText?: (keyword: string) => void
 }
 
-export function ShadowTypingPanel({ docId, onClose }: ShadowTypingPanelProps) {
+export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypingPanelProps) {
   const initial = useRef(loadShadowData(docId))
-  const [text, setText] = useState('')
-  const [hint, setHint] = useState('')
+  const [messages, setMessages] = useState<TutorMessage[]>([])
+  const [inputText, setInputText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isTranslucent, setIsTranslucent] = useState(true)
+  const [streamingContent, setStreamingContent] = useState('')
   const abortRef = useRef<AbortController | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
   const panelRef = useRef<HTMLDivElement>(null)
-  const hintBodyRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const conversationRef = useRef<{ role: string; content: string }[]>([])
 
   // Set initial position/size
   useEffect(() => {
@@ -63,77 +102,129 @@ export function ShadowTypingPanel({ docId, onClose }: ShadowTypingPanelProps) {
     el.style.height = `${initial.current.size.height}px`
   }, [])
 
-  // Auto-scroll hint panel
+  // Auto-scroll to bottom
   useEffect(() => {
-    if (hintBodyRef.current) {
-      hintBodyRef.current.scrollTop = hintBodyRef.current.scrollHeight
-    }
-  }, [hint])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, streamingContent])
 
   // Cleanup
   useEffect(() => {
-    return () => {
-      clearTimeout(timerRef.current)
-      abortRef.current?.abort()
-    }
+    return () => { abortRef.current?.abort() }
   }, [])
 
-  const requestHint = useCallback(async (userText: string) => {
+  // Start session on mount
+  useEffect(() => {
+    startSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const callAI = useCallback(async (messages: { role: string; content: string }[], onChunk: (text: string) => void) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
     setIsStreaming(true)
-    setHint('')
+    setStreamingContent('')
 
     try {
-      const doc = await useDocumentStore.getState().ensureContentText(docId)
-      const docContent = doc?.contentText || ''
-      // Extract only English sentences from the document (skip Chinese text and headers)
-      const englishLines = docContent.split('\n').filter(line => /^[A-Za-z]/.test(line.trim()) && line.trim().length > 5)
-      const englishText = englishLines.join('\n').slice(0, 3000)
-
-      await callAIStream(
-        [
-          { role: 'system', content: `You are a friendly English tutor. The student is practicing "shadow typing" — reading English text from a learning document, then retyping what they remember in their own words. This is an English learning exercise, NOT a dictation test.
-
-The reference document is a bilingual learning page (Chinese explanations + English examples/dialogues). Only the English portions are relevant.
-
-Evaluation criteria:
-- Compare the student's English text against the English sentences in the reference
-- Check grammar correctness and natural phrasing
-- Notice if key vocabulary or expressions from the reference are used
-- Ignore differences in wording, synonyms, or sentence structure — meaning matters, not exact words
-- Be encouraging! Praise what they got right before noting improvements
-- If the student only typed a short fragment, gently suggest they try to include more from what they read
-
-Tone: warm, encouraging, like a supportive tutor. Never harsh or critical. Output in Chinese (中文), 2-3 sentences max.` },
-          { role: 'user', content: englishText
-            ? `English text from the document:\n\`\`\`\n${englishText}\n\`\`\`\n\nStudent's retyped text:\n\`\`\`\n${userText}\n\`\`\``
-            : `Student's retyped text (no English reference found in document):\n\`\`\`\n${userText}\n\`\`\`` },
-        ],
-        (chunk) => {
-          setHint(chunk)
-        },
-        controller.signal,
-      )
+      const result = await callAIStream(messages, onChunk, controller.signal)
+      if (result.usage) recordUsage('shadow-typing', result.usage)
+      if (result.success === false && !controller.signal.aborted) {
+        setStreamingContent('')
+      }
     } catch {
-      if (!controller.signal.aborted) setHint('')
+      if (!controller.signal.aborted) setStreamingContent('')
     } finally {
       if (abortRef.current === controller) {
         setIsStreaming(false)
       }
     }
-  }, [docId])
+  }, [])
 
-  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value
-    setText(val)
-    if (val.trim()) {
-      clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => requestHint(val), 2000)
+  const startSession = useCallback(async () => {
+    setMessages([])
+    setStreamingContent('')
+    setInputText('')
+    conversationRef.current = []
+
+    try {
+      const doc = await useDocumentStore.getState().ensureContentText(docId)
+      const docContent = doc?.contentText || ''
+      // Send full document (up to 12k chars) so AI can cover all sections
+      const truncated = docContent.slice(0, 12000)
+
+      const systemMsg = { role: 'system', content: SYSTEM_PROMPT }
+      const userMsg = { role: 'user', content: `Here is the FULL document the student has been studying:\n\`\`\`\n${truncated}\n\`\`\`\n${docContent.length > 12000 ? `\n(Document truncated at 12000 chars, total ${docContent.length} chars.)\n` : ''}Please start the interactive English typing exercise. Cover different sections of the document progressively — do NOT stay on the first section.` }
+
+      conversationRef.current = [systemMsg, userMsg]
+
+      await callAI([systemMsg, userMsg], (text) => {
+        setStreamingContent(text)
+      })
+
+      // After streaming completes, move streaming content into messages
+      // We read it from the latest state via a timeout
+    } catch {
+      // ignore
     }
-  }, [requestHint])
+  }, [docId, callAI])
+
+  // When streaming ends, finalize the AI message
+  useEffect(() => {
+    if (!isStreaming && streamingContent) {
+      const { content, refs } = parseRefs(streamingContent)
+      const aiMsg: TutorMessage = { role: 'ai', content, refs }
+      setMessages(prev => [...prev, aiMsg])
+      conversationRef.current.push({ role: 'assistant', content: streamingContent })
+      setStreamingContent('')
+    }
+  }, [isStreaming, streamingContent])
+
+  const handleSubmit = useCallback(async () => {
+    const text = inputText.trim()
+    if (!text || isStreaming) return
+
+    // Add user message
+    const userMsg: TutorMessage = { role: 'user', content: text }
+    setMessages(prev => [...prev, userMsg])
+    conversationRef.current.push({ role: 'user', content: text })
+    setInputText('')
+
+    // Resize textarea back
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+
+    // Call AI with full conversation
+    const allMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversationRef.current.filter(m => m.role !== 'system'),
+    ]
+
+    await callAI(allMessages, (text) => {
+      setStreamingContent(text)
+    })
+  }, [inputText, isStreaming, callAI])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }, [handleSubmit])
+
+  // Auto-resize textarea
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value)
+    const ta = e.target
+    ta.style.height = 'auto'
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+  }, [])
+
+  const handleReset = useCallback(() => {
+    abortRef.current?.abort()
+    startSession()
+  }, [startSession])
 
   // Drag via pointer capture
   const onTitleBarPointerDown = useCallback((e: React.PointerEvent) => {
@@ -205,6 +296,8 @@ Tone: warm, encouraging, like a supportive tutor. Never harsh or critical. Outpu
     el.addEventListener('lostpointercapture', lost)
   }, [docId])
 
+  const canSubmit = inputText.trim().length > 0 && !isStreaming
+
   return (
     <div
       ref={panelRef}
@@ -217,20 +310,20 @@ Tone: warm, encouraging, like a supportive tutor. Never harsh or critical. Outpu
         <div style={{ display: 'flex', gap: '2px', marginLeft: 'auto' }}>
           <button
             className="code-editor-action-btn"
+            onClick={handleReset}
+            onMouseDown={e => e.stopPropagation()}
+            title="Restart Session"
+            disabled={isStreaming}
+          >
+            <RotateCcw size={13} />
+          </button>
+          <button
+            className="code-editor-action-btn"
             onClick={() => setIsTranslucent(v => !v)}
             onMouseDown={e => e.stopPropagation()}
             title={isTranslucent ? 'Opaque' : 'Translucent'}
           >
             {isTranslucent ? <EyeOff size={13} /> : <Eye size={13} />}
-          </button>
-          <button
-            className="code-editor-action-btn"
-            onClick={() => { setText(''); setHint(''); clearTimeout(timerRef.current); abortRef.current?.abort() }}
-            onMouseDown={e => e.stopPropagation()}
-            title="Clear"
-            disabled={!text}
-          >
-            <X size={13} />
           </button>
         </div>
         <button className="code-editor-close-btn" onClick={onClose}>
@@ -238,26 +331,68 @@ Tone: warm, encouraging, like a supportive tutor. Never harsh or critical. Outpu
         </button>
       </div>
 
-      <div className="shadow-typing-content">
-        <div className="shadow-typing-editor">
+      <div className="shadow-tutor-content">
+        {/* Message list */}
+        <div className="shadow-tutor-messages">
+          {messages.map((msg, i) => (
+            <div key={i} className={`shadow-tutor-msg shadow-tutor-msg-${msg.role}`}>
+              <div className="shadow-tutor-msg-bubble">
+                {msg.content}
+                {msg.role === 'ai' && msg.refs && msg.refs.length > 0 && (
+                  <div className="shadow-tutor-refs">
+                    {msg.refs.map((ref, j) => (
+                      <button
+                        key={j}
+                        className="shadow-tutor-ref-link"
+                        onClick={() => onScrollToText?.(ref)}
+                        title={`Jump to: ${ref}`}
+                      >
+                        <BookOpen size={10} />
+                        <span>{ref.length > 30 ? ref.slice(0, 30) + '...' : ref}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          {isStreaming && streamingContent && (
+            <div className="shadow-tutor-msg shadow-tutor-msg-ai">
+              <div className="shadow-tutor-msg-bubble">
+                {streamingContent}
+                <Loader2 size={10} className="shadow-tutor-cursor" />
+              </div>
+            </div>
+          )}
+          {!isStreaming && messages.length === 0 && !streamingContent && (
+            <div className="shadow-tutor-empty">
+              <Loader2 size={18} className="spin" />
+              <span>Reading document...</span>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area */}
+        <div className="shadow-tutor-input">
           <textarea
             ref={textareaRef}
-            className="shadow-typing-textarea"
-            value={text}
-            onChange={handleTextChange}
-            placeholder="Read English text from the document, then type your version here..."
+            className="shadow-tutor-textarea"
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your answer..."
+            rows={1}
             spellCheck
           />
-        </div>
-        <div className="shadow-typing-hint">
-          <div className="code-editor-coach-header">
-            <Languages size={13} />
-            <span>Feedback</span>
-            {isStreaming && <Loader2 size={12} className="spin" />}
-          </div>
-          <div className="code-editor-coach-body" ref={hintBodyRef}>
-            {hint || (isStreaming ? '' : 'Type your text to get AI feedback...')}
-          </div>
+          <button
+            className={`shadow-tutor-send${canSubmit ? '' : ' disabled'}`}
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            title="Send (Cmd+Enter)"
+          >
+            {isStreaming ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+          </button>
         </div>
       </div>
 
