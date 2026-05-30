@@ -44,6 +44,31 @@ function parseRefs(text: string): { content: string; refs: string[] } {
   return { content: text.slice(0, match.index).trimEnd(), refs }
 }
 
+const SHADOW_STORAGE_KEY = 'insighthub:shadow-history'
+
+function loadShadowHistory(docId: string): TutorMessage[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
+    return all[docId] || []
+  } catch { return [] }
+}
+
+function saveShadowHistory(docId: string, messages: TutorMessage[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
+    all[docId] = messages.slice(-60)
+    localStorage.setItem(SHADOW_STORAGE_KEY, JSON.stringify(all))
+  } catch { /* quota exceeded */ }
+}
+
+function clearShadowHistory(docId: string) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
+    delete all[docId]
+    localStorage.setItem(SHADOW_STORAGE_KEY, JSON.stringify(all))
+  } catch { /* ignore */ }
+}
+
 function loadShadowData(docId: string): { position: { x: number; y: number }; size: { width: number; height: number } } {
   const defaults = {
     position: { x: Math.max(40, window.innerWidth - DEFAULT_SIZE.width - 40), y: 160 },
@@ -91,6 +116,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const conversationRef = useRef<{ role: string; content: string }[]>([])
+  const docContentRef = useRef('')
 
   // Set initial position/size
   useEffect(() => {
@@ -141,15 +167,33 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
     }
   }, [])
 
-  const startSession = useCallback(async () => {
-    setMessages([])
+  const startSession = useCallback(async (fresh: boolean = false) => {
     setStreamingContent('')
     setInputText('')
+
+    if (!fresh) {
+      // Try to restore saved session
+      const saved = loadShadowHistory(docId)
+      if (saved.length > 0) {
+        setMessages(saved)
+        conversationRef.current = [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...saved.map(m => ({ role: m.role === 'ai' ? 'assistant' as const : 'user' as const, content: m.content }))
+        ]
+        // Still need doc content for ref validation
+        const doc = await useDocumentStore.getState().ensureContentText(docId)
+        docContentRef.current = doc?.contentText || ''
+        return
+      }
+    }
+
+    setMessages([])
     conversationRef.current = []
 
     try {
       const doc = await useDocumentStore.getState().ensureContentText(docId)
       const docContent = doc?.contentText || ''
+      docContentRef.current = docContent
       // Send full document (up to 12k chars) so AI can cover all sections
       const truncated = docContent.slice(0, 12000)
 
@@ -161,9 +205,6 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
       await callAI([systemMsg, userMsg], (text) => {
         setStreamingContent(text)
       })
-
-      // After streaming completes, move streaming content into messages
-      // We read it from the latest state via a timeout
     } catch {
       // ignore
     }
@@ -173,12 +214,24 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
   useEffect(() => {
     if (!isStreaming && streamingContent) {
       const { content, refs } = parseRefs(streamingContent)
-      const aiMsg: TutorMessage = { role: 'ai', content, refs }
-      setMessages(prev => [...prev, aiMsg])
+      // Validate refs: keep if full phrase OR any significant word (≥3 chars) exists in document
+      const fullDoc = docContentRef.current.toLowerCase()
+      const validRefs = refs.filter(r => {
+        if (fullDoc.includes(r.toLowerCase())) return true
+        // Fallback: check if any word ≥3 chars from the ref appears in document
+        const words = r.split(/\s+/).filter(w => w.length >= 3)
+        return words.some(w => fullDoc.includes(w.toLowerCase()))
+      })
+      const aiMsg: TutorMessage = { role: 'ai', content, refs: validRefs }
+      setMessages(prev => {
+        const next = [...prev, aiMsg]
+        saveShadowHistory(docId, next)
+        return next
+      })
       conversationRef.current.push({ role: 'assistant', content: streamingContent })
       setStreamingContent('')
     }
-  }, [isStreaming, streamingContent])
+  }, [isStreaming, streamingContent, docId])
 
   const handleSubmit = useCallback(async () => {
     const text = inputText.trim()
@@ -186,7 +239,11 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
 
     // Add user message
     const userMsg: TutorMessage = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMsg])
+    setMessages(prev => {
+      const next = [...prev, userMsg]
+      saveShadowHistory(docId, next)
+      return next
+    })
     conversationRef.current.push({ role: 'user', content: text })
     setInputText('')
 
@@ -223,8 +280,9 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
 
   const handleReset = useCallback(() => {
     abortRef.current?.abort()
-    startSession()
-  }, [startSession])
+    clearShadowHistory(docId)
+    startSession(true)
+  }, [docId, startSession])
 
   // Drag via pointer capture
   const onTitleBarPointerDown = useCallback((e: React.PointerEvent) => {
