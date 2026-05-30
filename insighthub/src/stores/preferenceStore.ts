@@ -153,6 +153,15 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   },
 
   /** Load workspaces from server and merge into local state (server wins) */
+  expandedTreePaths: (() => {
+    try { return JSON.parse(localStorage.getItem('insighthub:file-tree-expanded') || '{}') } catch { return {} }
+  })() as Record<string, string[]>,
+  setExpandedTreePaths: (ws: string, paths: string[]) => {
+    const updated = { ...get().expandedTreePaths, [ws]: paths }
+    try { localStorage.setItem('insighthub:file-tree-expanded', JSON.stringify(updated)) } catch { /* ignore */ }
+    set({ expandedTreePaths: updated })
+  },
+
   loadWorkspacesFromServer: async () => {
     try {
       const res = await fetch('/api/workspaces')

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2, EyeOff } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -186,7 +186,10 @@ export function FileTree() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
+    const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
+    return new Set(saved || [])
+  })
   const [deprecatedCats, setDeprecatedCats] = useState<Set<string>>(() =>
     new Set(storageService.getDeprecatedCategories())
   )
@@ -226,15 +229,26 @@ export function FileTree() {
     return tree.filter(node => !deprecatedCats.has(`${activeWorkspace}:${node.path}`))
   }, [tree, deprecatedCats, activeWorkspace])
 
-  // Auto-expand first level when there's a single root directory on mount or workspace change
-  useMemo(() => {
-    if (tree.length === 1 && tree[0].isDir) {
+  // Auto-expand first level if no saved state (only once when tree is ready)
+  const hasAutoExpanded = useRef<string | null>(null)
+  useEffect(() => {
+    if (tree.length === 0 || !activeWorkspace) return
+    if (hasAutoExpanded.current === activeWorkspace) return
+    const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
+    if (saved?.length > 0) {
+      hasAutoExpanded.current = activeWorkspace
+      setExpandedPaths(new Set(saved))
+    } else if (tree.length === 1 && tree[0].isDir) {
+      hasAutoExpanded.current = activeWorkspace
       setExpandedPaths(new Set([tree[0].path]))
-    } else {
-      setExpandedPaths(new Set())
+      usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [tree[0].path])
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkspace])
+  }, [tree, activeWorkspace])
+
+  // Persist expanded paths to store on every change
+  useEffect(() => {
+    usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [...expandedPaths])
+  }, [expandedPaths, activeWorkspace])
 
   const toggleExpand = useCallback((path: string) => {
     setExpandedPaths(prev => {

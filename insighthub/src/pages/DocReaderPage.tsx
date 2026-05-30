@@ -228,6 +228,38 @@ export function DocReaderPage() {
     setIsFullscreen(v => !v)
   }, [])
 
+  // Escape exits CSS fullscreen (listen on both parent doc and iframe)
+  useEffect(() => {
+    if (!isFullscreen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Don't exit if focus is inside code editor panel (it handles Escape for autocomplete)
+        if ((e.target as HTMLElement).closest?.('.code-editor-panel')) return
+        e.preventDefault()
+        setIsFullscreen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    // Also listen inside iframe (events don't bubble across documents)
+    const listenedDocs = new Set<Document>()
+    const tryListenIframe = () => {
+      const iframeDoc = iframeRef.current?.contentDocument
+      if (iframeDoc && !listenedDocs.has(iframeDoc)) {
+        iframeDoc.addEventListener('keydown', onKey)
+        listenedDocs.add(iframeDoc)
+      }
+    }
+    tryListenIframe()
+    const iframe = iframeRef.current
+    const onLoad = () => tryListenIframe()
+    iframe?.addEventListener('load', onLoad)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      iframe?.removeEventListener('load', onLoad)
+      listenedDocs.forEach(d => d.removeEventListener('keydown', onKey))
+    }
+  }, [isFullscreen])
+
   const allTags = useTagStore(s => s.tags)
   const addTag = useTagStore(s => s.addTag)
   const addDocumentToTag = useTagStore(s => s.addDocumentToTag)
