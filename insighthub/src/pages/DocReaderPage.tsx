@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } fro
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
-  Sparkles, Plus, X, Maximize, RefreshCw, Loader2,
+  Sparkles, Plus, X, Maximize, Minimize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, EyeOff,
   ShieldCheck, Swords, GitBranch, Layers, TerminalSquare,
@@ -36,6 +36,7 @@ import { QuizPanel } from '@/components/DocReader/QuizPanel'
 import { ConceptCardsPanel } from '@/components/DocReader/ConceptCardsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { CodeEditorPanel } from '@/components/DocReader/CodeEditorPanel'
+import { ShadowTypingPanel } from '@/components/DocReader/ShadowTypingPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
@@ -156,6 +157,7 @@ export function DocReaderPage() {
   const [showConceptPanel, setShowConceptPanel] = useState(false)
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [codeEditorText, setCodeEditorText] = useState<string | undefined>(undefined)
+  const [showShadowTyping, setShowShadowTyping] = useState(false)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
@@ -234,7 +236,7 @@ export function DocReaderPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // Don't exit if focus is inside code editor panel (it handles Escape for autocomplete)
-        if ((e.target as HTMLElement).closest?.('.code-editor-panel')) return
+        if ((e.target as HTMLElement).closest?.('.code-editor-panel, .shadow-typing-panel')) return
         e.preventDefault()
         setIsFullscreen(false)
       }
@@ -989,6 +991,15 @@ export function DocReaderPage() {
             <span className="dr-action-label">Code</span>
           </button>
 
+          {/* Shadow typing button */}
+          <button
+            className={`dr-action-btn ${showShadowTyping ? 'active' : ''}`}
+            onClick={() => setShowShadowTyping(v => !v)}
+          >
+            <Languages size={16} />
+            <span className="dr-action-label">Shadow</span>
+          </button>
+
           {/* Similar documents button */}
           {enabledFeatures.aiSimilarity && (
           <button
@@ -1167,10 +1178,44 @@ export function DocReaderPage() {
         {showConceptPanel && <ConceptCardsPanel docId={doc.id} onClose={() => setShowConceptPanel(false)} />}
       </div>
 
+      {/* Fullscreen floating mini-toolbar — hover to reveal */}
+      {isFullscreen && (
+        <div className="fs-float-toolbar">
+          <button
+            className={`dr-action-btn${showCodeEditor ? ' active' : ''}`}
+            onClick={() => setShowCodeEditor(v => !v)}
+            title="Code Editor"
+          >
+            <TerminalSquare size={14} />
+          </button>
+          <button
+            className={`dr-action-btn${showShadowTyping ? ' active' : ''}`}
+            onClick={() => setShowShadowTyping(v => !v)}
+            title="Shadow Typing"
+          >
+            <Languages size={14} />
+          </button>
+          <button
+            className="dr-action-btn"
+            onClick={toggleFullscreen}
+            title="Exit Fullscreen"
+          >
+            <Minimize size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Floating code editor panel — floats above iframe */}
       {showCodeEditor && docId && (
         <Suspense fallback={null}>
           <CodeEditorPanel docId={docId} initialText={codeEditorText} onClose={() => setShowCodeEditor(false)} />
+        </Suspense>
+      )}
+
+      {/* Floating shadow typing panel */}
+      {showShadowTyping && docId && (
+        <Suspense fallback={null}>
+          <ShadowTypingPanel docId={docId} onClose={() => setShowShadowTyping(false)} />
         </Suspense>
       )}
 

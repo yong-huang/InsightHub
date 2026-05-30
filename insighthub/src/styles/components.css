@@ -305,6 +305,40 @@
   z-index: 99998;
 }
 
+/* Fullscreen floating mini-toolbar — top-right, hover to reveal */
+.fs-float-toolbar {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 100000;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, rgba(0,0,0,0.1));
+  border-radius: 8px;
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0,0,0,0.12));
+  opacity: 0.15;
+  transition: opacity 0.25s ease;
+}
+.fs-float-toolbar:hover {
+  opacity: 1;
+}
+.fs-float-toolbar .dr-action-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+}
+.fs-float-toolbar .dr-action-label {
+  display: none;
+}
+[data-theme="dark"] .fs-float-toolbar {
+  background: #1e1e2e;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
 .doc-reader-footer {
   display: flex;
   align-items: center;
@@ -4097,6 +4131,13 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
 }
+.code-editor-body .cm-editor.cm-focused {
+  outline: none !important;
+  box-shadow: none !important;
+}
+.code-editor-body .cm-editor.cm-focused .cm-gutters {
+  border-right: none !important;
+}
 .code-editor-body .cm-scroller {
   overflow: auto;
 }
@@ -4140,24 +4181,6 @@
 .ce-resize-se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: se-resize; }
 .ce-resize-nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nw-resize; }
 .ce-resize-sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: sw-resize; }
-/* Corner visual indicator */
-.ce-resize-se::before,
-.ce-resize-ne::before,
-.ce-resize-sw::before,
-.ce-resize-nw::before {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-right: 2px solid var(--text-secondary);
-  border-bottom: 2px solid var(--text-secondary);
-  opacity: 0.4;
-}
-.ce-resize-se::before { right: 1px; bottom: 1px; transform: none; }
-.ce-resize-ne::before { right: 1px; top: 1px; transform: rotate(-90deg); }
-.ce-resize-sw::before { left: 1px; bottom: 1px; transform: rotate(90deg); }
-.ce-resize-nw::before { left: 1px; top: 1px; transform: rotate(180deg); }
-
 /* ========== Code Editor Coach Panel ========== */
 .code-editor-content-area {
   display: flex;
@@ -4258,4 +4281,90 @@
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-secondary);
+}
+
+/* ========== Shadow Typing Panel ========== */
+.shadow-typing-panel {
+  position: fixed;
+  z-index: 100001;
+}
+.doc-fullscreen-active .shadow-typing-panel {
+  z-index: 100001;
+}
+.shadow-typing-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.shadow-typing-editor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.shadow-typing-textarea {
+  width: 100%;
+  height: 100%;
+  padding: 0.8rem;
+  border: none;
+  outline: none;
+  resize: none;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  background: transparent;
+}
+.shadow-typing-textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+.shadow-typing-textarea::placeholder {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+.shadow-typing-hint {
+  width: 280px;
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.shadow-typing-panel.ce-light .shadow-typing-hint {
+  border-left-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] .shadow-typing-panel {
+  background: #1e1e2e;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #c9d1d9;
+}
+[data-theme="dark"] .shadow-typing-panel .code-editor-titlebar {
+  background: #181825;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  color: #c9d1d9;
+}
+[data-theme="dark"] .shadow-typing-panel .code-editor-grip,
+[data-theme="dark"] .shadow-typing-panel .code-editor-title {
+  color: #8b949e;
+}
+[data-theme="dark"] .shadow-typing-panel .code-editor-action-btn,
+[data-theme="dark"] .shadow-typing-panel .code-editor-close-btn {
+  color: #8b949e;
+}
+[data-theme="dark"] .shadow-typing-panel .code-editor-action-btn:hover:not(:disabled),
+[data-theme="dark"] .shadow-typing-panel .code-editor-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e6edf3;
+}
+[data-theme="dark"] .shadow-typing-textarea {
+  color: #e6edf3;
+}
+[data-theme="dark"] .shadow-typing-textarea::placeholder {
+  color: #484f58;
+}
+[data-theme="dark"] .shadow-typing-hint {
+  border-left-color: rgba(255, 255, 255, 0.06);
 }
