@@ -256,7 +256,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
       await callAIStream(
         [
           { role: 'system', content: `<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. The programming language is ${LANGUAGES.find(l => l.value === language)?.label || language}. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).` },
-          { role: 'user', content: `Reference code from document (${language}):\n${truncatedDoc}\n\nStudent's current ${language} code:\n${userCode}` },
+          { role: 'user', content: `Reference code from document (${language}):\n\`\`\`${language}\n${truncatedDoc}\n\`\`\`\n\nStudent's current ${language} code:\n\`\`\`${language}\n${userCode}\n\`\`\`` },
         ],
         (chunk) => {
           setHint(chunk)
@@ -401,7 +401,7 @@ Rules:
 - Keep comments concise (one line each)
 - If the code is already good, add a brief comment at the top saying so
 - Output ONLY the annotated code, no extra text, no markdown fences` },
-        { role: 'user', content: code },
+        { role: 'user', content: `\`\`\`${language}\n${code}\n\`\`\`` },
       ])
       if (result.data) {
         let reviewed = result.data
