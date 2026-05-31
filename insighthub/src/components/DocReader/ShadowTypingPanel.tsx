@@ -3,16 +3,11 @@ import { GripVertical, X, Loader2, Languages, Eye, EyeOff, Send, RotateCcw, Book
 import { callAIStream } from '@/services/aiService'
 import { recordUsage } from '@/services/tokenUsageService'
 import { useDocumentStore } from '@/stores/documentStore'
+import { type TutorMessage, parseRefs, validateRefs, loadShadowHistory, saveShadowHistory, clearShadowHistory, loadShadowData, saveShadowData } from './shadowTypingUtils'
 
 const DEFAULT_SIZE = { width: 480, height: 460 }
 const MIN_W = 340
 const MIN_H = 260
-
-interface TutorMessage {
-  role: 'ai' | 'user'
-  content: string
-  refs?: string[]
-}
 
 const SYSTEM_PROMPT = `You are a friendly interactive English tutor. The student has been reading a learning document. Your job is to guide them through typing exercises based on the document content.
 
@@ -36,67 +31,6 @@ Rules:
   The two refs should be on the same topic but from DIFFERENT parts of the document (e.g. different examples, different contexts, or different sections covering the same theme).
   Do NOT pick refs from adjacent paragraphs or the same block of text.
   Example for an exercise about meeting openings: [ref:Good morning everyone, I'd like to call this meeting to order] — both about opening a meeting, but from different examples in the document.`
-
-function parseRefs(text: string): { content: string; refs: string[] } {
-  const match = text.match(/\[ref:(.+?)\]\s*$/)
-  if (!match) return { content: text, refs: [] }
-  const refs = match[1].split(',').map(s => s.trim()).filter(Boolean)
-  return { content: text.slice(0, match.index).trimEnd(), refs }
-}
-
-const SHADOW_STORAGE_KEY = 'insighthub:shadow-history'
-
-function loadShadowHistory(docId: string): TutorMessage[] {
-  try {
-    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
-    return all[docId] || []
-  } catch { return [] }
-}
-
-function saveShadowHistory(docId: string, messages: TutorMessage[]) {
-  try {
-    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
-    all[docId] = messages.slice(-60)
-    localStorage.setItem(SHADOW_STORAGE_KEY, JSON.stringify(all))
-  } catch { /* quota exceeded */ }
-}
-
-function clearShadowHistory(docId: string) {
-  try {
-    const all = JSON.parse(localStorage.getItem(SHADOW_STORAGE_KEY) || '{}')
-    delete all[docId]
-    localStorage.setItem(SHADOW_STORAGE_KEY, JSON.stringify(all))
-  } catch { /* ignore */ }
-}
-
-function loadShadowData(docId: string): { position: { x: number; y: number }; size: { width: number; height: number } } {
-  const defaults = {
-    position: { x: Math.max(40, window.innerWidth - DEFAULT_SIZE.width - 40), y: 160 },
-    size: DEFAULT_SIZE,
-  }
-  try {
-    const all = JSON.parse(localStorage.getItem('insighthub:shadow-typing') || '{}')
-    const saved = all[docId]
-    if (!saved) return defaults
-    return {
-      position: {
-        x: saved.position?.x ?? defaults.position.x,
-        y: Math.max(120, saved.position?.y ?? defaults.position.y),
-      },
-      size: saved.size || defaults.size,
-    }
-  } catch {
-    return defaults
-  }
-}
-
-function saveShadowData(docId: string, data: Partial<{ position: { x: number; y: number }; size: { width: number; height: number } }>) {
-  try {
-    const all = JSON.parse(localStorage.getItem('insighthub:shadow-typing') || '{}')
-    all[docId] = { ...all[docId], ...data }
-    localStorage.setItem('insighthub:shadow-typing', JSON.stringify(all))
-  } catch { /* quota exceeded */ }
-}
 
 interface ShadowTypingPanelProps {
   docId: string
@@ -223,14 +157,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
   useEffect(() => {
     if (!isStreaming && streamingContent) {
       const { content, refs } = parseRefs(streamingContent)
-      // Validate refs: keep if full phrase OR any significant word (≥3 chars) exists in document
-      const fullDoc = docContentRef.current.toLowerCase()
-      const validRefs = refs.filter(r => {
-        if (fullDoc.includes(r.toLowerCase())) return true
-        // Fallback: check if any word ≥3 chars from the ref appears in document
-        const words = r.split(/\s+/).filter(w => w.length >= 3)
-        return words.some(w => fullDoc.includes(w.toLowerCase()))
-      })
+      const validRefs = validateRefs(refs, docContentRef.current)
       const aiMsg: TutorMessage = { role: 'ai', content, refs: validRefs }
       setMessages(prev => {
         const next = [...prev, aiMsg]

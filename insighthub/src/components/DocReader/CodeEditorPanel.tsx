@@ -18,6 +18,7 @@ import { keymap, EditorView } from '@codemirror/view'
 import { Prec } from '@codemirror/state'
 import { GripVertical, X, Trash2, Sparkles, Loader2, Eye, EyeOff, GraduationCap, Play } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
+import { recordUsage } from '@/services/tokenUsageService'
 import { useDocumentStore } from '@/stores/documentStore'
 
 const LANGUAGES = [
@@ -253,7 +254,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
       const docContent = doc?.contentText || ''
       const truncatedDoc = docContent.length > 3000 ? docContent.slice(0, 3000) : docContent
 
-      await callAIStream(
+      const result = await callAIStream(
         [
           { role: 'system', content: `<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. The programming language is ${LANGUAGES.find(l => l.value === language)?.label || language}. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).` },
           { role: 'user', content: `Reference code from document (${language}):\n\`\`\`${language}\n${truncatedDoc}\n\`\`\`\n\nStudent's current ${language} code:\n\`\`\`${language}\n${userCode}\n\`\`\`` },
@@ -263,6 +264,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
         },
         controller.signal,
       )
+      if (result.usage) recordUsage('code-coach', result.usage, docId)
     } catch {
       if (!controller.signal.aborted) setHint('')
     } finally {
@@ -409,6 +411,7 @@ Rules:
         reviewed = reviewed.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '')
         setCode(reviewed)
       }
+      if (result.usage) recordUsage('code-review', result.usage, docId)
     } catch { /* ignore AI errors */ }
     finally { setIsReviewing(false) }
   }, [code, language, isReviewing])
