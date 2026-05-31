@@ -138,8 +138,28 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
     return () => { abortRef.current?.abort() }
   }, [])
 
-  // Start session on mount
+  // Restore saved history on mount (synchronous)
+  const restored = useRef(false)
   useEffect(() => {
+    const saved = loadShadowHistory(docId)
+    if (saved.length > 0) {
+      setMessages(saved)
+      restored.current = true
+      // Rebuild conversationRef for continued interaction
+      conversationRef.current = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...saved.map(m => ({ role: m.role === 'ai' ? 'assistant' as const : 'user' as const, content: m.content }))
+      ]
+      // Load doc content for ref validation
+      useDocumentStore.getState().ensureContentText(docId).then(doc => {
+        docContentRef.current = doc?.contentText || ''
+      })
+    }
+  }, [docId])
+
+  // Start AI session when no saved history exists
+  useEffect(() => {
+    if (restored.current) return
     startSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -167,28 +187,17 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
     }
   }, [])
 
-  const startSession = useCallback(async (fresh: boolean = false) => {
+  const startSession = useCallback(async () => {
+    setMessages([])
     setStreamingContent('')
     setInputText('')
-
-    if (!fresh) {
-      // Try to restore saved session
-      const saved = loadShadowHistory(docId)
-      if (saved.length > 0) {
-        setMessages(saved)
-        conversationRef.current = [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...saved.map(m => ({ role: m.role === 'ai' ? 'assistant' as const : 'user' as const, content: m.content }))
-        ]
-        // Still need doc content for ref validation
-        const doc = await useDocumentStore.getState().ensureContentText(docId)
-        docContentRef.current = doc?.contentText || ''
-        return
-      }
-    }
-
-    setMessages([])
     conversationRef.current = []
+
+    // Always load doc content for ref validation
+    try {
+      const doc = await useDocumentStore.getState().ensureContentText(docId)
+      docContentRef.current = doc?.contentText || ''
+    } catch { /* ignore */ }
 
     try {
       const doc = await useDocumentStore.getState().ensureContentText(docId)
@@ -281,7 +290,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
   const handleReset = useCallback(() => {
     abortRef.current?.abort()
     clearShadowHistory(docId)
-    startSession(true)
+    startSession()
   }, [docId, startSession])
 
   // Drag via pointer capture
