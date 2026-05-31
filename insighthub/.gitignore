@@ -15,6 +15,9 @@ public/manifest.json
 *.log
 npm-debug.log*
 
+# Test
+coverage/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
