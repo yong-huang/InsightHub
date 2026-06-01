@@ -121,7 +121,7 @@ export function Navbar() {
 
             {menuOpen && (
               <div className="workspace-switcher-menu">
-                {workspaces.map(ws => (
+                {[...workspaces].sort((a, b) => a.label.localeCompare(b.label)).map(ws => (
                   <button
                     key={ws.id}
                     className={`workspace-switcher-item ${ws.id === activeWorkspace ? 'active' : ''}`}

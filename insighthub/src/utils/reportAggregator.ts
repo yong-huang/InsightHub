@@ -4,6 +4,7 @@ import type { ReadHistoryEntry } from '@/services/storageService'
 export type ReportPeriod = 'month' | 'year' | 'all'
 
 export interface ReportOverview {
+  totalDocs: number
   readDocs: number
   totalWords: number
   activeDays: number
@@ -125,6 +126,7 @@ export function buildReportData(
 
   // Overview
   const overview: ReportOverview = {
+    totalDocs: allDocs.length,
     readDocs: readDocIds.size,
     totalWords: allDocs.filter(d => readDocIds.has(d.id)).reduce((s, d) => s + d.wordCount, 0),
     activeDays: activeDaysSet.size,

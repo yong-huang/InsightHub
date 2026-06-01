@@ -1,4 +1,4 @@
-import { BookOpen, Brain, MessageSquare, FileText, Calendar, Trophy } from 'lucide-react'
+import { BookOpen, Brain, MessageSquare, FileText, Calendar, Trophy, Library } from 'lucide-react'
 import type { ReportOverview } from '@/utils/reportAggregator'
 
 interface Props {
@@ -12,6 +12,7 @@ const formatNumber = (n: number) => {
 }
 
 const HERO_ITEMS = [
+  { key: 'totalDocs' as const, label: 'Total Documents', icon: Library, gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)' },
   { key: 'readDocs' as const, label: 'Documents Read', icon: BookOpen, gradient: 'linear-gradient(135deg, #326ce5, #4ecdc4)' },
   { key: 'totalWords' as const, label: 'Words Read', icon: FileText, gradient: 'linear-gradient(135deg, #4ecdc4, #22d3ee)', format: true },
   { key: 'activeDays' as const, label: 'Active Days', icon: Calendar, gradient: 'linear-gradient(135deg, #a78bfa, #6366f1)' },

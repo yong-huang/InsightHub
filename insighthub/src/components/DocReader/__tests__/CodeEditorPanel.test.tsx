@@ -79,15 +79,15 @@ describe('CodeEditorPanel', () => {
       coachBtn.click()
     })
 
-    // Type into the CodeMirror editor → triggers onChange → handleCodeChange → 3s debounce
+    // Type into the CodeMirror editor → triggers onChange → handleCodeChange → 5s debounce
     const cm = screen.getByTestId('codemirror')
     await act(async () => {
       fireEvent.input(cm, { inputType: 'insertText' })
     })
 
-    // Advance past the 3s debounce timer
+    // Advance past the 5s debounce timer
     await act(async () => {
-      vi.advanceTimersByTime(4000)
+      vi.advanceTimersByTime(6000)
     })
 
     // Wait for the coach request to resolve and recordUsage to be called

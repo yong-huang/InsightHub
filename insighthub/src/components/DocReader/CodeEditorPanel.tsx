@@ -364,7 +364,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     // Debounce coach hint request
     if (coachMode && newCode.trim()) {
       clearTimeout(coachTimer.current)
-      coachTimer.current = setTimeout(() => requestCoachHint(newCode), 3000)
+      coachTimer.current = setTimeout(() => requestCoachHint(newCode), 5000)
     }
   }, [coachMode, requestCoachHint])
 
