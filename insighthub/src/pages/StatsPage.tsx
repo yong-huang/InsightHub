@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
+import { Monitor, Globe } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useQuizStore } from '@/stores/quizStore'
@@ -50,11 +51,14 @@ export function StatsPage() {
     return ws?.prefix || activeWorkspace
   }, [activeWorkspace, documents, workspaces])
 
+  const [scope, setScope] = useState<'workspace' | 'global'>('workspace')
   const [period, setPeriod] = useState<ReportPeriod>('all')
 
+  const source = scope === 'global' ? undefined : activeSource
+
   const report = useMemo(
-    () => buildReportData(documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeSource),
-    [documents, tags, quizHistory, annotations, readHistory, achievementState, period, activeSource],
+    () => buildReportData(documents, tags, quizHistory, annotations, readHistory, achievementState, period, source),
+    [documents, tags, quizHistory, annotations, readHistory, achievementState, period, source],
   )
 
   return (
@@ -62,7 +66,27 @@ export function StatsPage() {
       <div className="cs-settings-header">
         <div className="cs-section-label">STATISTICS</div>
         <h1>Statistics</h1>
-        <p className="cs-settings-subtitle">Track your learning progress and reading habits.</p>
+        <p className="cs-settings-subtitle">
+          {scope === 'global' ? 'Learning progress across all workspaces.' : 'Track your learning progress and reading habits.'}
+        </p>
+      </div>
+
+      {/* Scope selector */}
+      <div className="cs-btn-group" style={{ marginBottom: '0.75rem' }}>
+        <button
+          className={`cs-btn ${scope === 'workspace' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+          onClick={() => setScope('workspace')}
+        >
+          <Monitor size={15} />
+          Current Workspace
+        </button>
+        <button
+          className={`cs-btn ${scope === 'global' ? 'cs-btn-primary' : 'cs-btn-secondary'}`}
+          onClick={() => setScope('global')}
+        >
+          <Globe size={15} />
+          Global
+        </button>
       </div>
 
       {/* Period selector */}
@@ -83,7 +107,7 @@ export function StatsPage() {
 
       {/* Heatmap */}
       <ChartCard title="Reading Heatmap">
-        <ReadingHeatmap entries={readHistory} documents={documents} source={activeSource} />
+        <ReadingHeatmap entries={readHistory} documents={documents} source={source} />
       </ChartCard>
 
       {/* Two-column: Category Radar + Quiz Performance */}

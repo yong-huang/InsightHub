@@ -512,8 +512,6 @@ export function SpacedRepetitionPage() {
               <Trash2 size={14} /> Delete
             </button>
           ))}
-            </button>
-          )}
           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
             {currentIdx + 1} / {sessionQueue.length}
           </span>
