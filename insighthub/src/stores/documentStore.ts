@@ -65,14 +65,12 @@ export function cleanupMigratedLocalData(): void {
           ? { ...h, documentId: h.documentId.replace(/^ti-/, 'ai-') }
           : h
       )
-      // Dedup after migration (same docId, keep earliest readAt)
+      // Dedup after migration (same docId, keep latest readAt)
       const seen = new Map<string, any>()
       for (const e of cleaned) {
         const prev = seen.get(e.documentId)
-        if (!prev || e.readAt < prev.readAt) seen.set(e.documentId, e)
-        else if (prev.readAt < e.readAt) seen.set(e.documentId, e)  // keep later (newer)
+        if (!prev || e.readAt > prev.readAt) seen.set(e.documentId, e)
       }
-      // Actually keep the latest readAt per doc
       const deduped = Array.from(seen.values()).sort((a, b) => b.readAt - a.readAt).slice(0, 365)
       localStorage.setItem(`${PREFIX}read-history`, JSON.stringify(deduped))
     }
@@ -244,10 +242,20 @@ async function loadAllDocuments(
   }
   if (Array.isArray(serverHistory) && serverHistory.length > 0) {
     const localHistory = storageService.getReadHistory()
-    const localIds = new Set(localHistory.map((h: any) => h.documentId))
-    const newEntries = serverHistory.filter((h: any) => !localIds.has(h.documentId))
-    if (newEntries.length > 0) {
-      const merged = [...newEntries, ...localHistory].slice(0, 365)
+    const localMap = new Map(localHistory.map((h: any) => [h.documentId, h]))
+    let changed = false
+    for (const entry of serverHistory) {
+      const local = localMap.get(entry.documentId)
+      if (!local) {
+        localMap.set(entry.documentId, entry)
+        changed = true
+      } else if (entry.readAt > local.readAt) {
+        localMap.set(entry.documentId, entry)
+        changed = true
+      }
+    }
+    if (changed) {
+      const merged = Array.from(localMap.values()).sort((a, b) => b.readAt - a.readAt).slice(0, 365)
       storageService._setReadHistory(merged)
     }
   }

@@ -12,6 +12,7 @@ interface TreeNode {
   children: TreeNode[]
   docId?: string
   docCount?: number
+  readCount?: number
   isRead?: boolean
 }
 
@@ -73,8 +74,17 @@ function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean
     return count
   }
 
+  // Compute read doc counts for directories
+  function countReadDocs(node: TreeNode): number {
+    if (!node.isDir) return node.isRead ? 1 : 0
+    const count = node.children.reduce((sum, child) => sum + countReadDocs(child), 0)
+    node.readCount = count
+    return count
+  }
+
   for (const node of root) {
     countDocs(node)
+    countReadDocs(node)
   }
 
   return root
@@ -110,6 +120,9 @@ function TreeNodeView({
       <div className="file-tree-node">
         <div
           className={`file-tree-row is-dir${isExpanded ? ' expanded' : ''}`}
+          style={node.docCount != null && node.docCount > 0 ? {
+            '--read-pct': `${(node.readCount || 0) / node.docCount * 100}%`,
+          } as React.CSSProperties : undefined}
           onClick={isTopLevel ? () => navigate(`/${activeWorkspace}/${node.path}`) : undefined}
         >
           <span

@@ -253,10 +253,14 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
       const doc = await useDocumentStore.getState().ensureContentText(docId)
       const docContent = doc?.contentText || ''
       const truncatedDoc = docContent.length > 3000 ? docContent.slice(0, 3000) : docContent
+      const langLabel = LANGUAGES.find(l => l.value === language)?.label || language
+      const decoratorNote = language === 'python'
+        ? '\n\nIMPORTANT: Python @ decorators (e.g. @staticmethod, @classmethod, @property, @wraps, @functools.lru_cache, or any @decorator) are valid syntax. They appear BEFORE the decorated function at the same indentation level as the def statement. They are NOT indentation errors, typos, or misplaced symbols. Do NOT flag decorator lines as errors.'
+        : ''
 
       const result = await callAIStream(
         [
-          { role: 'system', content: `<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. The programming language is ${LANGUAGES.find(l => l.value === language)?.label || language}. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).` },
+          { role: 'system', content: `<think step by step>\nYou are a coding tutor. The student is practicing by copying code from a document. The programming language is ${langLabel}. Based on the reference code below, provide a hint (2-3 sentences, max 80 words) to help them continue. Explain WHY the next step is needed, not just WHAT to type. For example: explain the algorithmic reason behind the code structure, what problem the next piece solves, or how it connects to what they already wrote. Do NOT give the full answer or rewrite their code. If the code is complete and correct, say "很好，代码完成！". Always output in Chinese (中文).${decoratorNote}` },
           { role: 'user', content: `Reference code from document (${language}):\n\`\`\`${language}\n${truncatedDoc}\n\`\`\`\n\nStudent's current ${language} code:\n\`\`\`${language}\n${userCode}\n\`\`\`` },
         ],
         (chunk) => {

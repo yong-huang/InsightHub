@@ -51,11 +51,25 @@ const DEDICATED_SYNC_KEYS = new Set([
   `${PREFIX}quiz-history`,
 ])
 
+/** Keys that are safe to evict on quota overflow — all re-synced from server */
+const EVICTABLE_KEYS: string[] = [
+  `${PREFIX}chat-history`,
+  `${PREFIX}inception`,
+  `${PREFIX}summaries`,
+  `${PREFIX}quizzes`,
+  `${PREFIX}annotations`,
+  `${PREFIX}concept-cards`,
+  `${PREFIX}read-history`,
+  `${PREFIX}document-meta`,
+  `${PREFIX}reading-positions`,
+  `${PREFIX}challenge-history`,
+  `${PREFIX}challenge-sessions`,
+]
+
 function setItem<T>(key: string, value: T): boolean {
   try {
     const json = JSON.stringify(value)
     localStorage.setItem(key, json)
-    // Fire-and-forget sync to server for keys without dedicated endpoints
     if (key.startsWith(PREFIX) && !DEDICATED_SYNC_KEYS.has(key)) {
       fetch('/api/client-storage', {
         method: 'POST',
@@ -64,7 +78,21 @@ function setItem<T>(key: string, value: T): boolean {
       }).catch(() => { /* ignore sync failures */ })
     }
     return true
-  } catch {
+  } catch (e) {
+    // Quota exceeded — evict non-essential data and retry once
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      let freed = false
+      for (const evictKey of EVICTABLE_KEYS) {
+        try { localStorage.removeItem(evictKey); freed = true } catch {}
+      }
+      if (freed) {
+        try {
+          localStorage.setItem(key, json)
+          return true
+        } catch {}
+      }
+    }
+    console.warn(`[storage] Failed to set ${key}:`, e)
     return false
   }
 }
