@@ -2,9 +2,9 @@ import { create } from 'zustand'
 import { storageService } from '@/services/storageService'
 import type { UserPreferences, Difficulty, Source, WorkspaceConfig, QuestionType } from '@/types'
 
-export type FeatureKey = 'aiSummary' | 'aiInception' | 'aiEvaluation' | 'aiSpeech' | 'aiScript' | 'aiQuiz' | 'aiConcept' | 'aiSimilarity'
+export type FeatureKey = 'aiSummary' | 'aiInception' | 'aiEvaluation' | 'aiQuiz' | 'aiConcept' | 'aiSimilarity'
 
-const ALL_FEATURES: FeatureKey[] = ['aiSummary', 'aiInception', 'aiEvaluation', 'aiSpeech', 'aiScript', 'aiQuiz', 'aiConcept', 'aiSimilarity']
+const ALL_FEATURES: FeatureKey[] = ['aiSummary', 'aiInception', 'aiEvaluation', 'aiQuiz', 'aiConcept', 'aiSimilarity']
 
 interface PreferenceState extends UserPreferences {
   workspaces: WorkspaceConfig[]
@@ -49,7 +49,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   enabledFeatures: (() => {
     const raw = storageService.getPreferences() as Record<string, any>
     const stored = raw.enabledFeatures as Record<FeatureKey, boolean> | undefined
-    const defaults: Partial<Record<FeatureKey, boolean>> = { aiSummary: false, aiEvaluation: false, aiSpeech: false, aiScript: false }
+    const defaults: Partial<Record<FeatureKey, boolean>> = { aiSummary: false, aiEvaluation: false }
     if (!stored) return Object.fromEntries(ALL_FEATURES.map(k => [k, defaults[k] ?? true])) as Record<FeatureKey, boolean>
     return Object.fromEntries(ALL_FEATURES.map(k => [k, stored[k] ?? defaults[k] ?? true])) as Record<FeatureKey, boolean>
   })(),

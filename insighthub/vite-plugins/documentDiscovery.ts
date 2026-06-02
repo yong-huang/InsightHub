@@ -184,8 +184,212 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
       }
 
+      // Migrate document IDs in server-side JSON files for categories moved between workspaces
+      {
+        const MIGRATION_RULES: { re: RegExp; from: string; to: string }[] = [
+          { from: 'ti', to: 'ai', re: /^ti-(ai-frameworks|dl-fundamentals|llm-comparisons|llm-fundamentals|rag-comparisons|mlops)-/ },
+          { from: 'ti', to: 'ci', re: /^ti-vendor-/ },
+          { from: 'ti', to: 'pli', re: /^ti-(cuda|go|python|rust|programming)-(cuda|go|python|rust)-/ },
+        ]
+        function rewriteDocId(id: string): string {
+          for (const rule of MIGRATION_RULES) {
+            if (rule.re.test(id)) return id.replace(rule.from + '-', rule.to + '-')
+          }
+          return id
+        }
+        function needsRewrite(id: string): boolean {
+          return MIGRATION_RULES.some(r => r.re.test(id))
+        }
+
+        // Object stores (key = docId): read-meta, quizzes, client-storage
+        const OBJECT_FILES = [
+          '.insighthub-read-meta.json',
+          '.insighthub-quizzes.json',
+        ]
+        for (const file of OBJECT_FILES) {
+          const filePath = path.resolve(DATA_DIR, file)
+          if (!fs.existsSync(filePath)) continue
+          try {
+            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, any>
+            let changed = false
+            const rewritten: Record<string, any> = {}
+            for (const [k, v] of Object.entries(obj)) {
+              const newK = rewriteDocId(k)
+              // Also rewrite inner 'id' field if present
+              if (v && typeof v === 'object' && v.id) {
+                const newId = rewriteDocId(v.id)
+                if (newId !== v.id) { v.id = newId; changed = true }
+              }
+              rewritten[newK] = v
+              if (newK !== k) changed = true
+            }
+            if (changed) fs.writeFileSync(filePath, JSON.stringify(rewritten, null, 2), 'utf-8')
+          } catch { /* ignore */ }
+        }
+
+        // Array stores with documentId field: read-history, quiz-history, annotations
+        const ARRAY_FILES: { file: string; idField: string }[] = [
+          { file: '.insighthub-read-history.json', idField: 'documentId' },
+          { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+          { file: '.insighthub-annotations.json', idField: 'documentId' },
+          { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+        ]
+        for (const { file, idField } of ARRAY_FILES) {
+          const filePath = path.resolve(DATA_DIR, file)
+          if (!fs.existsSync(filePath)) continue
+          try {
+            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as any[]
+            let changed = false
+            for (const item of arr) {
+              const newId = rewriteDocId(item[idField])
+              if (newId !== item[idField]) {
+                item[idField] = newId
+                changed = true
+              }
+            }
+            if (changed) fs.writeFileSync(filePath, JSON.stringify(arr, null, 2), 'utf-8')
+          } catch { /* ignore */ }
+        }
+
+        // Client storage (generic key-value): check for migration-eligible values
+        const clientStoragePath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
+        if (fs.existsSync(clientStoragePath)) {
+          try {
+            const obj = JSON.parse(fs.readFileSync(clientStoragePath, 'utf-8')) as Record<string, any>
+            let changed = false
+            for (const [key, value] of Object.entries(obj)) {
+              if (typeof value === 'object' && value !== null) {
+                // Check if it's an object store (docId keys)
+                if (!Array.isArray(value) && needsRewrite(Object.keys(value)[0] || '')) {
+                  const rewritten: Record<string, any> = {}
+                  for (const [k, v] of Object.entries(value)) {
+                    const newK = rewriteDocId(k)
+                    rewritten[newK] = v
+                    if (newK !== k) changed = true
+                  }
+                  obj[key] = rewritten
+                }
+                // Check if it's an array store with documentId
+                if (Array.isArray(value) && value.length > 0 && value[0]?.documentId) {
+                  for (const item of value) {
+                    const newId = rewriteDocId(item.documentId)
+                    if (newId !== item.documentId) {
+                      item.documentId = newId
+                      changed = true
+                    }
+                  }
+                }
+              }
+            }
+            if (changed) fs.writeFileSync(clientStoragePath, JSON.stringify(obj, null, 2), 'utf-8')
+          } catch { /* ignore */ }
+        }
+      }
+
       // Workspace config: read from data/.insighthub-workspaces.json
       const workspacesConfigPath = path.resolve(DATA_DIR, options.workspacesPath || '.insighthub-workspaces.json')
+
+      // Phase 2: Remap migrated IDs whose category structure changed, using target workspace manifests.
+      // Match by filename to find the correct new ID.
+      {
+        function loadManifestFileNameMap(dir: string): Map<string, string> {
+          const manifestPath = path.join(dir, '.manifest.json')
+          if (!fs.existsSync(manifestPath)) return new Map()
+          try {
+            const m = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as { entries: Record<string, { file: string }> }
+            const map = new Map<string, string>()
+            for (const [id, entry] of Object.entries(m.entries)) {
+              map.set(path.basename(entry.file), id)
+            }
+            return map
+          } catch { return new Map() }
+        }
+
+        // Build combined filename→newId map from all workspaces that need remapping
+        const combinedMap = new Map<string, string>()
+
+        // CompanyInsight: ci-vendor-* → ci-<actual-category>-*
+        const ciWs = loadWorkspaces().find(w => w.prefix === 'ci')
+        if (ciWs) {
+          const ciDir = path.isAbsolute(ciWs.path) ? ciWs.path : path.resolve(BASE_DIR, ciWs.path)
+          for (const [fn, id] of loadManifestFileNameMap(ciDir)) combinedMap.set(fn, id)
+        }
+
+        // EnglishInsight: mi-english-* → ei-<actual-category>-*
+        const eiWs = loadWorkspaces().find(w => w.prefix === 'ei')
+        if (eiWs) {
+          const eiDir = path.isAbsolute(eiWs.path) ? eiWs.path : path.resolve(BASE_DIR, eiWs.path)
+          for (const [fn, id] of loadManifestFileNameMap(eiDir)) combinedMap.set(fn, id)
+        }
+
+        // Patterns for IDs that need manifest-based remapping (category structure changed)
+        const REMAP_PREFIXES = ['ci-vendor-', 'mi-english-', 'mi-business-', 'mi-chinglish-', 'mi-daily-', 'mi-exams-', 'mi-grammar-', 'mi-reading-', 'mi-speaking-', 'mi-vocabulary-', 'mi-writing-', 'mi-songs-']
+
+        // For mi- IDs, category structure changed (e.g. mi-english-synonyms → ei-vocabulary-synonyms).
+        // Try full namePart first, then progressively shorter suffixes as filename candidates.
+        function findNewId(oldId: string): string | undefined {
+          const prefix = REMAP_PREFIXES.find(p => oldId.startsWith(p))
+          if (!prefix) return undefined
+          const afterPrefix = oldId.substring(prefix.length)
+          // Try full remaining as filename, then progressively shorter
+          const parts = afterPrefix.split('-')
+          for (let i = 0; i < parts.length; i++) {
+            const candidate = parts.slice(i).join('-') + '.html'
+            const newId = combinedMap.get(candidate)
+            if (newId) return newId
+          }
+          return undefined
+        }
+
+        if (combinedMap.size > 0) {
+          const REMAP_FILES: { file: string; idField?: string }[] = [
+            { file: '.insighthub-read-meta.json' },
+            { file: '.insighthub-quizzes.json' },
+            { file: '.insighthub-read-history.json', idField: 'documentId' },
+            { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+            { file: '.insighthub-annotations.json', idField: 'documentId' },
+            { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+          ]
+          for (const { file, idField } of REMAP_FILES) {
+            const filePath = path.resolve(DATA_DIR, file)
+            if (!fs.existsSync(filePath)) continue
+            try {
+              const raw = fs.readFileSync(filePath, 'utf-8')
+              const data = JSON.parse(raw)
+              let changed = false
+              if (Array.isArray(data)) {
+                for (const item of data) {
+                  const field = idField || 'documentId'
+                  const oldId = item[field]
+                  if (typeof oldId === 'string' && REMAP_PREFIXES.some(p => oldId.startsWith(p))) {
+                    const newId = findNewId(oldId)
+                    if (newId) { item[field] = newId; changed = true }
+                  }
+                }
+              } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+                const rewritten: Record<string, any> = {}
+                for (const [k, v] of Object.entries(data as Record<string, any>)) {
+                  if (REMAP_PREFIXES.some(p => k.startsWith(p))) {
+                    const newK = findNewId(k)
+                    if (newK) {
+                      if (v && typeof v === 'object' && v.id) v.id = newK
+                      rewritten[newK] = v
+                      changed = true
+                      continue
+                    }
+                  }
+                  rewritten[k] = v
+                }
+                if (changed) {
+                  fs.writeFileSync(filePath, JSON.stringify(rewritten, null, 2), 'utf-8')
+                  continue
+                }
+              }
+              if (changed) fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+            } catch { /* ignore */ }
+          }
+        }
+      }
 
       // Map from workspace ID to directory path (resolved relative to project root)
       function getWorkspaceDirs(): Record<string, string> {

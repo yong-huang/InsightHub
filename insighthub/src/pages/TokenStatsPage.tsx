@@ -33,7 +33,6 @@ const FEATURE_LABELS: Record<string, string> = {
   'study-plan': 'Study Plan',
   summary: 'Document Summary',
   evaluation: 'Accuracy Evaluation',
-  speech: 'Speaker Notes',
   concept: 'Concept Extraction',
   chat: 'Document Chat',
   explain: 'Concept Explanation',

@@ -32,7 +32,7 @@ interface DocumentState {
   reloadDocuments: () => Promise<void>
   setFilters: (filters: Partial<SearchFilters>) => void
   resetFilters: () => void
-  markAsRead: (docId: string) => void
+  markAsRead: (docId: string, rating?: number) => void
   toggleRead: (docId: string) => void
   setDeprecated: (docId: string) => void
   restoreDocument: (docId: string) => void
@@ -48,24 +48,47 @@ interface DocumentState {
 
 const DEFAULT_FILTERS: SearchFilters = { sortBy: 'title-asc' }
 
-/** One-time cleanup: remove stale ti- entries for categories moved to AIInsight.
- *  Exported so it can run synchronously before any store initialization. */
-const MIGRATE_RE = /^ti-(ai-frameworks|dl-fundamentals|llm-comparisons|llm-fundamentals|rag-comparisons|mlops)-/
+/** Migration rules: each entry maps an old prefix to a new prefix for specific categories.
+ *  e.g. { from: 'ti', to: 'ai', re: /^ti-(ai-frameworks|...)-/ } means ti-foo-bar → ai-foo-bar */
+interface MigrationRule {
+  from: string
+  to: string
+  re: RegExp
+}
 
+/** One-time cleanup: rewrite localStorage entries for categories moved between workspaces.
+ *  Exported so it can run synchronously before any store initialization. */
 export function cleanupMigratedLocalData(): void {
   const PREFIX = 'insighthub:'
 
-  // 1. Read history — rewrite ti- entries to ai- (don't duplicate)
+  const rules: MigrationRule[] = [
+    // AI categories moved from TechInsight → AIInsight
+    { from: 'ti', to: 'ai', re: /^ti-(ai-frameworks|dl-fundamentals|llm-comparisons|llm-fundamentals|rag-comparisons|mlops)-/ },
+    // Vendor category moved from TechInsight → CompanyInsight
+    { from: 'ti', to: 'ci', re: /^ti-vendor-/ },
+    // Programming categories moved from TechInsight → ProgrammingInsight
+    { from: 'ti', to: 'pli', re: /^ti-(cuda|go|python|rust|programming)-(cuda|go|python|rust)-/ },
+    // English categories moved from MindInsight → EnglishInsight
+    { from: 'mi', to: 'ei', re: /^mi-(english|business|chinglish|daily|exams|grammar|reading|speaking|vocabulary|writing|songs)-/ },
+  ]
+
+  /** Check if a docId matches any migration rule, and if so return the rewritten ID */
+  function rewriteId(id: string): string {
+    for (const rule of rules) {
+      if (rule.re.test(id)) return id.replace(rule.from + '-', rule.to + '-')
+    }
+    return id
+  }
+
+  // 1. Read history — rewrite migrated entries, dedup
   try {
     const raw = localStorage.getItem(`${PREFIX}read-history`)
     if (raw) {
       const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.map((h: any) =>
-        MIGRATE_RE.test(h.documentId)
-          ? { ...h, documentId: h.documentId.replace(/^ti-/, 'ai-') }
-          : h
-      )
-      // Dedup after migration (same docId, keep latest readAt)
+      const cleaned = arr.map((h: any) => {
+        const newId = rewriteId(h.documentId)
+        return newId !== h.documentId ? { ...h, documentId: newId } : h
+      })
       const seen = new Map<string, any>()
       for (const e of cleaned) {
         const prev = seen.get(e.documentId)
@@ -76,110 +99,48 @@ export function cleanupMigratedLocalData(): void {
     }
   } catch { /* quota — try removing instead */ }
 
-  // 2. Annotations — remove ti- entries (server will re-sync ai- versions)
-  try {
-    const raw = localStorage.getItem(`${PREFIX}annotations`)
-    if (raw) {
+  // 2-10. Object/array stores — rewrite keys or filter entries
+  const ARRAY_STORES: { key: string; idField: string }[] = [
+    { key: `${PREFIX}annotations`, idField: 'documentId' },
+    { key: `${PREFIX}concept-cards`, idField: 'sourceDocId' },
+    { key: `${PREFIX}quiz-history`, idField: 'documentId' },
+    { key: `${PREFIX}read-later`, idField: 'documentId' },
+  ]
+  const OBJECT_STORES: string[] = [
+    `${PREFIX}quizzes`,
+    `${PREFIX}document-meta`,
+    `${PREFIX}chat-history`,
+    `${PREFIX}summaries`,
+    `${PREFIX}reading-positions`,
+    `${PREFIX}ratings`,
+  ]
+
+  for (const { key, idField } of ARRAY_STORES) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
       const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.filter(a => !MIGRATE_RE.test(a.documentId))
-      localStorage.setItem(`${PREFIX}annotations`, JSON.stringify(cleaned))
-    }
-  } catch { /* quota — just remove the whole key */ localStorage.removeItem(`${PREFIX}annotations`) }
+      const cleaned = arr.map(item => {
+        const newId = rewriteId(item[idField])
+        return newId !== item[idField] ? { ...item, [idField]: newId } : item
+      })
+      localStorage.setItem(key, JSON.stringify(cleaned))
+    } catch { localStorage.removeItem(key) }
+  }
 
-  // 3. Concept cards — remove ti- entries
-  try {
-    const raw = localStorage.getItem(`${PREFIX}concept-cards`)
-    if (raw) {
-      const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.filter(c => !MIGRATE_RE.test(c.sourceDocId))
-      localStorage.setItem(`${PREFIX}concept-cards`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}concept-cards`) }
-
-  // 4. Quizzes — remove ti- keys
-  try {
-    const raw = localStorage.getItem(`${PREFIX}quizzes`)
-    if (raw) {
+  for (const key of OBJECT_STORES) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
       const obj = JSON.parse(raw) as Record<string, any>
       const cleaned: Record<string, any> = {}
       for (const [k, v] of Object.entries(obj)) {
-        if (!MIGRATE_RE.test(k)) cleaned[k] = v
+        const newK = rewriteId(k)
+        cleaned[newK] = v
       }
-      localStorage.setItem(`${PREFIX}quizzes`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}quizzes`) }
-
-  // 5. Quiz history — remove ti- entries
-  try {
-    const raw = localStorage.getItem(`${PREFIX}quiz-history`)
-    if (raw) {
-      const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.filter(q => !MIGRATE_RE.test(q.documentId))
-      localStorage.setItem(`${PREFIX}quiz-history`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}quiz-history`) }
-
-  // 6. Document meta — remove ti- keys
-  try {
-    const raw = localStorage.getItem(`${PREFIX}document-meta`)
-    if (raw) {
-      const obj = JSON.parse(raw) as Record<string, any>
-      const cleaned: Record<string, any> = {}
-      for (const [k, v] of Object.entries(obj)) {
-        if (!MIGRATE_RE.test(k)) cleaned[k] = v
-      }
-      localStorage.setItem(`${PREFIX}document-meta`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}document-meta`) }
-
-  // 7. Chat history — remove ti- keys
-  try {
-    const raw = localStorage.getItem(`${PREFIX}chat-history`)
-    if (raw) {
-      const obj = JSON.parse(raw) as Record<string, any>
-      const cleaned: Record<string, any> = {}
-      for (const [k, v] of Object.entries(obj)) {
-        if (!MIGRATE_RE.test(k)) cleaned[k] = v
-      }
-      localStorage.setItem(`${PREFIX}chat-history`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}chat-history`) }
-
-  // 8. Summaries — remove ti- keys
-  try {
-    const raw = localStorage.getItem(`${PREFIX}summaries`)
-    if (raw) {
-      const obj = JSON.parse(raw) as Record<string, any>
-      const cleaned: Record<string, any> = {}
-      for (const [k, v] of Object.entries(obj)) {
-        if (!MIGRATE_RE.test(k)) cleaned[k] = v
-      }
-      localStorage.setItem(`${PREFIX}summaries`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}summaries`) }
-
-  // 9. Reading positions — remove ti- keys
-  try {
-    const raw = localStorage.getItem(`${PREFIX}reading-positions`)
-    if (raw) {
-      const obj = JSON.parse(raw) as Record<string, any>
-      const cleaned: Record<string, any> = {}
-      for (const [k, v] of Object.entries(obj)) {
-        if (!MIGRATE_RE.test(k)) cleaned[k] = v
-      }
-      localStorage.setItem(`${PREFIX}reading-positions`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}reading-positions`) }
-
-  // 10. Read later — remove ti- entries
-  try {
-    const raw = localStorage.getItem(`${PREFIX}read-later`)
-    if (raw) {
-      const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.filter(e => !MIGRATE_RE.test(e.documentId))
-      localStorage.setItem(`${PREFIX}read-later`, JSON.stringify(cleaned))
-    }
-  } catch { localStorage.removeItem(`${PREFIX}read-later`) }
+      localStorage.setItem(key, JSON.stringify(cleaned))
+    } catch { localStorage.removeItem(key) }
+  }
 }
 
 async function loadAllDocuments(
@@ -231,7 +192,16 @@ async function loadAllDocuments(
         doc.isRead = meta.isRead
         doc.lastReadAt = meta.lastReadAt
         doc.readCount = meta.readCount
+        if (meta.rating != null) doc.rating = meta.rating
       }
+    }
+  }
+
+  // Merge ratings from localStorage
+  const ratings = storageService.getRatings()
+  for (const doc of docs.values()) {
+    if (ratings[doc.id] != null) {
+      doc.rating = ratings[doc.id]
     }
   }
 
@@ -343,7 +313,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     get().applyFilters()
   },
 
-  markAsRead: (docId) => {
+  markAsRead: (docId, rating) => {
     const { documents } = get()
     const doc = documents.get(docId)
     if (!doc || doc.isRead) return
@@ -354,6 +324,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       isRead: true,
       readCount: doc.readCount + 1,
       lastReadAt: Date.now(),
+      ...(rating != null ? { rating } : {}),
     })
 
     // Persist locally
@@ -363,8 +334,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       isRead: true,
       lastReadAt: Date.now(),
       readCount: doc.readCount + 1,
+      ...(rating != null ? { rating } : {}),
     }
     storageService.setDocumentMeta(metaMap)
+
+    // Persist rating separately
+    if (rating != null) {
+      storageService.saveRating(docId, rating)
+    }
 
     // Add to read history locally
     storageService.addReadHistory({ documentId: docId, readAt: Date.now() })
@@ -472,6 +449,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
     if (filters.isRead !== undefined && filters.isRead !== null) {
       result = result.filter(d => d.isRead === filters.isRead)
+    }
+    if (filters.rating !== undefined) {
+      if (filters.rating === 0) {
+        result = result.filter(d => !d.rating)
+      } else {
+        result = result.filter(d => (d.rating || 0) >= filters.rating!)
+      }
     }
 
     // Sorting

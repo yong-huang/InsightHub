@@ -22,13 +22,13 @@ export const storageKeys = {
   CONCEPT_CARDS: `${PREFIX}concept-cards`,
   CHALLENGE_HISTORY: `${PREFIX}challenge-history`,
   CHALLENGE_SESSIONS: `${PREFIX}challenge-sessions`,
-  TTS_PREFERENCES: `${PREFIX}tts-preferences`,
   INCEPTION: `${PREFIX}inception`,
   STUDY_PLANS: `${PREFIX}study-plans`,
   TOKEN_USAGE: `${PREFIX}token-usage`,
   DEPRECATED_IDS: `${PREFIX}deprecated-ids`,
   DEPRECATED_CATEGORIES: `${PREFIX}deprecated-categories`,
   CODE_EDITOR: `${PREFIX}code-editor`,
+  RATINGS: `${PREFIX}ratings`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -64,6 +64,7 @@ const EVICTABLE_KEYS: string[] = [
   `${PREFIX}reading-positions`,
   `${PREFIX}challenge-history`,
   `${PREFIX}challenge-sessions`,
+  `${PREFIX}ratings`,
 ]
 
 function setItem<T>(key: string, value: T): boolean {
@@ -106,6 +107,7 @@ export interface DocumentMeta {
   isRead: boolean
   lastReadAt?: number
   readCount: number
+  rating?: number
 }
 
 export interface ReadHistoryEntry {
@@ -389,11 +391,14 @@ export const storageService = {
     setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
 
-  // TTS preferences
-  getTTSPreferences: () => getItem<{ rate: number; voiceURI: string }>(storageKeys.TTS_PREFERENCES, { rate: 1, voiceURI: '' }),
+  // Document ratings (1-5 stars, docId → rating)
+  getRatings: () => getItem<Record<string, number>>(storageKeys.RATINGS, {}),
 
-  saveTTSPreferences: (prefs: { rate: number; voiceURI: string }) =>
-    setItem(storageKeys.TTS_PREFERENCES, prefs),
+  saveRating: (docId: string, rating: number) => {
+    const ratings = storageService.getRatings()
+    ratings[docId] = rating
+    setItem(storageKeys.RATINGS, ratings)
+  },
 
   // Inception (multi-level progressive summary)
   getInception: () => getItem<Record<string, string>>(storageKeys.INCEPTION, {}),

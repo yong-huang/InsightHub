@@ -16,14 +16,14 @@ import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
-import { SpeechPanel } from '@/components/DocReader/SpeechPanel'
-import { generateDocumentSummary, evaluateDocumentAccuracy, generateSpeakerNotes } from '@/services/aiService'
+import { generateDocumentSummary, evaluateDocumentAccuracy } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
 import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
 import type { Source } from '@/types'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
+import { RatingDialog } from '@/components/DocReader/RatingDialog'
 import { AnnotationPanel } from '@/components/DocReader/AnnotationPanel'
 import { SummaryPanel } from '@/components/DocReader/SummaryPanel'
 import { EvaluationPanel } from '@/components/DocReader/EvaluationPanel'
@@ -125,6 +125,7 @@ export function DocReaderPage() {
   const [tagName, setTagName] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
+  const [showRatingDialog, setShowRatingDialog] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [showSummaryPanel, setShowSummaryPanel] = useState(false)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -134,13 +135,8 @@ export function DocReaderPage() {
   const [evalResult, setEvalResult] = useState<string | null>(null)
   const [isEvalGenerating, setIsEvalGenerating] = useState(false)
   const [evalError, setEvalError] = useState<string | null>(null)
-  const [showSpeechPanel, setShowSpeechPanel] = useState(false)
-  const [speechText, setSpeechText] = useState<string | null>(null)
-  const [isSpeechGenerating, setIsSpeechGenerating] = useState(false)
-  const [speechError, setSpeechError] = useState<string | null>(null)
   const [summaryPoppedOut, setSummaryPoppedOut] = useState(false)
   const [evalPoppedOut, setEvalPoppedOut] = useState(false)
-  const [speechPoppedOut, setSpeechPoppedOut] = useState(false)
   const [showSimilarPanel, setShowSimilarPanel] = useState(false)
   const [similarPoppedOut, setSimilarPoppedOut] = useState(false)
   const [showInceptionPanel, setShowInceptionPanel] = useState(false)
@@ -385,8 +381,6 @@ export function DocReaderPage() {
     setIsEvalGenerating(false)
     setEvalError(null)
     setEvalPoppedOut(false)
-    setShowSpeechPanel(false)
-    setSpeechPoppedOut(false)
     setShowSimilarPanel(false)
     setSimilarPoppedOut(false)
     setShowInceptionPanel(false)
@@ -406,15 +400,12 @@ export function DocReaderPage() {
       setSummaryText(cached || null)
       const evalCached = storageService.getSummaries()[`eval-${docId}`]
       setEvalResult(evalCached || null)
-      const speechCached = storageService.getSummaries()[`speech-${docId}`]
-      setSpeechText(speechCached || null)
       const inceptionCached = storageService.getInception()[docId]
       setInceptionText(inceptionCached || null)
       setIsBookmarked(storageService.isReadLater(docId))
     } else {
       setSummaryText(null)
       setEvalResult(null)
-      setSpeechText(null)
       setIsBookmarked(false)
     }
   }, [docId])
@@ -539,28 +530,6 @@ export function DocReaderPage() {
     } else if (result.data && docId) {
       setEvalResult(result.data)
       storageService.saveSummary(`eval-${docId}`, result.data)
-    }
-  }, [doc, docId])
-
-  const handleGenerateSpeech = useCallback(async () => {
-    if (!doc) return
-    setSpeechText(null)
-    setSpeechError(null)
-    setIsSpeechGenerating(true)
-
-    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
-    const result = await generateSpeakerNotes(
-      doc.title,
-      docWithContent?.contentText || doc.contentText,
-      (text) => setSpeechText(text),
-    )
-
-    setIsSpeechGenerating(false)
-    if (!result.success) {
-      setSpeechError(result.error || 'Generation failed')
-    } else if (result.data && docId) {
-      setSpeechText(result.data)
-      storageService.saveSummary(`speech-${docId}`, result.data)
     }
   }, [doc, docId])
 
@@ -855,7 +824,7 @@ export function DocReaderPage() {
           {/* Read status toggle */}
           <button
             className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
-            onClick={() => doc.isRead ? toggleRead(doc.id) : markAsRead(doc.id)}
+            onClick={() => doc.isRead ? toggleRead(doc.id) : setShowRatingDialog(true)}
           >
             <CheckCircle2 size={16} fill={doc.isRead ? 'currentColor' : 'none'} />
             <span className="dr-action-label">{doc.isRead ? 'Read' : 'Unread'}</span>
@@ -946,27 +915,6 @@ export function DocReaderPage() {
           >
             {isEvalGenerating ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />}
             <span className="dr-action-label">Evaluate</span>
-          </button>
-          )}
-
-          {/* Presentation script button */}
-          {enabledFeatures.aiScript && (
-          <button
-            className={`dr-action-btn ${showSpeechPanel || speechText ? 'active' : ''}`}
-            onClick={() => {
-              if (isSpeechGenerating) return
-              setSpeechPoppedOut(false)
-              setShowSpeechPanel(v => {
-                if (!v && !speechText && !isSpeechGenerating && !speechError) {
-                  handleGenerateSpeech()
-                }
-                return !v
-              })
-            }}
-            style={isSpeechGenerating ? { opacity: 0.7, cursor: 'wait' } : undefined}
-          >
-            {isSpeechGenerating ? <Loader2 size={16} className="spin" /> : <Languages size={16} />}
-            <span className="dr-action-label">Script</span>
           </button>
           )}
 
@@ -1150,18 +1098,6 @@ export function DocReaderPage() {
           />
         )}
 
-        {enabledFeatures.aiSpeech && showSpeechPanel && !showQuizPanel && !showConceptPanel && (
-          <SpeechPanel
-            scriptText={speechText}
-            isGenerating={isSpeechGenerating}
-            error={speechError}
-            onGenerate={handleGenerateSpeech}
-            onClose={() => { setShowSpeechPanel(false); setSpeechPoppedOut(false) }}
-            poppedOut={speechPoppedOut}
-            onTogglePopup={() => setSpeechPoppedOut(v => !v)}
-          />
-        )}
-
         {enabledFeatures.aiInception && showInceptionPanel && !showQuizPanel && !showConceptPanel && (
           <InceptionPanel
             inceptionText={inceptionText}
@@ -1274,6 +1210,21 @@ export function DocReaderPage() {
           onCancel={() => {
             setShowCommentDialog(false)
             clearSelection()
+          }}
+        />
+      )}
+
+      {/* Rating dialog */}
+      {showRatingDialog && doc && (
+        <RatingDialog
+          docTitle={doc.title}
+          onRate={(rating) => {
+            setShowRatingDialog(false)
+            markAsRead(doc.id, rating)
+          }}
+          onSkip={() => {
+            setShowRatingDialog(false)
+            markAsRead(doc.id)
           }}
         />
       )}

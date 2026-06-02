@@ -96,6 +96,7 @@ export interface ParsedQuery {
     source?: Source
     isRead?: boolean
     hasAnnotation?: boolean
+    rating?: number
   }
 }
 
@@ -118,6 +119,11 @@ export function parseSearchQuery(raw: string): ParsedQuery {
     } else if (token.startsWith('source:')) {
       const val = token.slice('source:'.length).toLowerCase()
       if (val) filters.source = val
+    } else if (token.startsWith('rating:')) {
+      const val = parseInt(token.slice('rating:'.length), 10)
+      if (val >= 0 && val <= 5) filters.rating = val
+    } else if (token === 'unrated') {
+      filters.rating = 0
     } else {
       textParts.push(token)
     }
@@ -219,6 +225,19 @@ export function applyFilters(
       const doc = docMap.get(r.id)
       return doc?.isRead === filters.isRead
     })
+  }
+  if (filters.rating !== undefined) {
+    if (filters.rating === 0) {
+      filtered = filtered.filter(r => {
+        const doc = docMap.get(r.id)
+        return !doc?.rating
+      })
+    } else {
+      filtered = filtered.filter(r => {
+        const doc = docMap.get(r.id)
+        return (doc?.rating || 0) >= filters.rating!
+      })
+    }
   }
 
   return filtered

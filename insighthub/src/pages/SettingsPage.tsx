@@ -6,6 +6,7 @@ import {
   ChevronRight, ChevronDown,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { useDocumentStore } from '@/stores/documentStore'
 import type { FeatureKey } from '@/stores/preferenceStore'
 import type { Difficulty, WorkspaceConfig, QuestionType } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
@@ -310,6 +311,9 @@ export function SettingsPage() {
 
 
   // Workspace CRUD
+  const reloadDocuments = useDocumentStore(s => s.reloadDocuments)
+
+  // Workspace CRUD
   const handleSaveWorkspace = () => {
     if (!editingWs) return
     if (isNewWs) {
@@ -320,12 +324,14 @@ export function SettingsPage() {
     setEditingWs(null)
     setIsNewWs(false)
     syncWorkspacesToServer(isNewWs ? [...workspaces, editingWs] : workspaces.map(w => w.id === editingWs.id ? editingWs : w))
+    reloadDocuments()
   }
 
   const handleDeleteWorkspace = (id: string) => {
     if (id === activeWorkspace) return
     removeWorkspace(id)
     syncWorkspacesToServer(workspaces.filter(w => w.id !== id))
+    reloadDocuments()
   }
 
   const syncWorkspacesToServer = async (ws: WorkspaceConfig[]) => {
@@ -763,8 +769,6 @@ export function SettingsPage() {
               { key: 'aiSummary' as FeatureKey, label: 'AI Summary' },
               { key: 'aiInception' as FeatureKey, label: 'AI Inception' },
               { key: 'aiEvaluation' as FeatureKey, label: 'AI Evaluation' },
-              { key: 'aiSpeech' as FeatureKey, label: 'AI Speech (TTS)' },
-              { key: 'aiScript' as FeatureKey, label: 'AI Script' },
               { key: 'aiQuiz' as FeatureKey, label: 'AI Quiz' },
               { key: 'aiConcept' as FeatureKey, label: 'AI Concept Extraction' },
               { key: 'aiSimilarity' as FeatureKey, label: 'Document Similarity' },

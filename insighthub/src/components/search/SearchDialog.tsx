@@ -40,6 +40,12 @@ function FilterTags({ query }: { query: string }) {
   if (filters.isRead === false) tags.push({ label: 'Unread', color: 'var(--accent-orange)' })
   if (filters.hasAnnotation) tags.push({ label: 'Has Notes', color: 'var(--accent-purple)' })
   if (filters.source) tags.push({ label: getWorkspaceConfig(filters.source, workspaces)?.label || filters.source, color: 'var(--accent-blue)' })
+  if (filters.rating !== undefined) {
+    tags.push({
+      label: filters.rating === 0 ? 'Unrated' : `${filters.rating}+ Stars`,
+      color: 'var(--accent-yellow)',
+    })
+  }
   if (tags.length === 0) return null
   return (
     <div className="search-filter-tags">
@@ -68,10 +74,10 @@ export function SearchDialog() {
   const annotations = useAnnotationStore(s => s.annotations)
   const workspaces = usePreferenceStore(s => s.workspaces)
 
-  // Apply post-search filters (isRead, hasAnnotation) using docMap/annotation data
+  // Apply post-search filters (isRead, hasAnnotation, rating) using docMap/annotation data
   const filteredResults = useMemo(() => {
     const { filters } = parseSearchQuery(query)
-    if (filters.isRead === undefined && !filters.hasAnnotation) return results
+    if (filters.isRead === undefined && !filters.hasAnnotation && filters.rating === undefined) return results
     let filtered = [...results]
     if (filters.isRead !== undefined) {
       filtered = filtered.filter(r => {
@@ -82,6 +88,19 @@ export function SearchDialog() {
     if (filters.hasAnnotation) {
       const annotatedDocIds = new Set(annotations.map(a => a.documentId))
       filtered = filtered.filter(r => annotatedDocIds.has(r.id))
+    }
+    if (filters.rating !== undefined) {
+      if (filters.rating === 0) {
+        filtered = filtered.filter(r => {
+          const doc = documents.get(r.id)
+          return !doc?.rating
+        })
+      } else {
+        filtered = filtered.filter(r => {
+          const doc = documents.get(r.id)
+          return (doc?.rating || 0) >= filters.rating!
+        })
+      }
     }
     return filtered
   }, [results, query, documents, annotations])
@@ -158,7 +177,7 @@ export function SearchDialog() {
             ref={inputRef}
             type="text"
             className="search-dialog-input"
-            placeholder="Search document titles or content... Supports category: is: has: filters"
+            placeholder="Search document titles or content... Supports category: is: has: rating: filters"
             value={query}
             onChange={e => handleInput(e.target.value)}
             onCompositionStart={() => { isComposing.current = true }}

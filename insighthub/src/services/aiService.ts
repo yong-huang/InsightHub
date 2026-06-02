@@ -606,41 +606,6 @@ Requirements: Keep the content concise and accurate. Output only Markdown text, 
   return result
 }
 
-export async function generateSpeakerNotes(
-  documentTitle: string,
-  documentContent: string,
-  onChunk?: (text: string) => void,
-): Promise<AIResponse> {
-  const truncatedContent = documentContent.slice(0, 6000)
-
-  const messages: ChatMessage[] = [
-    {
-      role: 'system',
-      content: `You are a professional speech writer. Based on the document content, write a complete presentation script that can be read aloud directly.
-
-Requirements:
-1. Write in the same language as the document content.
-2. Conversational and engaging tone — speak as if presenting to a live audience. Avoid dry recitation.
-3. Structure the script with natural sections corresponding to the document's main topics, using Markdown headings (##).
-4. Open with an attention-grabbing hook (a question, anecdote, or bold statement).
-5. Explain technical concepts in plain language the audience can follow. Do not read code verbatim — describe what it does and why.
-6. Include transitions between sections to maintain flow.
-7. End with a clear takeaway or call-to-action.
-8. Keep the overall length proportional to the document's depth — concise for short docs, thorough for long ones.
-
-Output only the presentation script in Markdown, nothing else.`,
-    },
-    {
-      role: 'user',
-      content: `Title: ${documentTitle}\n\nDocument content:\n${truncatedContent}`,
-    },
-  ]
-
-  const result = await callAIStream(messages, onChunk)
-  if (result.usage) recordUsage('speech', result.usage)
-  return result
-}
-
 export async function evaluateDocumentAccuracy(
   documentTitle: string,
   documentContent: string,

@@ -33,6 +33,7 @@ export interface Document {
   tags: string[]
   isRead: boolean
   isDeprecated?: boolean
+  rating?: number
   lastReadAt?: number
   readCount: number
   indexedAt?: number
@@ -67,6 +68,7 @@ export interface SearchFilters {
   category?: string
   tag?: string
   isRead?: boolean | null
+  rating?: number
   sortBy?: string
 }
 
