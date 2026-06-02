@@ -68,7 +68,7 @@ interface EditorData {
   size: { width: number; height: number }
 }
 
-const DEFAULT_SIZE = { width: 520, height: 400 }
+const DEFAULT_SIZE = { width: 640, height: 500 }
 const MIN_W = 360
 const MIN_H = 240
 
@@ -118,7 +118,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
   const [code, setCode] = useState(initialText ?? '')
   const [isReviewing, setIsReviewing] = useState(false)
   const [isTranslucent, setIsTranslucent] = useState(true)
-  const [coachMode, setCoachMode] = useState(false)
+  const [coachMode, setCoachMode] = useState(true)
   const [hint, setHint] = useState('')
   const [isCoaching, setIsCoaching] = useState(false)
   const [runOutput, setRunOutput] = useState('')

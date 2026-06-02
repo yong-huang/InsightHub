@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { GripVertical, X, Loader2, Languages, Eye, EyeOff, Send, RotateCcw, BookOpen } from 'lucide-react'
+import { GripVertical, X, Loader2, Languages, Eye, EyeOff, Send, Trash2, BookOpen } from 'lucide-react'
 import { callAIStream } from '@/services/aiService'
 import { recordUsage } from '@/services/tokenUsageService'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -309,7 +309,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
             title="Restart Session"
             disabled={isStreaming}
           >
-            <RotateCcw size={13} />
+            <Trash2 size={13} />
           </button>
           <button
             className="code-editor-action-btn"
