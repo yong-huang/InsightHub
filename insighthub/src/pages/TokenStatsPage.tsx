@@ -36,6 +36,7 @@ const FEATURE_LABELS: Record<string, string> = {
   concept: 'Concept Extraction',
   chat: 'Document Chat',
   explain: 'Concept Explanation',
+  script: 'Presentation Script',
   translate: 'Translation',
   inception: 'Inception Summary',
   'follow-up': 'Follow-up Suggestions',

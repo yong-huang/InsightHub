@@ -5,7 +5,7 @@ import {
   Sparkles, Plus, X, Maximize, Minimize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, EyeOff,
-  ShieldCheck, Swords, GitBranch, Layers, TerminalSquare,
+  ShieldCheck, Swords, GitBranch, Layers, TerminalSquare, Mic,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -16,7 +16,7 @@ import { getCategoryInfo } from '@/utils/categoryMap'
 import { useDocumentUrl } from '@/hooks/useDocumentUrl'
 import { useAnnotationIframe } from '@/hooks/useAnnotationIframe'
 import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
-import { generateDocumentSummary, evaluateDocumentAccuracy } from '@/services/aiService'
+import { generateDocumentSummary, evaluateDocumentAccuracy, generatePresentationScript } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
 import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
@@ -32,6 +32,7 @@ import { ChallengePanel } from '@/components/DocReader/ChallengePanel'
 
 import { SimilarDocsPanel } from '@/components/DocReader/SimilarDocsPanel'
 import { InceptionPanel } from '@/components/DocReader/InceptionPanel'
+import { ScriptPanel } from '@/components/DocReader/ScriptPanel'
 import { QuizPanel } from '@/components/DocReader/QuizPanel'
 import { ConceptCardsPanel } from '@/components/DocReader/ConceptCardsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
@@ -154,6 +155,13 @@ export function DocReaderPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [codeEditorText, setCodeEditorText] = useState<string | undefined>(undefined)
   const [showShadowTyping, setShowShadowTyping] = useState(false)
+  const [showScriptPanel, setShowScriptPanel] = useState(false)
+  const [scriptText, setScriptText] = useState<string | null>(null)
+  const [isScriptGenerating, setIsScriptGenerating] = useState(false)
+  const [scriptError, setScriptError] = useState<string | null>(null)
+  const [scriptPoppedOut, setScriptPoppedOut] = useState(false)
+  const [scriptLang, setScriptLang] = useState<'zh' | 'en'>('zh')
+  const [scriptDuration, setScriptDuration] = useState(3)
   const [explainState, setExplainState] = useState<{
     text: string; streamingText: string | null; isStreaming: boolean; error: string | null; rect: DOMRect
   } | null>(null)
@@ -395,6 +403,11 @@ export function DocReaderPage() {
     setShowConceptPanel(false)
     setExplainState(null)
     setTranslateState(null)
+    setShowScriptPanel(false)
+    setIsScriptGenerating(false)
+    setScriptError(null)
+    setScriptPoppedOut(false)
+    setScriptText(null)
     if (docId) {
       const cached = storageService.getSummaries()[docId]
       setSummaryText(cached || null)
@@ -402,6 +415,8 @@ export function DocReaderPage() {
       setEvalResult(evalCached || null)
       const inceptionCached = storageService.getInception()[docId]
       setInceptionText(inceptionCached || null)
+      const scriptCached = storageService.getScripts()[`${docId}:${scriptLang}:${scriptDuration}`]
+      setScriptText(scriptCached || null)
       setIsBookmarked(storageService.isReadLater(docId))
     } else {
       setSummaryText(null)
@@ -532,6 +547,48 @@ export function DocReaderPage() {
       storageService.saveSummary(`eval-${docId}`, result.data)
     }
   }, [doc, docId])
+
+  const handleGenerateScript = useCallback(async () => {
+    if (!doc) return
+    setScriptText(null)
+    setScriptError(null)
+    setIsScriptGenerating(true)
+
+    const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
+    const result = await generatePresentationScript(
+      doc.title,
+      docWithContent?.contentText || doc.contentText,
+      scriptLang,
+      scriptDuration,
+      (text) => setScriptText(text),
+    )
+
+    setIsScriptGenerating(false)
+    if (!result.success) {
+      setScriptError(result.error || 'Generation failed')
+    } else if (result.data && docId) {
+      setScriptText(result.data)
+      storageService.saveScript(`${docId}:${scriptLang}:${scriptDuration}`, result.data)
+    }
+  }, [doc, docId, scriptLang, scriptDuration])
+
+  // Auto-regenerate script when language or duration changes (if panel is open and content exists)
+  const scriptAutoRegenRef = useRef(false)
+  useEffect(() => {
+    if (!scriptAutoRegenRef.current) {
+      scriptAutoRegenRef.current = true
+      return // Skip on mount
+    }
+    if (showScriptPanel && scriptText && !isScriptGenerating && doc) {
+      const cacheKey = `${docId}:${scriptLang}:${scriptDuration}`
+      const cached = storageService.getScripts()[cacheKey]
+      if (cached) {
+        setScriptText(cached)
+      } else {
+        handleGenerateScript()
+      }
+    }
+  }, [scriptLang, scriptDuration])
 
   const handleGenerateInception = useCallback(async () => {
     if (!doc) return
@@ -897,6 +954,20 @@ export function DocReaderPage() {
           </button>
           )}
 
+          {/* Script panel toggle */}
+          {enabledFeatures.aiScript && (
+          <button
+            className={`dr-action-btn ${showScriptPanel || scriptText ? 'active' : ''}`}
+            onClick={() => {
+              setScriptPoppedOut(false)
+              setShowScriptPanel(v => !v)
+            }}
+          >
+            <Mic size={16} />
+            <span className="dr-action-label">Script</span>
+          </button>
+          )}
+
           {/* Evaluation button */}
           {enabledFeatures.aiEvaluation && (
           <button
@@ -1107,6 +1178,22 @@ export function DocReaderPage() {
             onClose={() => { setShowInceptionPanel(false); setInceptionPoppedOut(false) }}
             poppedOut={inceptionPoppedOut}
             onTogglePopup={() => setInceptionPoppedOut(v => !v)}
+          />
+        )}
+
+        {enabledFeatures.aiScript && showScriptPanel && !showQuizPanel && !showConceptPanel && (
+          <ScriptPanel
+            scriptText={scriptText}
+            isGenerating={isScriptGenerating}
+            error={scriptError}
+            language={scriptLang}
+            duration={scriptDuration}
+            onLanguageChange={setScriptLang}
+            onDurationChange={setScriptDuration}
+            onGenerate={handleGenerateScript}
+            onClose={() => { setShowScriptPanel(false); setScriptPoppedOut(false) }}
+            poppedOut={scriptPoppedOut}
+            onTogglePopup={() => setScriptPoppedOut(v => !v)}
           />
         )}
 

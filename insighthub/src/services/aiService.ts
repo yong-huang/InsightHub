@@ -606,6 +606,50 @@ Requirements: Keep the content concise and accurate. Output only Markdown text, 
   return result
 }
 
+export async function generatePresentationScript(
+  documentTitle: string,
+  documentContent: string,
+  language: 'zh' | 'en',
+  duration: number,
+  onChunk?: (text: string) => void,
+): Promise<AIResponse> {
+  const truncatedContent = documentContent.slice(0, 8000)
+  const langInstruction = language === 'zh'
+    ? '请用中文撰写演讲稿。使用自然口语化的中文表达，适合演讲场景。'
+    : 'Write the presentation script in English. Use natural, conversational English suitable for oral delivery.'
+
+  // Approximate word/character counts by duration
+  const durationGuide = language === 'zh'
+    ? `${duration}分钟演讲稿，约${duration * 200}字左右`
+    : `${duration}-minute presentation, approximately ${duration * 120} words`
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `You are a professional presentation scriptwriter. Generate a presentation script based on the provided document content.
+
+Requirements:
+- ${langInstruction}
+- Duration: ${durationGuide}
+- Output in Markdown format with clear structure
+- Include an engaging opening to capture audience attention
+- Organize main content into 3-5 key points that flow logically
+- End with a concise summary and memorable closing statement
+- Use spoken language style: short sentences, rhetorical questions, transitions
+- Avoid overly formal academic language; keep it accessible and engaging
+- Output only the Markdown script, nothing else`,
+    },
+    {
+      role: 'user',
+      content: `Title: ${documentTitle}\n\nDocument content:\n${truncatedContent}`,
+    },
+  ]
+
+  const result = await callAIStream(messages, onChunk)
+  if (result.usage) recordUsage('script', result.usage)
+  return result
+}
+
 export async function evaluateDocumentAccuracy(
   documentTitle: string,
   documentContent: string,

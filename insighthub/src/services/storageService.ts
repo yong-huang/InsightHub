@@ -29,6 +29,7 @@ export const storageKeys = {
   DEPRECATED_CATEGORIES: `${PREFIX}deprecated-categories`,
   CODE_EDITOR: `${PREFIX}code-editor`,
   RATINGS: `${PREFIX}ratings`,
+  SCRIPTS: `${PREFIX}scripts`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -65,6 +66,7 @@ const EVICTABLE_KEYS: string[] = [
   `${PREFIX}challenge-history`,
   `${PREFIX}challenge-sessions`,
   `${PREFIX}ratings`,
+  `${PREFIX}scripts`,
 ]
 
 function setItem<T>(key: string, value: T): boolean {
@@ -402,6 +404,20 @@ export const storageService = {
 
   // Inception (multi-level progressive summary)
   getInception: () => getItem<Record<string, string>>(storageKeys.INCEPTION, {}),
+
+  // Scripts (presentation scripts per doc)
+  getScripts: () => getItem<Record<string, string>>(storageKeys.SCRIPTS, {}),
+
+  saveScript: (key: string, text: string) => {
+    const scripts = storageService.getScripts()
+    scripts[key] = text
+    // Keep at most 50 scripts
+    const keys = Object.keys(scripts)
+    if (keys.length > 50) {
+      for (const oldKey of keys.slice(0, keys.length - 50)) delete scripts[oldKey]
+    }
+    return setItem(storageKeys.SCRIPTS, scripts)
+  },
 
   saveInception: (docId: string, text: string) => {
     const data = storageService.getInception()
