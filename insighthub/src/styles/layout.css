@@ -562,7 +562,7 @@
 }
 
 .file-tree-hide-btn {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -571,7 +571,6 @@
   color: var(--text-dim);
   cursor: pointer;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .file-tree-hide-btn:hover {
@@ -579,8 +578,24 @@
   color: var(--text-secondary);
 }
 
-.file-tree-row:hover .file-tree-hide-btn {
+.file-tree-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.file-tree-row:hover .file-tree-actions {
   display: flex;
+}
+
+.file-tree-action-danger {
+  color: var(--accent-red);
+}
+
+.file-tree-action-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .file-tree-children {

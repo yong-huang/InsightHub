@@ -1,9 +1,11 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2, EyeOff } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, FileText, CheckCircle2, EyeOff, ArrowRightLeft, Trash2 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { storageService } from '@/services/storageService'
+import { MoveCategoryDialog } from '@/components/Import/MoveCategoryDialog'
 
 interface TreeNode {
   name: string
@@ -100,6 +102,9 @@ function TreeNodeView({
   activeWorkspace,
   navigate,
   onHideCategory,
+  onMoveCategory,
+  onDeleteCategory,
+  deleteArmed,
 }: {
   node: TreeNode
   depth: number
@@ -110,6 +115,9 @@ function TreeNodeView({
   activeWorkspace: string
   navigate: ReturnType<typeof useNavigate>
   onHideCategory?: (categoryPath: string) => void
+  onMoveCategory?: (categoryPath: string, docCount: number) => void
+  onDeleteCategory?: (categoryPath: string) => void
+  deleteArmed?: boolean
 }) {
   const isExpanded = expandedPaths.has(node.path)
 
@@ -138,13 +146,35 @@ function TreeNodeView({
           {node.docCount !== undefined && (
             <span className="file-tree-count">{node.docCount}</span>
           )}
-          {isTopLevel && onHideCategory && (
-            <span
-              className="file-tree-hide-btn"
-              onClick={e => { e.stopPropagation(); onHideCategory(node.path) }}
-              title="Hide category"
-            >
-              <EyeOff size={12} />
+          {isTopLevel && (onHideCategory || onMoveCategory || onDeleteCategory) && (
+            <span className="file-tree-actions">
+              {onHideCategory && (
+                <span
+                  className="file-tree-hide-btn"
+                  onClick={e => { e.stopPropagation(); onHideCategory(node.path) }}
+                  title="Hide category"
+                >
+                  <EyeOff size={12} />
+                </span>
+              )}
+              {onMoveCategory && (
+                <span
+                  className="file-tree-hide-btn"
+                  onClick={e => { e.stopPropagation(); onMoveCategory(node.path, node.docCount || 0) }}
+                  title="Move category"
+                >
+                  <ArrowRightLeft size={12} />
+                </span>
+              )}
+              {onDeleteCategory && (
+                <span
+                  className={`file-tree-hide-btn${deleteArmed ? ' file-tree-action-danger' : ''}`}
+                  onClick={e => { e.stopPropagation(); onDeleteCategory(node.path) }}
+                  title={deleteArmed ? 'Click again to confirm delete' : 'Delete category'}
+                >
+                  <Trash2 size={12} />
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -162,6 +192,9 @@ function TreeNodeView({
                 activeWorkspace={activeWorkspace}
                 navigate={navigate}
                 onHideCategory={onHideCategory}
+                onMoveCategory={onMoveCategory}
+                onDeleteCategory={onDeleteCategory}
+                deleteArmed={deleteArmed}
               />
             ))}
           </div>
@@ -196,8 +229,21 @@ export function FileTree() {
   const documents = useDocumentStore(s => s.documents)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const sidebarCollapsed = usePreferenceStore(s => s.sidebarCollapsed)
+  const trashDocument = useDocumentStore(s => s.trashDocument)
   const navigate = useNavigate()
   const location = useLocation()
+
+  const [moveCategoryTarget, setMoveCategoryTarget] = useState<{ category: string; docCount: number } | null>(null)
+  const [deleteArmedCategory, setDeleteArmedCategory] = useState<string | null>(null)
+  const deleteArmTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  // Auto-disarm delete after 3s
+  useEffect(() => {
+    if (deleteArmedCategory) {
+      deleteArmTimer.current = setTimeout(() => setDeleteArmedCategory(null), 3000)
+      return () => clearTimeout(deleteArmTimer.current)
+    }
+  }, [deleteArmedCategory])
 
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
@@ -286,9 +332,31 @@ export function FileTree() {
     useDocumentStore.getState().applyFilters()
   }, [activeWorkspace])
 
-  // Current active docId from URL
+  const onMoveCategory = useCallback((categoryPath: string, docCount: number) => {
+    setMoveCategoryTarget({ category: categoryPath, docCount })
+  }, [])
+
+  const onDeleteCategory = useCallback((categoryPath: string) => {
+    // Two-click confirm pattern
+    if (deleteArmedCategory !== categoryPath) {
+      setDeleteArmedCategory(categoryPath)
+      return
+    }
+
+    setDeleteArmedCategory(null)
+    clearTimeout(deleteArmTimer.current)
+
+    // Trash all documents in this category (client-side only, files stay on disk)
+    for (const [docId, doc] of documents.entries()) {
+      if (doc.source === activeWorkspace && doc.category === categoryPath && !doc.isDeprecated) {
+        trashDocument(docId)
+      }
+    }
+  }, [activeWorkspace, deleteArmedCategory, documents, trashDocument])
+
+  // Current active docId from URL (decode to match docIds with non-ASCII chars)
   const activeDocId = location.pathname.startsWith('/doc/')
-    ? location.pathname.replace('/doc/', '')
+    ? decodeURIComponent(location.pathname.replace('/doc/', ''))
     : undefined
 
   if (sidebarCollapsed) {
@@ -317,8 +385,20 @@ export function FileTree() {
           activeWorkspace={activeWorkspace}
           navigate={navigate}
           onHideCategory={onHideCategory}
+          onMoveCategory={onMoveCategory}
+          onDeleteCategory={onDeleteCategory}
+          deleteArmed={deleteArmedCategory === node.path}
         />
       ))}
+      {moveCategoryTarget && createPortal(
+        <MoveCategoryDialog
+          workspaceId={activeWorkspace}
+          category={moveCategoryTarget.category}
+          docCount={moveCategoryTarget.docCount}
+          onClose={() => setMoveCategoryTarget(null)}
+        />,
+        document.body,
+      )}
     </div>
   )
 }

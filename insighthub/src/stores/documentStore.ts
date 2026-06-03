@@ -36,6 +36,9 @@ interface DocumentState {
   toggleRead: (docId: string) => void
   setDeprecated: (docId: string) => void
   restoreDocument: (docId: string) => void
+  trashDocument: (docId: string) => void
+  restoreTrashedDocument: (docId: string) => void
+  emptyTrash: () => Promise<void>
   applyFilters: () => void
   getDocument: (docId: string) => Document | undefined
   getRecentReads: () => Document[]
@@ -207,8 +210,10 @@ async function loadAllDocuments(
 
   // Mark deprecated documents
   const deprecatedIds = new Set(storageService.getDeprecatedIds())
+  const trashedIds = new Set(storageService.getTrashedIds())
   for (const doc of docs.values()) {
     if (deprecatedIds.has(doc.id)) doc.isDeprecated = true
+    if (trashedIds.has(doc.id)) doc.isDeprecated = true
   }
   if (Array.isArray(serverHistory) && serverHistory.length > 0) {
     const localHistory = storageService.getReadHistory()
@@ -424,13 +429,62 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     get().applyFilters()
   },
 
+  trashDocument: (docId) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    const updated = new Map(documents)
+    updated.set(docId, { ...doc, isDeprecated: true })
+    storageService.trashDocument(docId)
+    set({ documents: updated })
+    get().applyFilters()
+  },
+
+  restoreTrashedDocument: (docId) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc) return
+
+    const updated = new Map(documents)
+    updated.set(docId, { ...doc, isDeprecated: false })
+    storageService.restoreTrashed(docId)
+    set({ documents: updated })
+    get().applyFilters()
+  },
+
+  emptyTrash: async () => {
+    const trashedDocs = storageService.getTrashedDocs()
+    const { documents } = get()
+
+    // Permanently delete each trashed doc
+    for (const { docId } of trashedDocs) {
+      const doc = documents.get(docId)
+      if (!doc) continue
+
+      if (docId.startsWith('imported-')) {
+        try { await deleteImportedDocument(docId) } catch {}
+      } else {
+        try {
+          await fetch(`/api/workspace-document?id=${encodeURIComponent(docId)}`, { method: 'DELETE' })
+        } catch {}
+      }
+    }
+
+    storageService.clearTrash()
+
+    // Reload documents to reflect removals
+    await get().reloadDocuments()
+  },
+
   applyFilters: () => {
     const { documents, filters } = get()
     let result = Array.from(documents.values())
 
     // Filter out deprecated documents and categories from listings
     const deprecatedCategories = new Set(storageService.getDeprecatedCategories())
-    result = result.filter(d => !d.isDeprecated && !deprecatedCategories.has(`${d.source}:${d.category}`))
+    const trashedIds = new Set(storageService.getTrashedIds())
+    result = result.filter(d => !d.isDeprecated && !deprecatedCategories.has(`${d.source}:${d.category}`) && !trashedIds.has(d.id))
 
     if (filters.source) {
       result = result.filter(d => d.source === filters.source)

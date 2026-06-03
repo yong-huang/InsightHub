@@ -25,6 +25,7 @@ export const storageKeys = {
   INCEPTION: `${PREFIX}inception`,
   STUDY_PLANS: `${PREFIX}study-plans`,
   TOKEN_USAGE: `${PREFIX}token-usage`,
+  TRASH: `${PREFIX}trash`,
   DEPRECATED_IDS: `${PREFIX}deprecated-ids`,
   DEPRECATED_CATEGORIES: `${PREFIX}deprecated-categories`,
   CODE_EDITOR: `${PREFIX}code-editor`,
@@ -463,6 +464,26 @@ export const storageService = {
     setItem(storageKeys.DEPRECATED_IDS, ids)
   },
 
+  // Trash (soft-deleted documents)
+  getTrashedDocs: () => getItem<{ docId: string; trashedAt: number }[]>(storageKeys.TRASH, []),
+
+  trashDocument: (docId: string) => {
+    const docs = storageService.getTrashedDocs()
+    if (!docs.some(t => t.docId === docId)) {
+      docs.push({ docId, trashedAt: Date.now() })
+      setItem(storageKeys.TRASH, docs)
+    }
+  },
+
+  restoreTrashed: (docId: string) => {
+    const docs = storageService.getTrashedDocs().filter(t => t.docId !== docId)
+    setItem(storageKeys.TRASH, docs)
+  },
+
+  clearTrash: () => setItem(storageKeys.TRASH, []),
+
+  getTrashedIds: () => storageService.getTrashedDocs().map(t => t.docId),
+
   // Deprecated (hidden) categories — stored as "source:category" strings
   getDeprecatedCategories: () =>
     getItem<string[]>(storageKeys.DEPRECATED_CATEGORIES, []),
@@ -480,6 +501,85 @@ export const storageService = {
     const key = `${source}:${category}`
     const list = storageService.getDeprecatedCategories().filter(k => k !== key)
     setItem(storageKeys.DEPRECATED_CATEGORIES, list)
+  },
+
+  /** Rewrite all localStorage records referencing oldId to use newId */
+  migrateDocumentId(oldId: string, newId: string): void {
+    if (oldId === newId) return
+
+    // 1. Read history — rewrite documentId
+    try {
+      const raw = localStorage.getItem(`${PREFIX}read-history`)
+      if (raw) {
+        const arr = JSON.parse(raw) as any[]
+        const cleaned = arr.map((h: any) =>
+          h.documentId === oldId ? { ...h, documentId: newId } : h
+        )
+        localStorage.setItem(`${PREFIX}read-history`, JSON.stringify(cleaned))
+      }
+    } catch { /* ignore */ }
+
+    // 2. Array stores — rewrite idField
+    const ARRAY_STORES: { key: string; idField: string }[] = [
+      { key: `${PREFIX}annotations`, idField: 'documentId' },
+      { key: `${PREFIX}concept-cards`, idField: 'sourceDocId' },
+      { key: `${PREFIX}quiz-history`, idField: 'documentId' },
+      { key: `${PREFIX}read-later`, idField: 'documentId' },
+    ]
+    for (const { key, idField } of ARRAY_STORES) {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const arr = JSON.parse(raw) as any[]
+        const cleaned = arr.map(item =>
+          item[idField] === oldId ? { ...item, [idField]: newId } : item
+        )
+        localStorage.setItem(key, JSON.stringify(cleaned))
+      } catch { /* ignore */ }
+    }
+
+    // 3. Object stores — rewrite keys
+    const OBJECT_STORES: string[] = [
+      `${PREFIX}document-meta`,
+      `${PREFIX}chat-history`,
+      `${PREFIX}summaries`,
+      `${PREFIX}reading-positions`,
+      `${PREFIX}ratings`,
+      `${PREFIX}quizzes`,
+      `${PREFIX}inception`,
+      `${PREFIX}scripts`,
+    ]
+    for (const key of OBJECT_STORES) {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const obj = JSON.parse(raw) as Record<string, any>
+        if (obj[oldId] !== undefined) {
+          obj[newId] = obj[oldId]
+          delete obj[oldId]
+          localStorage.setItem(key, JSON.stringify(obj))
+        }
+      } catch { /* ignore */ }
+    }
+
+    // 4. Tags — rewrite documentIds arrays
+    try {
+      const raw = localStorage.getItem(`${PREFIX}tags`)
+      if (raw) {
+        const tags = JSON.parse(raw) as { id: string; name: string; color: string; documentIds: string[] }[]
+        let changed = false
+        for (const tag of tags) {
+          const idx = tag.documentIds.indexOf(oldId)
+          if (idx >= 0) {
+            tag.documentIds[idx] = newId
+            changed = true
+          }
+        }
+        if (changed) {
+          localStorage.setItem(`${PREFIX}tags`, JSON.stringify(tags))
+        }
+      }
+    } catch { /* ignore */ }
   },
 
   /** Low-level raw string getter for similarity cache */

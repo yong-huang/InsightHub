@@ -24,6 +24,7 @@ const importLearningPath = () => import('@/pages/LearningPathPage')
 const importSpacedRepetition = () => import('@/pages/SpacedRepetitionPage')
 const importTokenStats = () => import('@/pages/TokenStatsPage')
 const importHiddenDocs = () => import('@/pages/HiddenDocsPage')
+const importTrash = () => import('@/pages/TrashPage')
 
 registerPrefetch('/', importHome)
 registerPrefetch('/doc', importDocReader)
@@ -44,6 +45,7 @@ registerPrefetch('/learning-path', importLearningPath)
 registerPrefetch('/spaced-repetition', importSpacedRepetition)
 registerPrefetch('/token-stats', importTokenStats)
 registerPrefetch('/hidden-docs', importHiddenDocs)
+registerPrefetch('/trash', importTrash)
 
 const HomePage = lazy(() => importHome().then(m => ({ default: m.HomePage })))
 const CategoryPage = lazy(() => importCategory().then(m => ({ default: m.CategoryPage })))
@@ -60,6 +62,7 @@ const LearningPathPage = lazy(() => importLearningPath().then(m => ({ default: m
 const SpacedRepetitionPage = lazy(() => importSpacedRepetition().then(m => ({ default: m.SpacedRepetitionPage })))
 const TokenStatsPage = lazy(() => importTokenStats().then(m => ({ default: m.TokenStatsPage })))
 const HiddenDocsPage = lazy(() => importHiddenDocs().then(m => ({ default: m.HiddenDocsPage })))
+const TrashPage = lazy(() => importTrash().then(m => ({ default: m.TrashPage })))
 
 function AppContent() {
   useInitializeApp()
@@ -87,6 +90,7 @@ function AppContent() {
               <Route path="/spaced-repetition" element={<SpacedRepetitionPage />} />
               <Route path="/token-stats" element={<TokenStatsPage />} />
               <Route path="/hidden-docs" element={<HiddenDocsPage />} />
+              <Route path="/trash" element={<TrashPage />} />
               {/* Dynamic workspace routes — catch-all for workspace IDs */}
               <Route path="/:workspace" element={<CategoryPage />} />
               <Route path="/:workspace/:category" element={<CategoryPage />} />

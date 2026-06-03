@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Sun, Moon, ChevronDown, Check, Settings, Upload, BarChart3, Brain,
   MessageSquare, Bookmark, Trophy, Network, Route, PanelLeftClose, PanelLeftOpen,
-  Coins, EyeOff,
+  Coins, EyeOff, Link2, Trash2,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { prefetchRoute } from '@/utils/prefetchRoute'
@@ -11,6 +11,7 @@ import { useSearchStore } from '@/stores/searchStore'
 import { useAnnotationStore } from '@/stores/annotationStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { ImportDialog } from '@/components/Import/ImportDialog'
+import { UrlImportDialog } from '@/components/Import/UrlImportDialog'
 import { storageService } from '@/services/storageService'
 import { WORKSPACE_ICONS } from '@/utils/workspaceIcons'
 
@@ -27,6 +28,7 @@ export function Navbar() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [importFiles, setImportFiles] = useState<File[] | null>(null)
+  const [showUrlImport, setShowUrlImport] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -77,6 +79,13 @@ export function Navbar() {
     return docCount + catCount
   }, [documents, activeWorkspace, storageVersion])
 
+  const trashCount = useMemo(() => {
+    return storageService.getTrashedDocs().filter(t => {
+      const doc = documents.get(t.docId)
+      return doc?.source === activeWorkspace
+    }).length
+  }, [documents, activeWorkspace, storageVersion])
+
   const handleSwitch = (wsId: string) => {
     if (wsId === activeWorkspace) {
       setMenuOpen(false)
@@ -97,6 +106,7 @@ export function Navbar() {
     { icon: MessageSquare, label: 'All Notes', to: '/notes', badge: noteCount },
     { icon: Bookmark, label: 'Read Later', to: '/read-later', badge: readLaterCount },
     { icon: EyeOff, label: 'Hidden', to: '/hidden-docs', badge: deprecatedCount },
+    { icon: Trash2, label: 'Trash', to: '/trash', badge: trashCount },
     { icon: Trophy, label: 'Achievements', to: '/achievements', badge: achievementCount },
     { icon: Network, label: 'Knowledge Graph', to: '/knowledge-graph', badge: 0 },
     { icon: Route, label: 'Learning Path', to: '/learning-path', badge: 0 },
@@ -106,6 +116,7 @@ export function Navbar() {
   ]
 
   return (
+    <>
     <nav className="navbar" onMouseDown={handleMouseDown}>
       <div className="navbar-inner">
         <div className="navbar-left">
@@ -174,6 +185,10 @@ export function Navbar() {
             <Upload size={18} />
             <span className="navbar-icon-tooltip">Import</span>
           </button>
+          <button className="navbar-icon-btn" title="Import URL" onClick={() => setShowUrlImport(true)}>
+            <Link2 size={18} />
+            <span className="navbar-icon-tooltip">Import URL</span>
+          </button>
 
           {navButtons.map(btn => (
             <button
@@ -195,13 +210,19 @@ export function Navbar() {
           </button>
         </div>
       </div>
-
-      {importFiles && (
-        <ImportDialog
-          files={importFiles}
-          onClose={() => setImportFiles(null)}
-        />
-      )}
     </nav>
+    {importFiles && (
+      <ImportDialog
+        files={importFiles}
+        onClose={() => setImportFiles(null)}
+      />
+    )}
+    {showUrlImport && (
+      <UrlImportDialog
+        onClose={() => setShowUrlImport(false)}
+        onImported={(docId) => { setShowUrlImport(false); navigate(`/doc/${docId}`) }}
+      />
+    )}
+    </>
   )
 }

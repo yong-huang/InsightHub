@@ -74,6 +74,71 @@ function getMimeType(filePath: string): string {
   return MIME_TYPES[ext] || 'application/octet-stream'
 }
 
+/** Download images from an HTML page and inline them as data URIs for offline access */
+async function inlineImages(html: string, baseUrl: URL): Promise<string> {
+  // Collect all image src values (including data-src for lazy-loaded images, srcset)
+  const srcPattern = /<img[^>]*(?:src|data-src)=["']([^"']+)["'][^>]*>/gi
+  const srcsetPattern = /srcset=["']([^"']+)["']/gi
+  const sources: string[] = []
+  let m: RegExpExecArray | null
+
+  while ((m = srcPattern.exec(html)) !== null) {
+    const src = m[1]
+    if (!src.startsWith('data:') && !src.startsWith('blob:')) sources.push(src)
+  }
+  while ((m = srcsetPattern.exec(html)) !== null) {
+    for (const entry of m[1].split(',')) {
+      const url = entry.trim().split(/\s+/)[0]
+      if (url && !url.startsWith('data:') && !url.startsWith('blob:')) sources.push(url)
+    }
+  }
+
+  const unique = [...new Set(sources)]
+  if (unique.length === 0) return html
+
+  // Fetch all images in parallel (5s per image, skip > 300KB raw)
+  const results = await Promise.allSettled(
+    unique.map(async (src) => {
+      try {
+        const absoluteUrl = new URL(src, baseUrl).href
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 5000)
+        const res = await fetch(absoluteUrl, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; InsightHub/1.0)' },
+        })
+        clearTimeout(timeout)
+        if (!res.ok) return null
+        const contentType = res.headers.get('content-type') || 'image/png'
+        if (!contentType.startsWith('image/')) return null
+        const buffer = Buffer.from(await res.arrayBuffer())
+        if (buffer.length > 300 * 1024) return null
+        const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`
+        return { originalSrc: src, dataUri }
+      } catch {
+        return null
+      }
+    })
+  )
+
+  // Replace each source URL with its data URI
+  let result = html
+  for (const r of results) {
+    if (r.status !== 'fulfilled' || !r.value) continue
+    const escaped = r.value.originalSrc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    // Replace in src=, data-src=, and srcset= attributes
+    result = result.replace(
+      new RegExp(`(src|data-src)=["']${escaped}["']`, 'g'),
+      `src="${r.value.dataUri}"`
+    )
+    result = result.replace(
+      new RegExp(`(srcset=["'])${escaped}(\\s)`, 'g'),
+      `$1${r.value.dataUri}$2`
+    )
+  }
+  return result
+}
+
 function sendFile(res: import('http').ServerResponse, absPath: string): void {
   if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
     res.statusCode = 404
@@ -1443,6 +1508,90 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         return path.join(legacyImportsDir, `${docId}.html`)
       }
 
+      // POST /api/fetch-url — server-side URL fetch to bypass CORS
+      server.middlewares.use('/api/fetch-url', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'Method not allowed' }))
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (chunk: Buffer) => chunks.push(chunk))
+        req.on('end', async () => {
+          try {
+            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const url = typeof body.url === 'string' ? body.url.trim() : ''
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'URL must start with http:// or https://' }))
+              return
+            }
+            try {
+              const controller = new AbortController()
+              const timeout = setTimeout(() => controller.abort(), 10_000)
+              const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (compatible; InsightHub/1.0)',
+                  'Accept': 'text/html,application/xhtml+xml',
+                },
+              })
+              clearTimeout(timeout)
+              if (!response.ok) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `HTTP ${response.status}: ${response.statusText}` }))
+                return
+              }
+              const contentType = response.headers.get('content-type') || ''
+              if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `Unsupported content type: ${contentType.split(';')[0]}` }))
+                return
+              }
+              const html = await response.text()
+              if (html.length > IMPORT_DOC_SIZE_LIMIT) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `Page too large (${Math.round(html.length / 1024)}KB), max 5MB` }))
+                return
+              }
+              // Extract title from HTML
+              const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+              const title = titleMatch ? titleMatch[1].trim() : undefined
+
+              // Strip scripts, noscript, iframes to prevent cross-origin JS errors in iframe
+              let processedHtml = html
+                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+                .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+                .replace(/<meta[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '')
+
+              // Inline images as data URIs for offline access
+              const baseUrl = new URL(url)
+              processedHtml = await inlineImages(processedHtml, baseUrl)
+
+              // Insert <base href> for remaining resources (CSS, fonts) — degrade gracefully offline
+              const originUrl = baseUrl.origin
+              const baseTag = `<base href="${originUrl}">`
+              processedHtml = processedHtml.includes('<head')
+                ? processedHtml.replace(/<head[^>]*>/i, m => m + baseTag)
+                : processedHtml.includes('<html')
+                  ? processedHtml.replace(/<html[^>]*>/i, m => m + `<head>${baseTag}</head>`)
+                  : baseTag + processedHtml
+
+              res.end(JSON.stringify({ html: processedHtml, title }))
+            } catch (fetchErr: any) {
+              const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: msg }))
+            }
+          } catch {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Invalid JSON' }))
+          }
+        })
+      })
+
       // GET /api/imported-documents — list imported docs metadata
       // POST /api/imported-documents — save new imported doc to the target workspace
       // DELETE /api/imported-documents?id=xxx — delete imported doc
@@ -1493,6 +1642,9 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               // Write HTML directly to the target workspace
               fs.writeFileSync(destPath, body.htmlContent, 'utf-8')
 
+              // Invalidate manifest cache so the new doc is discoverable
+              manifestCache = null
+
               res.end(JSON.stringify({ ok: true, id }))
             } catch {
               res.statusCode = 400
@@ -1529,6 +1681,297 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             fs.unlinkSync(legacyFile)
           }
           res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // DELETE /api/workspace-document?id=xxx — permanently delete a workspace document from filesystem
+      server.middlewares.use('/api/workspace-document', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'DELETE') {
+          const id = new URL(req.url || '/', 'http://localhost').searchParams.get('id')
+          if (!id) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Missing id' }))
+            return
+          }
+          const dirs = getWorkspaceDirs()
+          const workspaces = loadWorkspaces()
+          let found = false
+          for (const ws of workspaces) {
+            const wsDir = dirs[ws.id]
+            if (!wsDir) continue
+            try {
+              const manifest = scanWorkspaces([ws], BASE_DIR)
+              const match = manifest.find(e => e.id === id)
+              if (match) {
+                const filePath = path.join(wsDir, match.filePath)
+                if (fs.existsSync(filePath)) {
+                  fs.unlinkSync(filePath)
+                  manifestCache = null
+                  found = true
+                }
+                break
+              }
+            } catch {}
+          }
+          if (!found) {
+            res.statusCode = 404
+            res.end(JSON.stringify({ error: 'Document not found' }))
+            return
+          }
+          res.end(JSON.stringify({ ok: true }))
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // POST /api/move-workspace-document — move a document to another workspace
+      server.middlewares.use('/api/move-workspace-document', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const { id, targetWorkspaceId, targetCategory } = JSON.parse(Buffer.concat(chunks).toString())
+              if (!id || !targetWorkspaceId || !targetCategory) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing id, targetWorkspaceId, or targetCategory' }))
+                return
+              }
+
+              const dirs = getWorkspaceDirs()
+              const workspaces = loadWorkspaces()
+              const targetWs = workspaces.find(w => w.id === targetWorkspaceId)
+              if (!targetWs || !dirs[targetWs.id]) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Target workspace not found' }))
+                return
+              }
+
+              // Find source file across all workspaces
+              let sourceFilePath: string | null = null
+              let sourceFileName: string | null = null
+              for (const ws of workspaces) {
+                const wsDir = dirs[ws.id]
+                if (!wsDir) continue
+                try {
+                  const manifest = scanWorkspaces([ws], BASE_DIR)
+                  const match = manifest.find(e => e.id === id)
+                  if (match) {
+                    const filePath = path.join(wsDir, match.filePath)
+                    if (fs.existsSync(filePath)) {
+                      sourceFilePath = filePath
+                      sourceFileName = match.fileName || path.basename(filePath)
+                    }
+                    break
+                  }
+                } catch {}
+              }
+
+              if (!sourceFilePath) {
+                res.statusCode = 404
+                res.end(JSON.stringify({ error: 'Document not found' }))
+                return
+              }
+
+              // Generate new ID: prefix-category-name
+              const nameWithoutExt = sourceFileName!.replace(/\.html?$/, '')
+              const newId = `${targetWs.prefix || targetWs.id}-${targetCategory}-${nameWithoutExt}`
+
+              // Read source, write to target dir
+              const htmlContent = fs.readFileSync(sourceFilePath, 'utf-8')
+              const targetDir = path.join(dirs[targetWs.id], targetCategory)
+              if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true })
+              }
+              const targetFilePath = path.join(targetDir, sourceFileName!)
+              fs.writeFileSync(targetFilePath, htmlContent, 'utf-8')
+
+              // Delete source file
+              fs.unlinkSync(sourceFilePath)
+
+              // Invalidate manifest cache
+              manifestCache = null
+
+              res.end(JSON.stringify({ ok: true, newId }))
+            } catch (e) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: String(e) }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // DELETE /api/workspace-category?workspaceId=xxx&category=yyy
+      // Permanently delete an entire category directory and all HTML files in it
+      server.middlewares.use('/api/workspace-category', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'DELETE') {
+          const url = new URL(req.url || '', `http://localhost${req.headers.host || ''}`)
+          const workspaceId = url.searchParams.get('workspaceId')
+          const category = url.searchParams.get('category')
+          if (!workspaceId || !category) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Missing workspaceId or category' }))
+            return
+          }
+
+          try {
+            const dirs = getWorkspaceDirs()
+            const workspaces = loadWorkspaces()
+            const ws = workspaces.find(w => w.id === workspaceId)
+            if (!ws || !dirs[ws.id]) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Workspace not found' }))
+              return
+            }
+
+            const wsDir = dirs[ws.id]
+            const categoryDir = path.join(wsDir, category)
+
+            // Collect document IDs that will be deleted
+            const deletedIds: string[] = []
+            try {
+              const manifest = scanWorkspaces([ws], BASE_DIR)
+              for (const e of manifest) {
+                if (e.category === category) {
+                  deletedIds.push(e.id)
+                }
+              }
+            } catch {}
+
+            // Delete the directory
+            if (fs.existsSync(categoryDir)) {
+              fs.rmSync(categoryDir, { recursive: true, force: true })
+            }
+
+            // Invalidate manifest cache
+            manifestCache = null
+
+            res.end(JSON.stringify({ ok: true, deletedIds }))
+          } catch (e) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: String(e) }))
+          }
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // POST /api/move-workspace-category
+      // Move an entire category from one workspace to another
+      server.middlewares.use('/api/move-workspace-category', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const body = JSON.parse(Buffer.concat(chunks).toString())
+              const { workspaceId, category, targetWorkspaceId, targetCategory } = body
+              if (!workspaceId || !category || !targetWorkspaceId || !targetCategory) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Missing required fields' }))
+                return
+              }
+
+              const dirs = getWorkspaceDirs()
+              const workspaces = loadWorkspaces()
+              const sourceWs = workspaces.find(w => w.id === workspaceId)
+              const targetWs = workspaces.find(w => w.id === targetWorkspaceId)
+              if (!sourceWs || !dirs[sourceWs.id]) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Source workspace not found' }))
+                return
+              }
+              if (!targetWs || !dirs[targetWs.id]) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Target workspace not found' }))
+                return
+              }
+
+              const sourceDir = dirs[sourceWs.id]
+              const targetDirRoot = dirs[targetWs.id]
+              const sourceCategoryDir = path.join(sourceDir, category)
+              const targetCategoryDir = path.join(targetDirRoot, targetCategory)
+
+              // Collect manifest entries matching the category
+              let entries: Array<{ id: string; fileName: string; filePath: string }> = []
+              try {
+                const manifest = scanWorkspaces([sourceWs], BASE_DIR)
+                entries = manifest.filter(e => e.category === category).map(e => ({
+                  id: e.id,
+                  fileName: e.fileName || path.basename(e.filePath),
+                  filePath: e.filePath,
+                }))
+              } catch {}
+
+              if (entries.length === 0) {
+                res.statusCode = 404
+                res.end(JSON.stringify({ error: 'No documents found in category' }))
+                return
+              }
+
+              // Create target category dir if needed
+              if (!fs.existsSync(targetCategoryDir)) {
+                fs.mkdirSync(targetCategoryDir, { recursive: true })
+              }
+
+              const mappings: Record<string, string> = {}
+              const targetPrefix = targetWs.prefix || targetWs.id
+
+              for (const entry of entries) {
+                const sourceFilePath = path.join(sourceDir, entry.filePath)
+                if (!fs.existsSync(sourceFilePath)) continue
+
+                // Read source
+                const htmlContent = fs.readFileSync(sourceFilePath, 'utf-8')
+
+                // Generate new ID
+                const nameWithoutExt = entry.fileName.replace(/\.html?$/, '')
+                const newId = `${targetPrefix}-${targetCategory}-${nameWithoutExt}`
+
+                // Write to target
+                const targetFilePath = path.join(targetCategoryDir, entry.fileName)
+                fs.writeFileSync(targetFilePath, htmlContent, 'utf-8')
+
+                // Delete source
+                fs.unlinkSync(sourceFilePath)
+
+                mappings[entry.id] = newId
+              }
+
+              // Remove source category directory
+              if (fs.existsSync(sourceCategoryDir)) {
+                fs.rmSync(sourceCategoryDir, { recursive: true, force: true })
+              }
+
+              // Invalidate manifest cache
+              manifestCache = null
+
+              res.end(JSON.stringify({ ok: true, mappings }))
+            } catch (e) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: String(e) }))
+            }
+          })
           return
         }
 
@@ -1625,7 +2068,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
 
         const source = segments[0] // mindinsight, techinsight, or any workspace id
-        const relativePath = segments.slice(1).join(path.sep)
+        const relativePath = decodeURIComponent(segments.slice(1).join('/'))
 
         const dirs = getWorkspaceDirs()
         const baseDir = dirs[source]

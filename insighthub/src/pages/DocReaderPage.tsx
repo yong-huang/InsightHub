@@ -4,8 +4,9 @@ import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
   Sparkles, Plus, X, Maximize, Minimize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
-  MessageCircle, Lightbulb, Languages, EyeOff,
+  MessageCircle, Lightbulb, Languages, Trash2,
   ShieldCheck, Swords, GitBranch, Layers, TerminalSquare, Mic,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -19,6 +20,7 @@ import { AnnotationPopup } from '@/components/DocReader/AnnotationPopup'
 import { generateDocumentSummary, evaluateDocumentAccuracy, generatePresentationScript } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
+import { MoveDocumentDialog } from '@/components/Import/MoveDocumentDialog'
 import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
 import type { Source } from '@/types'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
@@ -219,6 +221,8 @@ export function DocReaderPage() {
     () => allAnnotations.find(a => a.id === activeAnnotationId) || null,
     [allAnnotations, activeAnnotationId]
   )
+
+  const [showMoveDialog, setShowMoveDialog] = useState(false)
 
   // CSS class hides navbar/sidebar/toolbar, iframe fills viewport
   useEffect(() => {
@@ -704,30 +708,8 @@ export function DocReaderPage() {
     setShowChallengePanel(true)
   }, [selectionInfo, clearSelection, doc])
 
-  if (!doc) {
-    return (
-      <div className="empty-state">
-        <BookOpen size={48} />
-        <h3>Document Not Found</h3>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>
-          Back to Home
-        </button>
-      </div>
-    )
-  }
-
-  // Imported doc: show loading while fetching
-  if (docId?.startsWith('imported-') && !importedBlobUrl) {
-    return (
-      <div className="empty-state">
-        <Loader2 size={32} className="spin" />
-        <h3>Loading Document...</h3>
-      </div>
-    )
-  }
-
   const handleAddTag = () => {
-    if (!tagName.trim() || !docId) return
+    if (!tagName.trim() || !docId || !doc) return
     const existingTag = useTagStore.getState().tags.find(t => t.name === tagName.trim())
     if (existingTag) {
       addDocumentToTag(existingTag.id, doc.id)
@@ -749,6 +731,28 @@ export function DocReaderPage() {
     }),
     [allTags, docId, allDocuments, workspaces]
   )
+
+  if (!doc) {
+    return (
+      <div className="empty-state">
+        <BookOpen size={48} />
+        <h3>Document Not Found</h3>
+        <button className="btn btn-primary" onClick={() => navigate('/')}>
+          Back to Home
+        </button>
+      </div>
+    )
+  }
+
+  // Imported doc: show loading while fetching
+  if (docId?.startsWith('imported-') && !importedBlobUrl) {
+    return (
+      <div className="empty-state">
+        <Loader2 size={32} className="spin" />
+        <h3>Loading Document...</h3>
+      </div>
+    )
+  }
 
   const handleGenerate = async (mode: 'new' | 'regenerate' | 'append') => {
     const docWithContent = await useDocumentStore.getState().ensureContentText(doc.id)
@@ -1074,17 +1078,27 @@ export function DocReaderPage() {
             <span className="dr-action-label">{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
           </button>
 
-          {/* Hide document */}
+          {/* Move document to another workspace */}
+          <button
+            className="dr-action-btn"
+            onClick={() => setShowMoveDialog(true)}
+            title="Move to another workspace"
+          >
+            <ArrowRightLeft size={16} />
+            <span className="dr-action-label">Move</span>
+          </button>
+
+          {/* Delete document (move to trash) */}
           <button
             className="dr-action-btn"
             onClick={() => {
-              useDocumentStore.getState().setDeprecated(doc.id)
+              useDocumentStore.getState().trashDocument(doc.id)
               navigate(fromPath || `/${doc.source}/${doc.category}`)
             }}
-            title="Hide this document"
+            title="Delete document"
           >
-            <EyeOff size={16} />
-            <span className="dr-action-label">Hide</span>
+            <Trash2 size={16} />
+            <span className="dr-action-label">Delete</span>
           </button>
 
           {/* Fullscreen */}
@@ -1350,6 +1364,17 @@ export function DocReaderPage() {
           isStreaming={translateState.isStreaming}
           error={translateState.error}
           onClose={() => setTranslateState(null)}
+        />
+      )}
+
+      {showMoveDialog && doc && (
+        <MoveDocumentDialog
+          doc={doc}
+          onClose={() => setShowMoveDialog(false)}
+          onMoved={(newId) => {
+            setShowMoveDialog(false)
+            navigate(`/doc/${newId}`, { replace: true })
+          }}
         />
       )}
     </div>
