@@ -3,6 +3,7 @@ import type { SearchResult } from '@/types'
 import { search as flexSearch, parseSearchQuery, suggestTitles, applyFilters } from '@/services/searchService'
 import { storageService } from '@/services/storageService'
 import { usePreferenceStore } from '@/stores/preferenceStore'
+import { useDocumentStore } from '@/stores/documentStore'
 
 interface SearchState {
   query: string
@@ -44,7 +45,19 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
     set({ isSearching: true, query: q, selectedIndex: -1 })
     const { text, filters } = parseSearchQuery(q)
-    const allResults = await flexSearch(text, 30)
+
+    // If query is only filters (no text), use all documents as base results
+    const hasOnlyFilters = !text.trim() && (filters.category || filters.isRead !== undefined || filters.hasAnnotation || filters.rating !== undefined || filters.source)
+    let allResults: SearchResult[]
+    if (hasOnlyFilters) {
+      const docs = useDocumentStore.getState().documents
+      const workspace = usePreferenceStore.getState().activeWorkspace
+      allResults = Array.from(docs.values())
+        .filter(d => d.source === workspace)
+        .map(d => ({ id: d.id, title: d.title, category: d.category, source: d.source, score: 1 }))
+    } else {
+      allResults = await flexSearch(text, 30)
+    }
     // Workspace filter (existing behavior)
     let results = allResults
     const workspace = usePreferenceStore.getState().activeWorkspace

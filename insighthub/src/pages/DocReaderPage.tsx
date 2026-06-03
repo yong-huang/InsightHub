@@ -6,7 +6,7 @@ import {
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, Trash2,
   ShieldCheck, Swords, GitBranch, Layers, TerminalSquare, Mic,
-  ArrowRightLeft,
+  ArrowRightLeft, PenLine,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -40,6 +40,7 @@ import { ConceptCardsPanel } from '@/components/DocReader/ConceptCardsPanel'
 import { AIBubble } from '@/components/DocReader/AIBubble'
 import { CodeEditorPanel } from '@/components/DocReader/CodeEditorPanel'
 import { ShadowTypingPanel } from '@/components/DocReader/ShadowTypingPanel'
+import { WhiteboardPanel } from '@/components/DocReader/WhiteboardPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
@@ -71,6 +72,7 @@ export function DocReaderPage() {
   }, [docId, doc, allDocuments, navigate, fromPath, scrollToAnnotationId])
   const markAsRead = useDocumentStore(s => s.markAsRead)
   const toggleRead = useDocumentStore(s => s.toggleRead)
+  const updateRating = useDocumentStore(s => s.updateRating)
   const url = useDocumentUrl(docId || '')
 
   // Imported document: fetch and create blob URL for iframe
@@ -157,6 +159,7 @@ export function DocReaderPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [codeEditorText, setCodeEditorText] = useState<string | undefined>(undefined)
   const [showShadowTyping, setShowShadowTyping] = useState(false)
+  const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [showScriptPanel, setShowScriptPanel] = useState(false)
   const [scriptText, setScriptText] = useState<string | null>(null)
   const [isScriptGenerating, setIsScriptGenerating] = useState(false)
@@ -885,7 +888,7 @@ export function DocReaderPage() {
           {/* Read status toggle */}
           <button
             className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
-            onClick={() => doc.isRead ? toggleRead(doc.id) : setShowRatingDialog(true)}
+            onClick={() => setShowRatingDialog(true)}
           >
             <CheckCircle2 size={16} fill={doc.isRead ? 'currentColor' : 'none'} />
             <span className="dr-action-label">{doc.isRead ? 'Read' : 'Unread'}</span>
@@ -1053,6 +1056,15 @@ export function DocReaderPage() {
           >
             <Languages size={16} />
             <span className="dr-action-label">Shadow</span>
+          </button>
+
+          {/* Whiteboard button */}
+          <button
+            className={`dr-action-btn ${showWhiteboard ? 'active' : ''}`}
+            onClick={() => setShowWhiteboard(v => !v)}
+          >
+            <PenLine size={16} />
+            <span className="dr-action-label">Whiteboard</span>
           </button>
 
           {/* Similar documents button */}
@@ -1265,6 +1277,13 @@ export function DocReaderPage() {
             <Languages size={14} />
           </button>
           <button
+            className={`dr-action-btn${showWhiteboard ? ' active' : ''}`}
+            onClick={() => setShowWhiteboard(v => !v)}
+            title="Whiteboard"
+          >
+            <PenLine size={14} />
+          </button>
+          <button
             className="dr-action-btn"
             onClick={toggleFullscreen}
             title="Exit Fullscreen"
@@ -1285,6 +1304,13 @@ export function DocReaderPage() {
       {showShadowTyping && docId && (
         <Suspense fallback={null}>
           <ShadowTypingPanel docId={docId} onClose={() => setShowShadowTyping(false)} onScrollToText={scrollToText} />
+        </Suspense>
+      )}
+
+      {/* Floating whiteboard panel */}
+      {showWhiteboard && docId && (
+        <Suspense fallback={null}>
+          <WhiteboardPanel docId={docId} onClose={() => setShowWhiteboard(false)} />
         </Suspense>
       )}
 
@@ -1319,13 +1345,22 @@ export function DocReaderPage() {
       {showRatingDialog && doc && (
         <RatingDialog
           docTitle={doc.title}
+          currentRating={doc.isRead ? doc.rating : undefined}
           onRate={(rating) => {
             setShowRatingDialog(false)
-            markAsRead(doc.id, rating)
+            if (doc.isRead) {
+              updateRating(doc.id, rating)
+            } else {
+              markAsRead(doc.id, rating)
+            }
           }}
           onSkip={() => {
             setShowRatingDialog(false)
-            markAsRead(doc.id)
+            if (!doc.isRead) markAsRead(doc.id)
+          }}
+          onMarkUnread={() => {
+            setShowRatingDialog(false)
+            toggleRead(doc.id)
           }}
         />
       )}

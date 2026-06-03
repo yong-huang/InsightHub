@@ -4583,3 +4583,179 @@
 .doc-fullscreen-active .rating-dialog-overlay {
   z-index: 100001 !important;
 }
+
+/* ========== Whiteboard Panel ========== */
+.whiteboard-panel {
+  position: fixed;
+  z-index: 100001;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e0e0e0);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.12));
+  overflow: hidden;
+}
+.doc-fullscreen-active .whiteboard-panel {
+  z-index: 100001;
+}
+
+.whiteboard-panel.translucent {
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+.whiteboard-panel.translucent:hover {
+  opacity: 0.85;
+}
+.whiteboard-panel.translucent .code-editor-titlebar {
+  opacity: 1;
+}
+
+/* Canvas area */
+.whiteboard-canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+.whiteboard-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.wb-cursor-crosshair { cursor: crosshair; }
+.wb-cursor-eraser { cursor: cell; }
+.wb-cursor-text { cursor: text; }
+
+/* Canvas background with grid */
+.whiteboard-canvas-wrap.show-grid {
+  background-image:
+    linear-gradient(rgba(128,128,128,0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(128,128,128,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}
+
+/* Color picker dots */
+.wb-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.wb-color-dot:hover {
+  border-color: rgba(0,0,0,0.3);
+}
+.wb-color-dot.active {
+  border-color: var(--text-primary, #1a1a1a);
+}
+
+/* Width slider */
+.wb-width-slider {
+  width: 50px;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-default, #ccc);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  margin: 0 4px;
+}
+.wb-width-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary, #6366f1);
+  cursor: pointer;
+}
+
+/* AI feedback area */
+.wb-ai-feedback {
+  border-top: 1px solid var(--border-subtle, #eee);
+  display: flex;
+  flex-direction: column;
+  max-height: 40%;
+  overflow: hidden;
+}
+.wb-ai-feedback-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #666);
+  border-bottom: 1px solid var(--border-subtle, #eee);
+  flex-shrink: 0;
+}
+.wb-ai-feedback-body {
+  padding: 0.5rem 0.6rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Text input overlay */
+.wb-text-input {
+  font-family: sans-serif;
+}
+
+/* Dark theme */
+[data-theme="dark"] .whiteboard-panel {
+  background: #1e1e2e;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #c9d1d9;
+}
+[data-theme="dark"] .whiteboard-panel .code-editor-titlebar {
+  background: #181825;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  color: #c9d1d9;
+}
+[data-theme="dark"] .whiteboard-panel .code-editor-grip,
+[data-theme="dark"] .whiteboard-panel .code-editor-title {
+  color: #8b949e;
+}
+[data-theme="dark"] .whiteboard-panel .code-editor-action-btn,
+[data-theme="dark"] .whiteboard-panel .code-editor-close-btn {
+  color: #8b949e;
+}
+[data-theme="dark"] .whiteboard-panel .code-editor-action-btn:hover:not(:disabled),
+[data-theme="dark"] .whiteboard-panel .code-editor-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e6edf3;
+}
+[data-theme="dark"] .whiteboard-panel .code-editor-action-btn.active {
+  color: var(--accent-blue, #326ce5);
+  background: rgba(50, 108, 229, 0.15);
+}
+[data-theme="dark"] .whiteboard-canvas-wrap {
+  background: #181825;
+}
+[data-theme="dark"] .wb-color-dot.active {
+  border-color: #c9d1d9;
+}
+[data-theme="dark"] .wb-ai-feedback {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .wb-ai-feedback-header {
+  color: #8b949e;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .wb-ai-feedback-body {
+  color: #c9d1d9;
+}
+[data-theme="dark"] .wb-text-input {
+  color: #e6edf3;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}

@@ -34,6 +34,7 @@ interface DocumentState {
   resetFilters: () => void
   markAsRead: (docId: string, rating?: number) => void
   toggleRead: (docId: string) => void
+  updateRating: (docId: string, rating: number) => void
   setDeprecated: (docId: string) => void
   restoreDocument: (docId: string) => void
   trashDocument: (docId: string) => void
@@ -361,6 +362,29 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       stats: { ...stats, read: stats.read + 1, unread: stats.unread - 1 },
     })
 
+    get().applyFilters()
+  },
+
+  updateRating: (docId, rating) => {
+    const { documents } = get()
+    const doc = documents.get(docId)
+    if (!doc || !doc.isRead) return
+
+    const updated = new Map(documents)
+    updated.set(docId, { ...doc, rating })
+
+    const metaMap = storageService.getDocumentMeta()
+    if (metaMap[docId]) {
+      metaMap[docId] = { ...metaMap[docId], rating }
+    } else {
+      metaMap[docId] = { id: docId, isRead: true, lastReadAt: doc.lastReadAt, readCount: doc.readCount, rating }
+    }
+    storageService.setDocumentMeta(metaMap)
+    storageService.saveRating(docId, rating)
+
+    fetch('/api/read-meta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(metaMap[docId]) }).catch(() => {})
+
+    set({ documents: updated })
     get().applyFilters()
   },
 
