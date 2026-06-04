@@ -1609,11 +1609,12 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('end', () => {
             try {
               const body: any = JSON.parse(Buffer.concat(chunks).toString())
-              if (!body.htmlContent || !body.fileName || !body.category) {
+              if (!body.htmlContent || !body.fileName) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing required fields' }))
                 return
               }
+              const category = body.category || ''
               const contentSize = Buffer.byteLength(body.htmlContent, 'utf-8')
               if (contentSize > IMPORT_DOC_SIZE_LIMIT) {
                 res.statusCode = 400
@@ -1626,7 +1627,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const workspaces = loadWorkspaces()
               const ws = workspaces.find(w => w.id === body.source) || workspaces[0]
               const prefix = ws.prefix || ws.id
-              const id = `${prefix}-${body.category}-${nameWithoutExt}`
+              const id = category ? `${prefix}-${category}-${nameWithoutExt}` : `${prefix}-${nameWithoutExt}`
               const dirs = getWorkspaceDirs()
               const wsDir = dirs[ws.id]
               if (!wsDir) {
@@ -1634,11 +1635,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: `Workspace "${ws.label}" not configured` }))
                 return
               }
-              const destDir = path.join(wsDir, body.category)
+              const destDir = category ? path.join(wsDir, category) : wsDir
               const destPath = path.join(destDir, body.fileName)
 
               // Ensure category directory exists
-              fs.mkdirSync(destDir, { recursive: true })
+              if (category) fs.mkdirSync(destDir, { recursive: true })
               // Write HTML directly to the target workspace
               fs.writeFileSync(destPath, body.htmlContent, 'utf-8')
 
@@ -1670,7 +1671,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             const dirs = getWorkspaceDirs()
             const wsDir = target.source ? dirs[target.source] : undefined
             const wsPath = wsDir
-              ? path.join(wsDir, target.category, target.fileName)
+              ? path.join(target.category ? path.join(wsDir, target.category) : wsDir, target.fileName)
               : ''
             if (wsPath && fs.existsSync(wsPath)) {
               fs.unlinkSync(wsPath)

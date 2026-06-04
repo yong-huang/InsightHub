@@ -55,6 +55,10 @@
   color: var(--accent-blue);
   background: rgba(50, 108, 229, 0.1);
 }
+.dr-action-btn-danger {
+  color: var(--error, #e53935) !important;
+  background: rgba(229, 57, 53, 0.1) !important;
+}
 .dr-action-btn .dr-action-label {
   display: none;
 }

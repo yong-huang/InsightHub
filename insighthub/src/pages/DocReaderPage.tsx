@@ -131,6 +131,7 @@ export function DocReaderPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showRatingDialog, setShowRatingDialog] = useState(false)
+  const [trashingDoc, setTrashingDoc] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [showSummaryPanel, setShowSummaryPanel] = useState(false)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -1102,15 +1103,21 @@ export function DocReaderPage() {
 
           {/* Delete document (move to trash) */}
           <button
-            className="dr-action-btn"
+            className={`dr-action-btn${trashingDoc ? ' dr-action-btn-danger' : ''}`}
             onClick={() => {
+              if (!trashingDoc) {
+                setTrashingDoc(true)
+                setTimeout(() => setTrashingDoc(false), 3000)
+                return
+              }
+              setTrashingDoc(false)
               useDocumentStore.getState().trashDocument(doc.id)
               navigate(fromPath || `/${doc.source}/${doc.category}`)
             }}
             title="Delete document"
           >
             <Trash2 size={16} />
-            <span className="dr-action-label">Delete</span>
+            <span className="dr-action-label">{trashingDoc ? 'Confirm?' : 'Delete'}</span>
           </button>
 
           {/* Fullscreen */}

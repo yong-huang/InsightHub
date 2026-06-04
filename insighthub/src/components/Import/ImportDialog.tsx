@@ -19,7 +19,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
   const importDoc = useDocumentStore(s => s.importDocument)
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const categories = useDynamicCategories(activeWorkspace)
-  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || '')
+  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || (categories.length === 0 ? '__custom__' : ''))
   const [customCategory, setCustomCategory] = useState('')
   const [importing, setImporting] = useState(false)
   const [current, setCurrent] = useState(0)
@@ -36,7 +36,11 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
     for (let i = 0; i < files.length; i++) {
       setCurrent(i + 1)
       try {
-        const category = selectedCategory === '__custom__' ? customCategory.trim() : selectedCategory
+        const category = selectedCategory === '__custom__'
+          ? customCategory.trim()
+          : selectedCategory === '__root__'
+            ? ''
+            : selectedCategory
     await importDoc(files[i], activeWorkspace, category)
         importResults.push({ file: files[i].name, ok: true })
       } catch (e) {
@@ -90,6 +94,7 @@ export function ImportDialog({ files, onClose }: ImportDialogProps) {
                 {categories.map(cat => (
                   <option key={cat.key} value={cat.key}>{cat.label}</option>
                 ))}
+                <option value="__root__">(Root — no subdirectory)</option>
                 <option value="__custom__">+ New Category...</option>
               </select>
               {selectedCategory === '__custom__' && (

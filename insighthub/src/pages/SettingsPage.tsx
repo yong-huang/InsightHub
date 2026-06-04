@@ -91,6 +91,7 @@ export function SettingsPage() {
   const [editModel, setEditModel] = useState('')
   const [editApiKey, setEditApiKey] = useState('')
   const [isNewProfile, setIsNewProfile] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -184,6 +185,11 @@ export function SettingsPage() {
 
   const handleDeleteProfile = async (profileId: string) => {
     if (profileId === activeProfileId) return
+    if (confirmingDelete !== profileId) {
+      setConfirmingDelete(profileId)
+      return
+    }
+    setConfirmingDelete(null)
     setSaving(true)
     try {
       const res = await fetch('/api/ai/config', {
@@ -329,6 +335,11 @@ export function SettingsPage() {
 
   const handleDeleteWorkspace = (id: string) => {
     if (id === activeWorkspace) return
+    if (confirmingDelete !== id) {
+      setConfirmingDelete(id)
+      return
+    }
+    setConfirmingDelete(null)
     removeWorkspace(id)
     syncWorkspacesToServer(workspaces.filter(w => w.id !== id))
     reloadDocuments()
@@ -442,12 +453,14 @@ export function SettingsPage() {
                           Activate
                         </button>
                         <button
-                          className="cs-btn cs-btn-secondary"
+                          className={`cs-btn cs-btn-secondary${confirmingDelete === p.id ? ' cs-btn-danger' : ''}`}
                           style={{ padding: '4px 8px' }}
                           onClick={e => { e.stopPropagation(); handleDeleteProfile(p.id) }}
                           disabled={saving}
+                          title={confirmingDelete === p.id ? 'Click again to confirm' : 'Delete profile'}
                         >
                           <Trash2 size={13} />
+                          {confirmingDelete === p.id && ' ?'}
                         </button>
                       </>
                     )}
@@ -582,11 +595,13 @@ export function SettingsPage() {
                 <div className="cs-model-actions">
                   {ws.id !== activeWorkspace && (
                     <button
-                      className="cs-btn cs-btn-secondary"
+                      className={`cs-btn cs-btn-secondary${confirmingDelete === ws.id ? ' cs-btn-danger' : ''}`}
                       style={{ padding: '4px 8px' }}
                       onClick={e => { e.stopPropagation(); handleDeleteWorkspace(ws.id) }}
+                      title={confirmingDelete === ws.id ? 'Click again to confirm' : 'Delete workspace'}
                     >
                       <Trash2 size={13} />
+                      {confirmingDelete === ws.id && ' ?'}
                     </button>
                   )}
                 </div>

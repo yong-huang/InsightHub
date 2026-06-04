@@ -16,7 +16,7 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
   const reloadDocuments = useDocumentStore(s => s.reloadDocuments)
 
   const [url, setUrl] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || '')
+  const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || (categories.length === 0 ? '__custom__' : ''))
   const [customCategory, setCustomCategory] = useState('')
   const [fetching, setFetching] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -30,8 +30,12 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
       setError('Please enter a URL')
       return
     }
-    const category = selectedCategory === '__custom__' ? customCategory.trim() : selectedCategory
-    if (!category) {
+    const category = selectedCategory === '__custom__'
+      ? customCategory.trim()
+      : selectedCategory === '__root__'
+        ? ''
+        : selectedCategory
+    if (!category && selectedCategory !== '__root__') {
       setError('Please select or enter a category')
       return
     }
@@ -125,6 +129,7 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
                 {categories.map(cat => (
                   <option key={cat.key} value={cat.key}>{cat.label}</option>
                 ))}
+                <option value="__root__">(Root — no subdirectory)</option>
                 <option value="__custom__">+ New Category...</option>
               </select>
               {selectedCategory === '__custom__' && (

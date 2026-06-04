@@ -27,6 +27,7 @@ const LANGUAGES = [
   { value: 'typescript', label: 'TypeScript' },
   { value: 'go', label: 'Go' },
   { value: 'java', label: 'Java' },
+  { value: 'c', label: 'C' },
   { value: 'cpp', label: 'C++' },
   { value: 'rust', label: 'Rust' },
   { value: 'sql', label: 'SQL' },
@@ -49,6 +50,7 @@ function getLangExtension(lang: LangValue) {
     case 'typescript': return javascript({ typescript: true })
     case 'go': return go()
     case 'java': return java()
+    case 'c': return cpp()
     case 'cpp': return cpp()
     case 'rust': return rust()
     case 'sql': return sql()
@@ -387,7 +389,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     setIsReviewing(true)
     const langLabel = LANGUAGES.find(l => l.value === language)?.label || language
     const commentStyle: Record<string, string> = {
-      python: '#', javascript: '//', typescript: '//', go: '//',
+      python: '#', javascript: '//', typescript: '//', go: '//', c: '//',
       java: '//', cpp: '//', rust: '//', sql: '--',
       html: '<!-- -->', css: '/* */', json: '//',
       markdown: '<!-- -->', xml: '<!-- -->', plaintext: '//',

@@ -1073,6 +1073,10 @@
   background: var(--bg-card-hover);
   color: var(--text-primary);
 }
+.cs-btn-danger {
+  color: var(--error, #e53935) !important;
+  border-color: var(--error, #e53935) !important;
+}
 .cs-btn-ghost {
   background: transparent;
   color: var(--text-secondary);
