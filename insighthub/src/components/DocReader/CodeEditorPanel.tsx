@@ -144,86 +144,6 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
     return () => observer.disconnect()
   }, [])
 
-  // Pinned horizontal scrollbar: hide native, sync a fake one at the bottom of code-editor-body
-  const hscrollBarRef = useRef<HTMLDivElement>(null)
-  const hscrollThumbRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      const body = panelRef.current?.querySelector('.code-editor-body')
-      const scroller = body?.querySelector('.cm-scroller') as HTMLElement | null
-      const bar = hscrollBarRef.current
-      const thumb = hscrollThumbRef.current
-      if (!scroller || !bar || !thumb) return
-
-      // Hide native horizontal scrollbar, keep vertical scroll
-      scroller.style.overflowX = 'hidden'
-      scroller.style.overflowY = 'auto'
-
-      const sync = () => {
-        const sw = scroller.scrollWidth
-        const vw = scroller.clientWidth
-        if (sw <= vw + 1) { bar.style.opacity = '0'; return }
-        bar.style.opacity = '1'
-        const ratio = vw / sw
-        const thumbW = Math.max(30, vw * ratio)
-        const trackW = vw - thumbW
-        const pos = sw > vw ? scroller.scrollLeft / (sw - vw) : 0
-        thumb.style.width = `${thumbW}px`
-        thumb.style.transform = `translateX(${pos * trackW}px)`
-      }
-
-      // Drag thumb to scroll
-      let dragging = false, startX = 0, startScroll = 0
-      const onDown = (e: PointerEvent) => {
-        e.preventDefault()
-        dragging = true
-        startX = e.clientX
-        startScroll = scroller.scrollLeft
-        thumb.setPointerCapture(e.pointerId)
-      }
-      const onMove = (e: PointerEvent) => {
-        if (!dragging) return
-        const scrollable = scroller.scrollWidth - scroller.clientWidth
-        if (scrollable <= 0) return
-        const trackW = scroller.clientWidth - 30
-        scroller.scrollLeft = startScroll + ((e.clientX - startX) / Math.max(30, trackW)) * scrollable
-      }
-      const onUp = () => { dragging = false }
-
-      thumb.addEventListener('pointerdown', onDown)
-      thumb.addEventListener('pointermove', onMove)
-      thumb.addEventListener('pointerup', onUp)
-      thumb.addEventListener('lostpointercapture', onUp)
-
-      // Shift+wheel → horizontal scroll
-      const onWheel = (e: WheelEvent) => {
-        if (e.shiftKey) {
-          e.preventDefault()
-          scroller.scrollLeft += e.deltaY || e.deltaX
-        }
-      }
-      body!.addEventListener('wheel', onWheel, { passive: false })
-
-      scroller.addEventListener('scroll', sync)
-      const ro = new ResizeObserver(sync)
-      ro.observe(scroller)
-      ro.observe(body!)
-      sync()
-
-      return () => {
-        thumb.removeEventListener('pointerdown', onDown)
-        thumb.removeEventListener('pointermove', onMove)
-        thumb.removeEventListener('pointerup', onUp)
-        thumb.removeEventListener('lostpointercapture', onUp)
-        body!.removeEventListener('wheel', onWheel)
-        scroller.removeEventListener('scroll', sync)
-        ro.disconnect()
-        scroller.style.overflowX = ''
-        scroller.style.overflowY = ''
-      }
-    })
-  }, [themeKey])
-
   // Set initial position/size once via DOM (not React style) to avoid re-render overwrites
   useEffect(() => {
     const el = panelRef.current
@@ -620,9 +540,6 @@ Rules:
                 indentUnit: 4,
               }}
             />
-            <div className="ce-hscroll" ref={hscrollBarRef}>
-              <div className="ce-hscroll-thumb" ref={hscrollThumbRef} />
-            </div>
           </div>
           {coachMode && (
             <div className="code-editor-coach">

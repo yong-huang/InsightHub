@@ -73,13 +73,7 @@ describe('CodeEditorPanel', () => {
       expect(screen.getByText('Code')).toBeInTheDocument()
     })
 
-    // Open coach mode
-    const coachBtn = screen.getByTitle('AI Coach')
-    await act(async () => {
-      coachBtn.click()
-    })
-
-    // Type into the CodeMirror editor → triggers onChange → handleCodeChange → 5s debounce
+    // Coach mode is on by default, type into the CodeMirror editor → triggers onChange → handleCodeChange → 5s debounce
     const cm = screen.getByTestId('codemirror')
     await act(async () => {
       fireEvent.input(cm, { inputType: 'insertText' })

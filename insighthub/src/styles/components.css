@@ -4146,7 +4146,7 @@
 
 .code-editor-body {
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   font-family: var(--font-mono);
   min-height: 0;
   position: relative;
@@ -4165,32 +4165,6 @@
 }
 .code-editor-body .cm-scroller {
   overflow: auto;
-}
-/* Pinned horizontal scrollbar at the bottom of the editor */
-.ce-hscroll {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 8px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-  z-index: 1;
-}
-.ce-hscroll-thumb {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  min-width: 30px;
-  background: rgba(128, 128, 128, 0.35);
-  border-radius: 4px;
-  cursor: grab;
-  pointer-events: auto;
-}
-.ce-hscroll-thumb:active {
-  cursor: grabbing;
-  background: rgba(128, 128, 128, 0.55);
 }
 
 /* 8-directional resize handles */
