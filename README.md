@@ -4,31 +4,100 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 ## Screenshots
 
+### Overview & Navigation
+
 <p align="center">
   <img src="docs/screenshots/01-home.png" alt="Home Dashboard" width="440"/>
-  <img src="docs/screenshots/02-doc-reader.png" alt="Document Reader" width="440"/>
+  <img src="docs/screenshots/02-category.png" alt="Category Browsing" width="440"/>
 </p>
 <p align="center">
-  <em>Home Dashboard</em> — stats, recent reads, and category overview<br/>
-  <em>Document Reader</em> — iframe embed with annotation highlights and AI panels
+  <em>Home Dashboard</em> — reading stats, category overview, and recent activity<br/>
+  <em>Category Browsing</em> — filter documents by workspace and category
 </p>
+
+### AI-Powered Document Reader
+
+<p align="center">
+  <img src="docs/screenshots/11-doc-reader.png" alt="Document Reader" width="440"/>
+  <img src="docs/screenshots/12-quiz.png" alt="AI Quiz" width="440"/>
+</p>
+<p align="center">
+  <em>Document Reader</em> — iframe-embedded documents with a full annotation and AI toolbar<br/>
+  <em>AI Quiz</em> — auto-generated quiz sessions with 5 question types, difficulty tags, and score tracking
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/13-ai-chat.png" alt="AI Chat" width="440"/>
+  <img src="docs/screenshots/14-code-editor.png" alt="Code Editor" width="440"/>
+</p>
+<p align="center">
+  <em>AI Chat</em> — multi-turn conversation about document content with streaming responses<br/>
+  <em>Code Editor</em> — built-in CodeMirror editor with AI coaching panel and multi-language support
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/15-whiteboard.png" alt="Whiteboard" width="440"/>
+  <img src="docs/screenshots/16-summary.png" alt="AI Summary" width="440"/>
+</p>
+<p align="center">
+  <em>Whiteboard</em> — freehand drawing canvas for visual note-taking alongside documents<br/>
+  <em>AI Summary</em> — one-click structured summary with key takeaways, concepts, and outline
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/17-inception.png" alt="AI Inception" width="440"/>
+  <img src="docs/screenshots/18-challenge.png" alt="AI Challenge" width="440"/>
+</p>
+<p align="center">
+  <em>AI Inception</em> — progressive multi-level summarization from full content to abstract<br/>
+  <em>AI Challenge</em> — devil's advocate multi-round debates to test concept understanding
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/19-concepts.png" alt="Concept Extraction" width="440"/>
+</p>
+<p align="center">
+  <em>Concept Extraction</em> — AI-generated concept cards for spaced repetition review
+</p>
+
+### Visualizations & Analytics
 
 <p align="center">
   <img src="docs/screenshots/03-knowledge-graph.png" alt="Knowledge Graph" width="440"/>
   <img src="docs/screenshots/04-learning-path.png" alt="Learning Path" width="440"/>
 </p>
 <p align="center">
-  <em>Knowledge Graph</em> — interactive D3-force document network<br/>
-  <em>Learning Path</em> — knowledge tree with milestones and recommendations
+  <em>Knowledge Graph</em> — interactive D3-force network of documents, categories, and tags<br/>
+  <em>Learning Path</em> — knowledge tree with milestones and AI study plan
 </p>
 
 <p align="center">
   <img src="docs/screenshots/05-stats.png" alt="Learning Analytics" width="440"/>
-  <img src="docs/screenshots/06-hidden-docs.png" alt="Hidden Documents" width="440"/>
+  <img src="docs/screenshots/06-achievements.png" alt="Achievements" width="440"/>
 </p>
 <p align="center">
-  <em>Learning Analytics</em> — heatmap, radar, quiz dashboard, token usage<br/>
-  <em>Hidden Documents</em> — manage hidden documents and categories
+  <em>Learning Analytics</em> — reading heatmap, quiz performance, category radar, and habits<br/>
+  <em>Achievements</em> — 44 unlockable milestones across 5 categories
+</p>
+
+### More
+
+<p align="center">
+  <img src="docs/screenshots/07-spaced-repetition.png" alt="Spaced Repetition" width="440"/>
+  <img src="docs/screenshots/08-search.png" alt="Full-Text Search" width="440"/>
+</p>
+<p align="center">
+  <em>Spaced Repetition</em> — SM-2 algorithm flashcard review with 3D flip animation<br/>
+  <em>Full-Text Search</em> — instant FlexSearch across all documents with keyboard shortcut
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/09-token-stats.png" alt="Token Stats" width="440"/>
+  <img src="docs/screenshots/10-notes.png" alt="All Notes" width="440"/>
+</p>
+<p align="center">
+  <em>Token Stats</em> — AI token usage tracking with cost estimation per model<br/>
+  <em>All Notes</em> — unified view of all comments and annotations across documents
 </p>
 
 ## Highlights
@@ -37,84 +106,70 @@ An intelligent knowledge management platform for browsing, annotating, and maste
 
 InsightHub integrates with any OpenAI-compatible local LLM to bring intelligence directly into your reading workflow:
 
-- **AI Quiz Generation** — Generate a complete quiz session on the fly. The LLM analyzes document content and produces 5 question types via SSE streaming: multiple-choice, true/false, short-answer, fill-in-the-blank, and code completion. Questions appear in real-time. Supports configurable difficulty and question count.
-
-- **AI Document Chat** — Ask questions about the current document and get contextual answers. Supports multi-turn conversation with streaming responses.
-
-- **AI Document Summarization** — Get a structured summary with one click. The AI extracts core takeaways, key concepts, and a content outline.
-
-- **AI Evaluation** — Evaluate document accuracy, completeness, and depth with AI-generated assessments.
-
-- **AI Inception (Progressive Summary)** — Multi-level progressive summarization that distills a document from full content to increasingly concise abstracts.
-
-- **AI Concept Extraction** — Automatically extract key concepts from documents and generate spaced repetition flashcards.
-
-- **AI Concept Challenges** — Devil's advocate style multi-round challenges that test your understanding of extracted concepts. 5 rounds per session with scoring and feedback.
-
-- **AI Speech / Presentation Script** — Generate a presentation script from document content, ready for delivery.
-
-- **AI Study Plan** — Paste a job description or learning goal, and the AI matches relevant documents from your library to create a personalized study plan.
-
-- **AI Bubble** — Hover over any concept in the document reader to get an instant AI explanation popover.
-
-- **Token Usage Tracking** — Monitor AI token consumption across all features with cost estimation for commercial LLMs (GPT-4o, Claude, DeepSeek).
-
-- **Privacy-First** — All AI features run against a local model. No data leaves your machine. Works with llama.cpp, Ollama, vLLM, or any OpenAI-compatible server.
+- **AI Quiz Generation** — Generate quiz sessions with 5 question types via SSE streaming: multiple-choice, true/false, short-answer, fill-in-the-blank, and code completion. Configurable difficulty and question count.
+- **AI Document Chat** — Multi-turn conversation about document content with streaming responses.
+- **AI Document Summarization** — Structured summary with core takeaways, key concepts, and content outline.
+- **AI Evaluation** — Assess document accuracy, completeness, and depth with AI-generated ratings.
+- **AI Inception (Progressive Summary)** — Multi-level distillation from full content to increasingly concise abstracts.
+- **AI Concept Extraction** — Auto-extract key concepts from documents and generate spaced repetition flashcards.
+- **AI Concept Challenges** — Devil's advocate multi-round debates that test deep understanding with scoring.
+- **AI Code Editor** — Built-in CodeMirror editor with AI coaching, syntax highlighting for 15+ languages, and code execution.
+- **AI Whiteboard** — Drawing canvas with AI vision analysis to interpret diagrams and handwritten notes.
+- **AI Study Plan** — Paste a job description or learning goal, and the AI matches relevant documents to create a personalized plan.
+- **AI Bubble** — Hover over any concept to get an instant AI explanation popover.
+- **Token Usage Tracking** — Monitor AI token consumption with cost estimation for commercial LLMs.
+- **Privacy-First** — All AI features run against a local model. No data leaves your machine.
 
 ### Interactive Visualizations
 
-InsightHub turns your learning data into actionable visual insights:
-
-- **Knowledge Graph** — A force-directed network graph where documents, categories, and tags are nodes connected by relationships. Pan, zoom, and drag to explore. Built with D3-force simulation. Similarity edges computed via lazy TF-IDF cosine similarity.
-- **Personal Knowledge Map** — A force-directed graph centered on "You", showing your personal knowledge landscape. Node size reflects engagement depth. Color-coded mastery levels from red (needs work) to cyan (mastered).
-- **Knowledge Tree** — A collapsible tree view organizing content by Category → Document → Concept.
-- **GitHub-Style Reading Heatmap** — Track daily reading activity over time.
-- **Category Radar Chart** — A radar/spider chart showing reading distribution across categories.
-- **Quiz Performance Dashboard** — Circular gauge for average score, difficulty distribution, and score trend line chart.
-- **Reading Habits Analysis** — Hourly distribution, weekday patterns, and streak tracking.
-- **Tag Cloud** — Dynamic word cloud where tag size reflects usage frequency.
-- **Learning Path** — Timeline of learning milestones with recommended next steps.
+- **Knowledge Graph** — D3-force network graph with pan, zoom, and drag. Similarity edges via TF-IDF cosine similarity.
+- **Personal Knowledge Map** — Force-directed graph centered on "You" with engagement-based node sizing and mastery color coding.
+- **Knowledge Tree** — Collapsible tree: Category → Document → Concept.
+- **GitHub-Style Reading Heatmap** — Daily reading activity over time.
+- **Category Radar Chart** — Reading distribution across categories.
+- **Quiz Performance Dashboard** — Circular gauge, difficulty distribution, and score trend.
+- **Reading Habits Analysis** — Hourly, weekday patterns, and streak tracking.
+- **Tag Cloud** — Dynamic word cloud sized by usage frequency.
+- **Learning Path** — Timeline of milestones with AI-generated study recommendations.
 
 ### Spaced Repetition
 
-Review AI-extracted concept cards with science-backed scheduling:
-
-- Concept cards are **automatically generated** by AI when you extract concepts from documents.
-- Reviews are scheduled using the **SM-2 algorithm** (SuperMemo 2), the same proven algorithm behind Anki.
-- Intervals grow from 1 day → 6 days → 17 days → 49 days → ... based on your recall performance.
-- 3D flip card animation with keyboard shortcuts (Space to flip, 0-5 to grade, S to skip).
+- Concept cards auto-generated by AI from document content.
+- **SM-2 algorithm** (SuperMemo 2) scheduling — the same algorithm behind Anki.
+- Intervals: 1 day → 6 days → 17 days → 49 days → ... based on recall performance.
+- 3D flip animation with keyboard shortcuts (Space to flip, 0-5 to grade, S to skip).
 
 ### Rich Annotation System
 
-- **Highlight** text in 6 colors (yellow, teal, orange, red, purple, blue) with persistent overlays that survive page reloads.
+- **Highlight** text in 6 colors with persistent overlays.
 - **Comment** on any selection with threaded replies.
-- **Click-to-view** — Click any highlighted passage to see its annotation in a popup.
-- **Touch support** — Full annotation on iPad and other touch devices via `selectionchange` event with debounced selection detection.
-- Annotations are serialized via XPath and restored with fuzzy text matching as fallback.
-- All annotations are synced across LAN clients.
+- **Click-to-view** — Click highlighted passages to see annotation details.
+- **Touch support** — Full annotation on iPad and touch devices.
+- XPath serialization with fuzzy text matching restore.
+- LAN sync across clients.
 
 ### Achievement System
 
-44 achievements across 5 categories that unlock as you learn:
+44 achievements across 5 categories:
 
-- **Reading** (11 milestones) — First Read → Million Words, including category completion and depth reading
-- **Quiz** (10 milestones) — First Quiz → Question Crusher, tracking perfect scores and marathon sessions
-- **Annotation** (9 milestones) — First Highlight → Conversation King, rewarding rich engagement
-- **Streak & Explore** (9 milestones) — Three-Day Streak → Search Savant, with time-based bonuses (Night Owl, Early Bird)
-- **Special** (8 milestones) — Speed Reader, AI Scholar, and other unique accomplishments
+- **Reading** (11) — First Read → Million Words
+- **Quiz** (10) — First Quiz → Question Crusher
+- **Annotation** (9) — First Highlight → Conversation King
+- **Streak & Explore** (9) — Three-Day Streak → Search Savant
+- **Special** (8) — Speed Reader, AI Scholar, and more
 
 ## Feature Overview
 
 | Category | Features |
 |----------|----------|
-| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later list, document import (HTML), cross-document navigation, document/category hide & restore |
-| **AI Integration** | Quiz generation (SSE streaming, 5 question types), document chat, summarization, evaluation, inception, concept challenges, speech/script, study plan, concept extraction, AI bubble, token usage tracking |
-| **Annotations** | Multi-color highlights (6 colors), inline comments with replies, click-to-view popup, touch support, XPath persistence with fuzzy restore |
-| **Spaced Repetition** | AI concept card extraction, SM-2 scheduling, 3D flip cards, keyboard shortcuts, progress tracking |
-| **Visualizations** | Knowledge graph, personal map, knowledge tree, reading heatmap, category radar, quiz dashboard, reading habits, tag cloud, learning path, top engaged documents |
-| **Gamification** | Achievement system with 44 unlockable milestones across 5 categories, toast notifications |
-| **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation, full data backup/export/import (JSON) |
-| **UI/UX** | Light/dark theme, responsive sidebar, keyboard shortcuts, iframe-based document reader, feature toggles, AI model profiles (multi-profile CRUD) |
+| **Document Management** | Category browsing, full-text search (FlexSearch), tag filtering, read-later, document import (HTML/URL), cross-document navigation, hide & restore, trash |
+| **AI Integration** | Quiz (5 types, SSE streaming), chat, summarization, evaluation, inception, concept extraction, challenges, code editor with coaching, whiteboard with vision, study plan, AI bubble, token tracking |
+| **Annotations** | 6-color highlights, threaded comments, click-to-view popup, touch support, XPath persistence with fuzzy restore |
+| **Spaced Repetition** | AI concept cards, SM-2 scheduling, 3D flip cards, keyboard shortcuts |
+| **Visualizations** | Knowledge graph, personal map, knowledge tree, heatmap, radar, quiz dashboard, reading habits, tag cloud, learning path |
+| **Gamification** | 44 achievements across 5 categories, toast notifications |
+| **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation, backup/export/import |
+| **UI/UX** | Light/dark theme, sidebar, keyboard shortcuts, iframe reader, feature toggles, multi-profile AI config |
 
 ## Tech Stack
 
@@ -124,14 +179,15 @@ Review AI-extracted concept cards with science-backed scheduling:
 | Build | Vite 8 | Dev server and bundling with code splitting |
 | State | Zustand 5 | Lightweight reactive state (7 stores) |
 | Search | FlexSearch | Client-side full-text search |
-| Charts | Recharts | Statistical charts (radar, heatmap, line, bar, area) |
+| Editor | CodeMirror 6 | Code editing with syntax highlighting |
+| Charts | Recharts | Statistical charts (radar, heatmap, line, bar) |
 | Graph | D3-force | Force-directed graph layouts |
 | Icons | Lucide React | Consistent icon system |
 | Styling | Pure CSS + Custom Properties | Theming without dependencies |
-| Fonts | Inter Variable, JetBrains Mono | UI and code display fonts |
+| Fonts | Inter Variable, JetBrains Mono | UI and code fonts |
 | AI | OpenAI-compatible SSE | Local LLM integration |
 
-**Zero UI framework dependencies** — no Material UI, no Tailwind, no Bootstrap. Every component is hand-crafted with pure CSS for full control over the design system.
+**Zero UI framework dependencies** — no Material UI, no Tailwind, no Bootstrap. Every component is hand-crafted with pure CSS.
 
 ## Quick Start
 
@@ -165,7 +221,7 @@ npm run preview  # Serve the production build locally
 insighthub/
 ├── src/
 │   ├── components/
-│   │   ├── DocReader/           # 13 components for document reader
+│   │   ├── DocReader/           # 19 components for document reader
 │   │   │   ├── AnnotationBar    #   Highlight/comment toolbar
 │   │   │   ├── AnnotationPanel  #   Annotation list sidebar
 │   │   │   ├── AnnotationPopup  #   Click-to-view annotation details
@@ -175,62 +231,30 @@ insighthub/
 │   │   │   ├── EvaluationPanel  #   AI document evaluation
 │   │   │   ├── InceptionPanel   #   AI progressive summarization
 │   │   │   ├── ChallengePanel   #   AI concept challenges (5 rounds)
-│   │   │   ├── SpeechPanel      #   AI presentation script
+│   │   │   ├── ScriptPanel      #   AI presentation script
+│   │   │   ├── QuizPanel        #   AI quiz session
+│   │   │   ├── ConceptCardsPanel#   AI-extracted concept cards
 │   │   │   ├── SimilarDocsPanel #   Document similarity sidebar
 │   │   │   ├── AIBubble         #   Hover concept explanation
+│   │   │   ├── CodeEditorPanel  #   CodeMirror editor with AI coaching
+│   │   │   ├── WhiteboardPanel  #   Drawing canvas with AI vision
+│   │   │   ├── ShadowTypingPanel#   Shadow typing practice
+│   │   │   ├── RatingDialog     #   Document rating dialog
 │   │   │   └── WikiLinkRenderer #   Wiki-style bidirectional links
-│   │   ├── Layout/              # App shell, sidebar, navbar
+│   │   ├── Layout/              # App shell, sidebar, navbar, file tree
 │   │   ├── visualization/       # 12 interactive visualization components
-│   │   │   ├── KnowledgeGraph   #   Force-directed document/category/tag graph
-│   │   │   ├── PersonalMap      #   Personal knowledge landscape graph
-│   │   │   ├── KnowledgeTree    #   Collapsible category→doc→concept tree
-│   │   │   ├── LearningPath     #   Timeline with milestone cards
-│   │   │   ├── StudyPlanTree    #   AI-driven study plan tree
-│   │   │   ├── CategoryRadar    #   Radar chart for category coverage
-│   │   │   ├── ReadingHeatmap   #   GitHub-style daily activity heatmap
-│   │   │   ├── QuizPerformance  #   Score gauge + trend + difficulty chart
-│   │   │   ├── ReadingHabits    #   Hourly/weekday distribution + streaks
-│   │   │   ├── TagCloud         #   Frequency-based word cloud
-│   │   │   ├── TopEngagedDocuments # Ranked engagement list
-│   │   │   └── ReportHero       #   Summary hero cards for stats page
 │   │   ├── stats/               # Chart containers and stat components
 │   │   ├── shared/              # Reusable UI (DocCard, DocGrid, FilterBar, etc.)
-│   │   ├── Import/              # Document import dialog
+│   │   ├── Import/              # Import, move, and URL import dialogs
 │   │   └── search/              # Search dialog
-│   ├── pages/
-│   │   ├── HomePage.tsx              # Dashboard
-│   │   ├── CategoryPage.tsx          # Category/workspace listing + doc grid
-│   │   ├── DocReaderPage.tsx         # Document reader with all AI panels
-│   │   ├── SearchPage.tsx            # Full-text search
-│   │   ├── QuizPage.tsx              # AI quiz session
-│   │   ├── StatsPage.tsx             # Learning analytics
-│   │   ├── KnowledgeGraphPage.tsx    # Tabbed: graph / personal map / knowledge tree
-│   │   ├── LearningPathPage.tsx      # Tabbed: tree / milestones / timeline / study plan
-│   │   ├── SpacedRepetitionPage.tsx  # SM-2 concept card review
-│   │   ├── NotesPage.tsx             # All notes/comments management
-│   │   ├── TokenStatsPage.tsx        # AI token usage and cost estimation
-│   │   ├── AchievementsPage.tsx      # Achievement gallery
-│   │   ├── ReadLaterPage.tsx         # Read-later reading list
-│   │   ├── HiddenDocsPage.tsx        # Hidden documents & categories management
-│   │   └── SettingsPage.tsx          # Full settings (AI, quiz, features, workspaces, data)
-│   ├── services/                # 12 service modules
-│   │   ├── aiService.ts         # SSE streaming, quiz gen, summarization, grading
-│   │   ├── readerAiService.ts   # Document chat, explain, translate, inception, speech
-│   │   ├── conceptService.ts    # AI concept extraction
-│   │   ├── challengeService.ts  # AI devil's advocate concept challenges
-│   │   ├── studyPlanService.ts  # AI study plan generation
-│   │   ├── tokenUsageService.ts # Token usage tracking
-│   │   ├── similarityService.ts # Lazy TF-IDF document similarity
-│   │   ├── quizService.ts       # Quiz generation and parsing
-│   │   ├── searchService.ts     # FlexSearch index and query
-│   │   ├── importService.ts     # Document import (HTML upload)
-│   │   ├── storageService.ts    # localStorage wrapper
-│   │   └── achievementService.ts # 44 achievement definitions
+│   ├── pages/                   # 16 page components
+│   ├── services/                # 13 service modules
 │   ├── stores/                  # 7 Zustand stores
 │   ├── hooks/                   # 6 custom hooks
 │   ├── utils/                   # XPath, graph builders, aggregators, exporters
+│   ├── types/                   # Centralized TypeScript type definitions
 │   └── styles/                  # 7 CSS files (globals, layout, components, etc.)
-├── vite-plugins/                # Custom Vite plugin (document discovery + API proxy)
+├── vite-plugins/                # Custom Vite plugin (document discovery + 36 API endpoints)
 ├── scripts/
 │   └── copy-docs.ts             # Build-time document copy script
 └── vite.config.ts
@@ -240,13 +264,11 @@ insighthub/
 
 ### AI Model
 
-Configure from the Settings page — supports multiple AI model profiles with full CRUD, persisted to localStorage and synced to the server.
-
-Compatible with any OpenAI-compatible server: llama.cpp, Ollama, vLLM, LM Studio, etc.
+Configure from the Settings page — supports multiple AI model profiles with full CRUD. Compatible with any OpenAI-compatible server: llama.cpp, Ollama, vLLM, LM Studio, etc.
 
 ### Document Workspaces
 
-Workspaces are configured in `data/.insighthub-workspaces.json` or added via the Settings page. Each workspace maps to a local document directory with its own ID prefix. Categories are discovered dynamically from the document folder structure.
+Workspaces are configured in `data/.insighthub-workspaces.json` or added via Settings. Each workspace maps to a local directory with its own ID prefix. Categories are discovered dynamically from the folder structure.
 
 ```json
 [
@@ -261,28 +283,21 @@ Workspaces are configured in `data/.insighthub-workspaces.json` or added via the
 ]
 ```
 
-Paths are relative to the `insighthub/` directory. Any number of workspaces can be added.
-
 ### Workspace Switching
 
 Toggle between workspaces from the navbar. Each workspace independently filters documents, annotations, flashcards, tags, and sidebar navigation.
 
 ### Feature Toggles
 
-Individual AI features can be enabled/disabled from Settings: Summary, Inception, Evaluation, Speech, Script, Quiz, Concept Extraction, Document Similarity. Disabling a feature only hides its button — existing data is preserved.
+Individual AI features can be enabled/disabled from Settings. Disabling a feature only hides its button — existing data is preserved.
 
 ### Data Management
 
-Settings includes full data backup and restore: export all data (localStorage + 8 server endpoints) as a single JSON file, and import to restore on any machine.
+Full data backup and restore: export all data (localStorage + server endpoints) as a single JSON file, and import to restore on any machine.
 
 ### Quiz Configuration
 
 Configure difficulty (easy/medium/hard), question count, and enabled question types (multiple-choice, true/false, short-answer, fill-in-the-blank, code completion).
-
-## Documentation
-
-- [DESIGN.md](docs/DESIGN.md) — Technical design, architecture, data flow, algorithms
-- [DEPLOY.md](docs/DEPLOY.md) — Build, deployment options (static, LAN, Docker), AI setup
 
 ## License
 
