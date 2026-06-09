@@ -10,6 +10,12 @@ export interface DocumentManifestEntry {
   source: Source
   category: string
   subcategory?: string
+  // Enriched metadata (optional, backward-compatible)
+  title?: string
+  contentSnippet?: string
+  wordCount?: number
+  language?: 'zh' | 'en' | 'mixed'
+  sections?: Array<{ id: string; title: string; level: 2 | 3 }>
 }
 
 export const EXCLUDE_DIRS = ['backups', 'template']
@@ -48,16 +54,22 @@ export function generateId(
 /**
  * Scan all workspaces at once, resolving relative paths against baseDir.
  */
+export interface ScanOptions {
+  extractMetadata?: boolean
+}
+
 export function scanWorkspaces(
   workspaces: WorkspaceEntry[],
   baseDir: string,
+  options?: ScanOptions,
 ): DocumentManifestEntry[] {
   const result: DocumentManifestEntry[] = []
   for (const ws of workspaces) {
+    if (!ws.path) continue
     const absPath = path.isAbsolute(ws.path) ? ws.path : path.resolve(baseDir, ws.path)
     // Use actual directory name (not label) for filePath to ensure case-sensitive match
     const dirName = path.basename(absPath)
-    result.push(...scanWithManifest(absPath, ws.id, ws.prefix, dirName))
+    result.push(...scanWithManifest(absPath, ws.id, ws.prefix, dirName, options))
   }
   return result
 }

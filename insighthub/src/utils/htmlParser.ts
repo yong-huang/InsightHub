@@ -1,7 +1,7 @@
 import type { Document, Section } from '@/types'
 import type { DocumentManifestEntry } from './documentManifest'
 
-function stripTitleSuffix(title: string, suffixes: string[]): string {
+export function stripTitleSuffix(title: string, suffixes: string[]): string {
   let cleaned = title
   for (const suffix of suffixes) {
     if (cleaned.endsWith(suffix)) {

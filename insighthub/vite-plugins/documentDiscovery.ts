@@ -494,7 +494,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             return
           }
           const workspaces = loadWorkspaces()
-          const manifest = scanWorkspaces(workspaces, BASE_DIR)
+          const manifest = scanWorkspaces(workspaces, BASE_DIR, { extractMetadata: true })
           const data = JSON.stringify(manifest)
           manifestCache = { data, ts: now }
           res.setHeader('Content-Type', 'application/json')
@@ -1525,6 +1525,35 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
               res.statusCode = 400
               res.end(JSON.stringify({ error: 'URL must start with http:// or https://' }))
+              return
+            }
+            // SSRF protection: block private/loopback/reserved IPs
+            try {
+              const parsedUrl = new URL(url)
+              // Block non-standard ports (only allow 80, 443, 8080, 8443, 3000, 5600)
+              const allowedPorts = [80, 443, 8080, 8443, 3000, 5600, null]
+              if (parsedUrl.port && !allowedPorts.includes(Number(parsedUrl.port))) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Port not allowed' }))
+                return
+              }
+              // Resolve hostname and check against private ranges
+              const net = await import('node:net')
+              const lookup = await net.promises.lookup(parsedUrl.hostname, { verbatim: true })
+              const ip = lookup.address
+              const isPrivate = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1'
+                || ip.startsWith('10.') || ip.startsWith('192.168.')
+                || /^(172\.(1[6-9]|2\d|3[01]))\./.test(ip)
+                || ip.startsWith('169.254.')
+                || ip === '0.0.0.0' || ip.startsWith('::')
+              if (isPrivate) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Private/internal addresses are not allowed' }))
+                return
+              }
+            } catch (dnsErr: any) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Failed to resolve hostname' }))
               return
             }
             try {

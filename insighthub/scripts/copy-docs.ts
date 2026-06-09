@@ -30,7 +30,7 @@ function main() {
   }
 
   const workspaces = loadWorkspaces()
-  const manifest = scanWorkspaces(workspaces, BASE_DIR)
+  const manifest = scanWorkspaces(workspaces, BASE_DIR, { extractMetadata: true })
 
   // Build source base map for file copying
   const sourceBases: Record<string, string> = {}

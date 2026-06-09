@@ -1,8 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { Source } from '../../src/types'
-import type { DocumentManifestEntry } from './scanDocuments'
+import type { DocumentManifestEntry, ScanOptions } from './scanDocuments'
 import { generateId, isExcluded } from './scanDocuments'
+import { extractHtmlMetadataFromFile } from './htmlMetadataExtractor'
 
 interface ManifestEntry {
   file: string // relative path from source root
@@ -52,6 +53,7 @@ export function scanWithManifest(
   source: Source,
   sourcePrefix: string,
   sourceNameOverride?: string,
+  options?: ScanOptions,
 ): DocumentManifestEntry[] {
   if (!fs.existsSync(sourceDir)) return []
 
@@ -72,13 +74,18 @@ export function scanWithManifest(
   // Build reverse indexes: relativePath → id, fileName → { id, file }
   const pathToId = new Map<string, string>()
   const fileNameToEntry = new Map<string, { id: string; file: string }>()
+  let changed = false
   for (const [id, entry] of Object.entries(manifest.entries)) {
+    // Handle corrupted entries (string instead of {file: string})
+    if (!entry || typeof entry !== 'object' || typeof entry.file !== 'string') {
+      changed = true // Force rewrite to fix
+      continue
+    }
     pathToId.set(entry.file, id)
     fileNameToEntry.set(path.basename(entry.file), { id, file: entry.file })
   }
 
   // Step 3: Reconcile
-  let changed = false
   const newEntries: Record<string, ManifestEntry> = {}
   const results: DocumentManifestEntry[] = []
   const sourceName = sourceNameOverride || source
@@ -113,14 +120,31 @@ export function scanWithManifest(
     const category = dirParts[0] || ''
     const subcategory = dirParts.length > 2 ? dirParts.slice(1).join(path.sep) : (dirParts[1] || undefined)
 
-    results.push({
+    const entry: DocumentManifestEntry = {
       id,
       filePath: `../${sourceName}/${relativePath}`,
       fileName,
       source,
       category,
       subcategory,
-    })
+    }
+
+    // Extract metadata if requested
+    if (options?.extractMetadata) {
+      const absFilePath = path.join(sourceDir, relativePath)
+      try {
+        const meta = extractHtmlMetadataFromFile(absFilePath)
+        entry.title = meta.title
+        entry.contentSnippet = meta.contentSnippet
+        entry.wordCount = meta.wordCount
+        entry.language = meta.language
+        entry.sections = meta.sections
+      } catch {
+        // Skip metadata for unreadable files
+      }
+    }
+
+    results.push(entry)
   }
 
   // Step 4: Detect removed entries (entries not in newEntries)

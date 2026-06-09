@@ -7,6 +7,12 @@ export interface DocumentManifestEntry {
   source: Source
   category: string
   subcategory?: string
+  // Enriched metadata (optional, backward-compatible)
+  title?: string
+  contentSnippet?: string
+  wordCount?: number
+  language?: 'zh' | 'en' | 'mixed'
+  sections?: Array<{ id: string; title: string; level: 2 | 3 }>
 }
 
 let manifestCache: Promise<DocumentManifestEntry[]> | null = null

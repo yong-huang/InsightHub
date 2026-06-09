@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Document, ImportedDocumentRecord, SearchFilters, Source, WorkspaceConfig } from '@/types'
 import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
-import { fetchAndParseDocument, parseHtmlDocument } from '@/utils/htmlParser'
+import { fetchAndParseDocument, parseHtmlDocument, stripTitleSuffix } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex, setIsIndexing } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
@@ -164,25 +164,31 @@ async function loadAllDocuments(
 
   clearIndex()
 
-  // Phase 1: fetch + parse ALL docs (no indexing) — larger batches for 1000+ docs
-  const BATCH_SIZE = 50
-  for (let i = 0; i < manifest.length; i += BATCH_SIZE) {
-    const batch = manifest.slice(i, i + BATCH_SIZE)
-    const promises = batch.map(async (entry) => {
-      try {
-        const doc = await fetchAndParseDocument(entry, titleSuffixes)
-        docs.set(doc.id, doc)
+  // Phase 1: build Document objects from enriched manifest (0 fetches)
+  for (const entry of manifest) {
+    const title = entry.title
+      ? stripTitleSuffix(entry.title, titleSuffixes)
+      : entry.fileName.replace(/\.html$/, '')
 
-        // Count categories
-        categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
-      } catch (e) {
-        console.error(`Failed to load document: ${entry.filePath}`, e)
-      }
-    })
-    await Promise.all(promises)
-    set({ loadProgress: { current: Math.min(i + BATCH_SIZE, manifest.length), total: manifest.length } })
-    // Yield to browser so progress bar repaints and UI stays responsive
-    await new Promise(r => setTimeout(r, 0))
+    const doc: Document = {
+      id: entry.id,
+      title,
+      filePath: entry.filePath,
+      fileName: entry.fileName,
+      source: entry.source,
+      category: entry.category,
+      subcategory: entry.subcategory,
+      language: entry.language || 'en',
+      wordCount: entry.wordCount || 0,
+      sections: entry.sections || [],
+      contentText: entry.contentSnippet || '',
+      tags: [],
+      isRead: false,
+      readCount: 0,
+      indexedAt: Date.now(),
+    }
+    docs.set(doc.id, doc)
+    categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
   }
 
   // Merge server meta (arrived in parallel) — server takes priority
