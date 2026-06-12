@@ -37,6 +37,7 @@ export interface Document {
   lastReadAt?: number
   readCount: number
   indexedAt?: number
+  url?: string
 }
 
 export interface Section {
@@ -166,6 +167,7 @@ export interface ImportedDocumentRecord {
   title?: string
   wordCount?: number
   language?: string
+  url?: string
 }
 
 // ========== User Preferences ==========

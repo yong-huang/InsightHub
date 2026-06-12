@@ -38,7 +38,7 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
       setError('Please select a target workspace')
       return
     }
-    if (!category) {
+    if (!category && targetCategory !== '') {
       setError('Please select or enter a category')
       return
     }
@@ -110,6 +110,7 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
             {targetCategories.map(cat => (
               <option key={cat.key} value={cat.key}>{cat.label}</option>
             ))}
+            <option value="">(Root — no subdirectory)</option>
             <option value="__custom__">+ New Category...</option>
           </select>
           {targetCategory === '__custom__' && (

@@ -5,6 +5,7 @@ import { execSync, exec } from 'child_process'
 import * as os from 'os'
 import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
+import { extractHtmlMetadata } from '../scripts/lib/htmlMetadataExtractor'
 
 export interface DocumentDiscoveryOptions {
   aiApiUrl?: string
@@ -1487,6 +1488,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         title?: string
         wordCount?: number
         language?: string
+        url?: string
       }
 
       function loadImportedDocsFile(): ImportedDocRecord[] {
@@ -1538,8 +1540,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
               // Resolve hostname and check against private ranges
-              const net = await import('node:net')
-              const lookup = await net.promises.lookup(parsedUrl.hostname, { verbatim: true })
+              const dns = await import('node:dns/promises')
+              const lookup = await dns.lookup(parsedUrl.hostname, { verbatim: true })
               const ip = lookup.address
               const isPrivate = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1'
                 || ip.startsWith('10.') || ip.startsWith('192.168.')
@@ -1584,9 +1586,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: `Page too large (${Math.round(html.length / 1024)}KB), max 5MB` }))
                 return
               }
-              // Extract title from HTML
+              // Extract title from HTML (decode HTML entities)
               const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-              const title = titleMatch ? titleMatch[1].trim() : undefined
+              const title = titleMatch
+                ? titleMatch[1].trim().replace(/&#[xX]?[\da-fA-F]+;|&\w+;/g, e => {
+                    if (e.startsWith('&#x') || e.startsWith('&#X')) return String.fromCodePoint(parseInt(e.slice(3, -1), 16))
+                    if (e.startsWith('&#')) return String.fromCodePoint(parseInt(e.slice(2, -1)))
+                    const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'", '&nbsp;': '\u00a0' }
+                    return entities[e] || e
+                  })
+                : undefined
 
               // Strip scripts, noscript, iframes to prevent cross-origin JS errors in iframe
               let processedHtml = html
@@ -1609,6 +1618,117 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   : baseTag + processedHtml
 
               res.end(JSON.stringify({ html: processedHtml, title }))
+            } catch (fetchErr: any) {
+              const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: msg }))
+            }
+          } catch {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Invalid JSON' }))
+          }
+        })
+      })
+
+      // POST /api/import-url — import URL as metadata-only record (no HTML saved to disk)
+      server.middlewares.use('/api/import-url', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'Method not allowed' }))
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (chunk: Buffer) => chunks.push(chunk))
+        req.on('end', async () => {
+          try {
+            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const url = typeof body.url === 'string' ? body.url.trim() : ''
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'URL must start with http:// or https://' }))
+              return
+            }
+            // SSRF protection: block private/loopback/reserved IPs
+            try {
+              const parsedUrl = new URL(url)
+              const allowedPorts = [80, 443, 8080, 8443, 3000, 5600, null]
+              if (parsedUrl.port && !allowedPorts.includes(Number(parsedUrl.port))) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Port not allowed' }))
+                return
+              }
+              const dns = await import('node:dns/promises')
+              const lookup = await dns.lookup(parsedUrl.hostname, { verbatim: true })
+              const ip = lookup.address
+              const isPrivate = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1'
+                || ip.startsWith('10.') || ip.startsWith('192.168.')
+                || /^(172\.(1[6-9]|2\d|3[01]))\./.test(ip)
+                || ip.startsWith('169.254.')
+                || ip === '0.0.0.0' || ip.startsWith('::')
+              if (isPrivate) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Private/internal addresses are not allowed' }))
+                return
+              }
+            } catch (dnsErr: any) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Failed to resolve hostname' }))
+              return
+            }
+            // Fetch URL to extract metadata
+            try {
+              const controller = new AbortController()
+              const timeout = setTimeout(() => controller.abort(), 10_000)
+              const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (compatible; InsightHub/1.0)',
+                  'Accept': 'text/html,application/xhtml+xml',
+                },
+              })
+              clearTimeout(timeout)
+              if (!response.ok) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `HTTP ${response.status}: ${response.statusText}` }))
+                return
+              }
+              const contentType = response.headers.get('content-type') || ''
+              if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: `Unsupported content type: ${contentType.split(';')[0]}` }))
+                return
+              }
+              const html = await response.text()
+
+              const meta = extractHtmlMetadata(html)
+              // Decode HTML entities in title (e.g. &#8211; → –, &#039; → ')
+              const decodedTitle = meta.title.replace(/&#[xX]?[\da-fA-F]+;|&\w+;/g, e => {
+                if (e.startsWith('&#x') || e.startsWith('&#X')) return String.fromCodePoint(parseInt(e.slice(3, -1), 16))
+                if (e.startsWith('&#')) return String.fromCodePoint(parseInt(e.slice(2, -1)))
+                const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'", '&nbsp;': '\u00a0' }
+                return entities[e] || e
+              })
+              const source = body.source || ''
+              const category = body.category || ''
+              const id = `imported-url-${Date.now()}`
+              const fileName = (decodedTitle || `article-${Date.now()}`).replace(/[/\\?%*:|"<>&#;]/g, '-').replace(/-+/g, '-').slice(0, 80) + '.html'
+
+              const docs = loadImportedDocsFile()
+              docs.push({
+                id,
+                fileName,
+                source,
+                category,
+                importedAt: Date.now(),
+                title: decodedTitle,
+                wordCount: meta.wordCount,
+                language: meta.language,
+                url,
+              })
+              saveImportedDocsFile(docs)
+
+              res.end(JSON.stringify({ id, title: decodedTitle, wordCount: meta.wordCount, language: meta.language }))
             } catch (fetchErr: any) {
               const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
               res.statusCode = 400
@@ -1696,7 +1816,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const filtered = docs.filter(d => d.id !== id)
           saveImportedDocsFile(filtered)
           // Remove the HTML file from the correct workspace dir, then legacy imports dir
-          if (target) {
+          // Skip file cleanup for URL-only imports (no HTML file on disk)
+          if (target && !target.url) {
             const dirs = getWorkspaceDirs()
             const wsDir = target.source ? dirs[target.source] : undefined
             const wsPath = wsDir

@@ -565,18 +565,36 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const doc = get().documents.get(docId)
     if (!doc) return undefined
     if (doc.contentText) return doc
-    // Content was freed — re-fetch HTML and extract text
+    // Content was freed or never loaded — re-fetch and extract text
     try {
-      const categoryPath = doc.subcategory ? `${doc.category}/${doc.subcategory}` : doc.category
-      const url = import.meta.env.DEV
-        ? `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}`
-        : `/docs/${doc.source}/${categoryPath}/${doc.fileName}`
-      const res = await fetch(url)
-      if (!res.ok) return doc
-      const html = await res.text()
+      let html: string
+      if (doc.url) {
+        // URL-based import: fetch via server proxy
+        const res = await fetch('/api/fetch-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: doc.url }),
+        })
+        if (!res.ok) return doc
+        const data = await res.json()
+        html = data.html
+      } else {
+        // Regular workspace document
+        const categoryPath = doc.subcategory ? `${doc.category}/${doc.subcategory}` : doc.category
+        const url = import.meta.env.DEV
+          ? `/dev-docs/${doc.source}/${categoryPath}/${doc.fileName}`
+          : `/docs/${doc.source}/${categoryPath}/${doc.fileName}`
+        const res = await fetch(url)
+        if (!res.ok) return doc
+        html = await res.text()
+      }
       const text = new DOMParser().parseFromString(html, 'text/html').body?.textContent || ''
-      doc.contentText = text.replace(/\s+/g, ' ').trim()
-      return doc
+      const contentText = text.replace(/\s+/g, ' ').trim()
+      // Trigger store update so React re-renders with new contentText
+      const updated = new Map(get().documents)
+      updated.set(docId, { ...doc, contentText })
+      set({ documents: updated })
+      return updated.get(docId)
     } catch {
       return doc
     }
@@ -611,7 +629,42 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         try {
           let doc: Document
 
-          // Try to fetch and parse. If fetch fails, fall back to cached metadata.
+          // URL-only import: build Document from metadata without fetching HTML
+          if (meta.url) {
+            // Ensure fileName ends with .html so buildTree recognizes it as a file (not a directory)
+            const safeName = meta.fileName.endsWith('.html') ? meta.fileName : meta.fileName + '.html'
+            // filePath must be a category-relative path for the file tree to display correctly
+            const fakeFilePath = meta.category
+              ? `${meta.category}/${safeName}`
+              : safeName
+            doc = {
+              id: meta.id,
+              title: meta.title || safeName.replace(/\.html?$/, ''),
+              filePath: fakeFilePath,
+              fileName: safeName,
+              source: meta.source,
+              category: meta.category,
+              language: (meta.language as 'zh' | 'en' | 'mixed') || 'mixed',
+              wordCount: meta.wordCount || 0,
+              sections: [],
+              contentText: '',
+              tags: [],
+              isRead: false,
+              readCount: 0,
+              indexedAt: meta.importedAt,
+              url: meta.url,
+            }
+            updatedDocs.set(doc.id, doc)
+            updatedCounts[doc.category] = (updatedCounts[doc.category] || 0) + 1
+            // Index by title only (no contentText available until on-demand fetch)
+            if (doc.title) {
+              await indexDocument(doc)
+            }
+            newCount++
+            continue
+          }
+
+          // Legacy import: try to fetch and parse. If fetch fails, fall back to cached metadata.
           let htmlContent: string
           try {
             htmlContent = await fetchImportedDocHtml(meta.id)

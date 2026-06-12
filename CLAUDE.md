@@ -13,9 +13,13 @@ cd insighthub
 npm run dev       # Start Vite dev server on port 5600 (serves docs via documentDiscovery plugin at /dev-docs/)
 npm run build     # Runs prebuild (copy-docs.ts) → tsc -b → vite build
 npm run lint      # ESLint (flat config, no --fix flag available)
-npm run test      # Vitest (unit tests in __tests__ directories)
+npm run test      # Vitest run (unit tests in __tests__ directories)
+npm run test:watch # Vitest in watch mode
+npx vitest run src/services/__tests__/aiService.test.ts  # Run a single test file
 npm run preview   # Preview production build
 ```
+
+**Test environment**: Vitest with jsdom, globals enabled, setup in `src/test-setup.ts` (patches broken Node 25+ `localStorage` stub, mocks `scrollIntoView`).
 
 ## Architecture
 
@@ -116,40 +120,17 @@ Concept cards (AI-extracted from documents) reviewed with SM-2 algorithm:
 
 The Vite plugin (`vite-plugins/documentDiscovery.ts`) provides REST endpoints that persist to `.insighthub-*.json` files in the workspace `data/` directory:
 
-**Document & workspace:**
-- `/api/documents` — Document manifest (1s cache)
-- `/api/workspaces` — Workspace config (GET/POST)
-- `/api/browse-directories` — Directory browser for workspace path selection
-- `/api/workspace-document` — Get document metadata by ID / Delete workspace document (GET/POST)
-- `/api/workspace-category` — List documents in category / Delete workspace category (GET/POST)
-
-**AI & code execution:**
-- `/api/ai/config` — AI settings (GET/POST, supports profile CRUD)
-- `/api/ai/models` — List available AI models from configured endpoint
+**Key endpoints** (full list in `documentDiscovery.ts`):
+- `/api/documents` — Document manifest (1s cache, used by `useInitializeApp`)
 - `/api/ai/chat/completions` — Proxy to local LLM (SSE streaming, caches per URL/model)
-- `/api/ai/tts` — Text-to-speech proxy (returns audio/mpeg)
-- `/api/code-runtimes` — List available code execution runtimes
-- `/api/code-run` — Execute code in specified language (streaming output via SSE)
-
-**Data sync:**
-- `/api/tags` — Tag CRUD (GET/POST)
-- `/api/annotations` — Annotation CRUD (GET/POST)
-- `/api/quizzes` — Quiz CRUD (GET/POST)
-- `/api/quiz-history` — Quiz attempt history (GET/POST, 100-entry limit)
-- `/api/read-meta` — Document reading metadata (GET/POST)
-- `/api/read-history` — Reading history (GET/POST, 365-day limit)
-- `/api/concept-cards` — Concept cards with SM-2 scheduling (GET/POST)
 - `/api/client-storage` — Client-side storage sync (GET/POST, with legacy format migration)
-
-**Document import:**
-- `/api/imported-documents` — Import document management (GET/POST)
 - `/api/imported-doc/:id` — Serve imported document content
 - `/api/fetch-url` — Import documents from web URLs (fetches, sanitizes, saves)
 - `/api/move-workspace-document` — Move single document between workspaces/categories
 - `/api/move-workspace-category` — Move entire category between workspaces
-
-**Development:**
 - `/dev-docs/:path*` — Serve documents from source directories (dev mode only)
+
+All other endpoints follow standard GET/POST CRUD patterns for tags, annotations, quizzes, read-meta, concept-cards, workspaces, etc.
 
 ### Design System
 
@@ -170,10 +151,6 @@ CSS custom properties defined in `src/styles/globals.css`. Dark theme is default
 
 CSS files: `globals.css` (variables + resets), `layout.css` (app shell + sidebar), `components.css` (reusable components + cs-* design system), `doc-reader.css` (reader + annotations + code editor), `stats.css` (statistics page), `visualizations.css` (charts + graphs + fullscreen mode), `animations.css` (keyframes + reveal animations).
 
-## Documentation
-
-- `README.md` — Project overview, features, screenshots, quick start
-
 ## Key Source Files
 
 - `vite.config.ts` — Vite config with `@/` alias, `documentDiscovery` plugin, build chunk splitting (vendor-react, vendor-recharts, vendor-d3, vendor-codemirror)
@@ -181,36 +158,24 @@ CSS files: `globals.css` (variables + resets), `layout.css` (app shell + sidebar
 - `scripts/copy-docs.ts` — Build-time script that copies document directories to `public/docs/`
 - `data/.insighthub-workspaces.json` — Workspace configuration (sources, prefixes, UI fields)
 
-### Hooks (`src/hooks/`)
-`useInitializeApp` (bootstrap), `useAnnotationIframe` (iframe annotation detection), `useDocumentUrl` (dev/prod URL switching), `useDynamicCategories` (runtime category registration with doc counts and read stats), `useThemeColors` (read CSS variable values), `useKeyboard` (global keyboard shortcuts: Cmd/Ctrl+K for search, Escape to close)
+### Component Groups (`src/components/`)
 
-### Services (`src/services/`)
-`aiService` (core AI client + token tracking), `readerAiService` (doc-level AI: chat, explain, translate, inception, speech script), `conceptService` (concept card extraction), `challengeService` (concept challenges), `studyPlanService` (study plan), `whiteboardService` (whiteboard AI vision), `quizService` (quiz gen/parse), `tokenUsageService` (token persistence), `searchService` (FlexSearch), `similarityService` (lazy TF-IDF), `importService` (doc import), `storageService` (localStorage wrapper), `achievementService` (44 achievements), `spacedRepetition` (SM-2 algorithm)
-
-### Components (`src/components/`)
-
-**Layout/** — `Layout`, `Sidebar` (with workspace switcher), `Navbar` (with search), `FileTree` (workspace document browser)
-
-**DocReader/** — `AnnotationPanel`, `AnnotationPopup`, `AnnotationBar`, `CommentDialog`, `AIBubble`, `ChatPanel`, `EvaluationPanel`, `InceptionPanel`, `SummaryPanel`, `ChallengePanel`, `ConceptCardsPanel`, `QuizPanel`, `ScriptPanel`, `ShadowTypingPanel`, `SimilarDocsPanel`, `WhiteboardPanel`, `WikiLinkRenderer`, `RatingDialog`, `CodeEditorPanel`
-
-**visualization/** — `KnowledgeGraph`, `KnowledgeTree`, `StudyPlanTree`, `PersonalMap`, `CategoryRadar`, `LearningPath`, `QuizPerformancePanel`, `ReadingHabits`, `TagCloud`, `TopEngagedDocuments`, `TreeNode`, `ReportHero`
-
-**stats/** — `AnnotationStats`, `CategoryCompletion`, `ChartCard`, `QuizScoreTrend`, `ReadingHeatmap`, `ReadingTrend`, `WordCountDist`
-
-**shared/** — `StatCard`, `DocCard`, `DocGrid`, `FilterBar`, `LoadingScreen`, `ErrorBoundary`
-
-**Import/** — `ImportDialog`, `MoveCategoryDialog`, `MoveDocumentDialog`, `UrlImportDialog`
-
-**Other** — `AchievementToast`, `search/SearchDialog`
+- **DocReader/** — 19 panel components for the document reader (annotation, AI chat, quiz, code editor, whiteboard, etc.)
+- **Layout/** — `Layout`, `Sidebar` (workspace switcher), `Navbar` (search), `FileTree`
+- **visualization/** — 12 D3/Recharts visualization components (knowledge graph, radar, heatmap, tag cloud, etc.)
+- **stats/** — Chart containers and stat components
+- **shared/** — Reusable UI (`DocCard`, `DocGrid`, `FilterBar`, `LoadingScreen`, `ErrorBoundary`)
+- **Import/** — Import/move/URL-import dialogs
+- **Other** — `AchievementToast`, `search/SearchDialog`
 
 ### Pages (`src/pages/`)
-`HomePage`, `CategoryPage`, `DocReaderPage`, `SearchPage`, `QuizPage`, `StatsPage`, `AchievementsPage`, `LearningPathPage`, `KnowledgeGraphPage`, `NotesPage`, `ReadLaterPage`, `SpacedRepetitionPage`, `TokenStatsPage`, `SettingsPage`, `HiddenDocsPage`, `TrashPage`
+16 page components. All use `cs-*` design system except `DocReaderPage` (full-screen iframe) and `StatsPage` (wider layout for charts).
 
-### Utils (`src/utils/`)
-`htmlParser` (DOMParser document processing), `xpath` (annotation positioning), `documentManifest` (manifest generation), `categoryMap` (category mapping), `workspaceUtils` (workspace config), `workspaceIcons` (icon management), `pathBuilder` (file path construction), `statsAggregator` (statistics aggregation), `reportAggregator` (report generation), `dataExporter` (data export), `notesExporter` (notes export), `timelineBuilder` (timeline data), `personalMapBuilder` (knowledge map), `prefetchRoute` (route preloading), `bidirectionalLinks` (wiki link resolution), `graphBuilder` (graph data construction), `markdownRenderer` (markdown rendering)
+### Key Utilities (`src/utils/`)
+`htmlParser` (DOMParser document processing — extracts title, content, word count from raw HTML), `xpath` (annotation XPath serialization/fuzzy restore), `graphBuilder` / `personalMapBuilder` / `bidirectionalLinks` (visualization data construction), `statsAggregator` / `reportAggregator` (statistics), `pathBuilder` (workspace-relative path construction), `markdownRenderer` (renders markdown in AI responses).
 
-### Types (`src/types/`)
-All types defined in `index.ts` — Document, Workspace, Annotation, Quiz, Tag, Search, ConceptCard, Preferences, Challenge interfaces.
+### Types (`src/types/index.ts`)
+All interfaces in a single file: Document, Workspace, Annotation, Quiz, Tag, Search, ConceptCard, Preferences, Challenge.
 
 ### Document Source Prefixes
 

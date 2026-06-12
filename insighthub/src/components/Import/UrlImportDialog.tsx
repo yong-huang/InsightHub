@@ -3,7 +3,6 @@ import { Link2, X, Loader, CheckCircle, AlertCircle } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDynamicCategories } from '@/hooks/useDynamicCategories'
-import { importDocument } from '@/services/importService'
 
 interface UrlImportDialogProps {
   onClose: () => void
@@ -18,7 +17,6 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
   const [url, setUrl] = useState('')
   const [selectedCategory, setSelectedCategory] = useState(categories[0]?.key || (categories.length === 0 ? '__custom__' : ''))
   const [customCategory, setCustomCategory] = useState('')
-  const [fetching, setFetching] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
   const [importedId, setImportedId] = useState<string | null>(null)
@@ -40,55 +38,37 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
       return
     }
 
-    // Step 1: Fetch URL via server proxy
-    setFetching(true)
-    let html: string
-    let title: string | undefined
+    // Single step: server fetches URL, extracts metadata, saves record
+    setImporting(true)
     try {
-      const res = await fetch('/api/fetch-url', {
+      const res = await fetch('/api/import-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), source: activeWorkspace, category }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to fetch URL')
-        setFetching(false)
+        setError(data.error || 'Failed to import URL')
+        setImporting(false)
         return
       }
-      html = data.html
-      title = data.title
-    } catch {
-      setError('Network error while fetching URL')
-      setFetching(false)
-      return
-    }
-    setFetching(false)
-
-    // Step 2: Import HTML content
-    setImporting(true)
-    try {
-      const fileName = title
-        ? title.replace(/[/\\?%*:|"<>]/g, '-').replace(/-+/g, '-').slice(0, 80) + '.html'
-        : `article-${Date.now()}.html`
-      const result = await importDocument(fileName, html, activeWorkspace, category, { title })
-      setImportedId(result.id)
+      setImportedId(data.id)
       await reloadDocuments()
-      onImported?.(result.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed')
+      onImported?.(data.id)
+    } catch {
+      setError('Network error while importing URL')
     } finally {
       setImporting(false)
     }
   }
 
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current && !fetching && !importing) {
+    if (e.target === overlayRef.current && !importing) {
       onClose()
     }
   }
 
-  const busy = fetching || importing
+  const busy = importing
 
   return (
     <div className="import-overlay" ref={overlayRef} onClick={handleOverlayClick}>
@@ -148,7 +128,7 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
             {busy && (
               <div className="import-progress">
                 <span className="import-progress-text">
-                  {fetching ? 'Fetching page...' : 'Importing...'}
+                  Importing...
                 </span>
               </div>
             )}
@@ -164,7 +144,7 @@ export function UrlImportDialog({ onClose, onImported }: UrlImportDialogProps) {
               <div className="import-dialog-actions">
                 <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleImport}>
-                  {fetching ? <Loader size={14} className="spin" /> : <Link2 size={14} />}
+                  {importing ? <Loader size={14} className="spin" /> : <Link2 size={14} />}
                   Import
                 </button>
               </div>

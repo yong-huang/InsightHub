@@ -75,10 +75,15 @@ export function DocReaderPage() {
   const updateRating = useDocumentStore(s => s.updateRating)
   const url = useDocumentUrl(docId || '')
 
-  // Imported document: fetch and create blob URL for iframe
+  // Imported document: fetch and create blob URL for legacy imports
   const [importedBlobUrl, setImportedBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
+    // URL-based imports use doc.url directly, no blob needed
+    if (doc?.url) {
+      setImportedBlobUrl(null)
+      return
+    }
     if (!docId?.startsWith('imported-')) {
       setImportedBlobUrl(null)
       return
@@ -96,7 +101,7 @@ export function DocReaderPage() {
     return () => {
       cancelled = true
     }
-  }, [docId])
+  }, [docId, doc?.url])
 
   // Clean up blob URL on unmount or doc change
   useEffect(() => {
@@ -105,8 +110,8 @@ export function DocReaderPage() {
     }
   }, [importedBlobUrl])
 
-  // Use blob URL for imported docs, normal URL otherwise
-  const iframeSrc: string | undefined = importedBlobUrl ?? url
+  // Use direct URL for URL imports, blob URL for legacy imports, normal URL otherwise
+  const iframeSrc: string | undefined = doc?.url || importedBlobUrl || url
 
   const savedQuizzes = useQuizStore(s => s.savedQuizzes)
   const generatingDocIds = useQuizStore(s => s.generatingDocIds)
@@ -689,13 +694,13 @@ export function DocReaderPage() {
     })
   }, [selectionInfo, clearSelection])
 
-  const handleAskAI = useCallback(() => {
+  const handleAskAI = useCallback(async () => {
     if (!selectionInfo) return
     const text = selectionInfo.text
     clearSelection()
     setChatSelectedText(text)
     // Ensure contentText is available for chat context
-    if (doc) useDocumentStore.getState().ensureContentText(doc.id)
+    if (doc) await useDocumentStore.getState().ensureContentText(doc.id)
     setShowChatPanel(true)
   }, [selectionInfo, clearSelection, doc])
 
@@ -703,12 +708,12 @@ export function DocReaderPage() {
     setChatSelectedText(undefined)
   }, [])
 
-  const handleChallengeFromSelection = useCallback(() => {
+  const handleChallengeFromSelection = useCallback(async () => {
     if (!selectionInfo) return
     const text = selectionInfo.text
     clearSelection()
     setChallengeSelectedText(text)
-    if (doc) useDocumentStore.getState().ensureContentText(doc.id)
+    if (doc) await useDocumentStore.getState().ensureContentText(doc.id)
     setShowChallengePanel(true)
   }, [selectionInfo, clearSelection, doc])
 
@@ -748,8 +753,8 @@ export function DocReaderPage() {
     )
   }
 
-  // Imported doc: show loading while fetching
-  if (docId?.startsWith('imported-') && !importedBlobUrl) {
+  // Imported doc: show loading while fetching (URL imports skip this — iframe uses doc.url directly)
+  if (docId?.startsWith('imported-') && !importedBlobUrl && !doc?.url) {
     return (
       <div className="empty-state">
         <Loader2 size={32} className="spin" />
