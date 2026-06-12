@@ -4737,3 +4737,363 @@
   color: #e6edf3;
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
+
+/* ============ Architecture Diagram Panel ============ */
+.arch-diagram-panel {
+  position: fixed;
+  z-index: 100001;
+  display: flex;
+  flex-direction: column;
+  width: 1140px;
+  height: 720px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, #e0e0e0);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.12));
+  overflow: hidden;
+  font-size: 13px;
+}
+.doc-fullscreen-active .arch-diagram-panel {
+  z-index: 100001;
+}
+
+.arch-diagram-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 1px solid var(--border-default, #e0e0e0);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+.arch-diagram-titlebar:active { cursor: grabbing }
+.arch-diagram-grip { opacity: 0.4; flex-shrink: 0 }
+.arch-diagram-title { font-weight: 600; font-size: 13px }
+.arch-diagram-close-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--text-secondary, #666);
+  display: flex;
+  align-items: center;
+}
+.arch-diagram-close-btn:hover { background: var(--bg-hover, rgba(0,0,0,0.06)) }
+
+.arch-diagram-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.arch-diagram-saved {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+}
+.arch-diagram-search {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.arch-diagram-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-default, #e0e0e0);
+}
+
+.arch-diagram-extract-btn {
+  background: var(--accent-primary, #6366f1);
+  color: #fff;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.arch-diagram-extract-btn:hover { opacity: 0.9 }
+.arch-diagram-extract-btn:disabled { opacity: 0.5 }
+
+.arch-diagram-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+  align-items: center;
+}
+.arch-diagram-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.arch-diagram-chip:hover { border-color: var(--accent-primary, #6366f1) }
+.arch-diagram-chip.active {
+  background: var(--accent-primary, #6366f1);
+  color: #fff;
+}
+.arch-diagram-chip.manual {
+  border-style: dashed;
+  border-color: var(--accent-orange, #ff9800);
+  color: var(--accent-orange, #ff9800);
+}
+.arch-diagram-chip.manual.active {
+  background: var(--accent-orange, #ff9800);
+  color: #fff;
+}
+.arch-diagram-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  color: inherit;
+}
+.arch-diagram-chip-remove:hover { opacity: 1 }
+.arch-diagram-chip-edit {
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid var(--accent-primary, #6366f1);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #333);
+  outline: none;
+  width: 100px;
+}
+.arch-diagram-chip-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-default, #ccc);
+  background: none;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+}
+.arch-diagram-chip-add:hover { border-color: var(--accent-primary, #6366f1); color: var(--accent-primary, #6366f1) }
+
+.arch-diagram-saved-list,
+.arch-diagram-results {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+.arch-diagram-saved-list { grid-template-columns: 1fr 1fr; }
+.arch-diagram-results { grid-template-columns: 1fr 1fr 1fr; }
+
+.arch-diagram-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-default, #e0e0e0);
+  cursor: pointer;
+  aspect-ratio: 4/3;
+  background: var(--bg-tertiary, #f0f0f0);
+}
+.arch-diagram-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.arch-diagram-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.arch-diagram-card:hover .arch-diagram-card-actions { opacity: 1 }
+.arch-diagram-card-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.9);
+  color: var(--text-primary, #333);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.arch-diagram-card-btn.delete { color: #ef4444 }
+.arch-diagram-card-btn.save { color: var(--accent-primary, #6366f1) }
+.arch-diagram-card-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 3px 6px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
+  color: #fff;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arch-diagram-preview {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+}
+.arch-diagram-preview img {
+  max-width: 85%;
+  max-height: 90%;
+  border-radius: 8px;
+  object-fit: contain;
+  cursor: default;
+  user-select: none;
+}
+.arch-diagram-preview-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, transform 0.15s;
+  z-index: 12;
+}
+.arch-diagram-preview-nav:hover {
+  background: rgba(255,255,255,0.3);
+}
+.arch-diagram-preview-nav.left {
+  left: 12px;
+}
+.arch-diagram-preview-nav.right {
+  right: 12px;
+}
+.arch-diagram-preview-nav.disabled {
+  opacity: 0.2;
+  cursor: default;
+  pointer-events: none;
+}
+.arch-diagram-preview-actions {
+  position: absolute;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 11;
+}
+.arch-diagram-preview-counter {
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  margin-right: auto;
+  padding-left: 4px;
+}
+.arch-diagram-preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, transform 0.15s;
+}
+.arch-diagram-preview-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: scale(1.1);
+}
+.arch-diagram-preview-btn.save:hover {
+  color: var(--accent-green, #4caf50);
+}
+.arch-diagram-preview-btn.delete:hover {
+  color: var(--accent-red, #f44336);
+}
+.arch-diagram-preview-btn.source {
+  text-decoration: none;
+}
+.arch-diagram-preview-btn.source:hover {
+  color: var(--accent-blue, #42a5f5);
+}
+
+.arch-diagram-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+}
+.arch-diagram-page-btn {
+  background: none;
+  border: 1px solid var(--border-default, #e0e0e0);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--text-primary, #333);
+}
+.arch-diagram-page-btn:disabled { opacity: 0.3; cursor: default }
+.arch-diagram-page-btn:hover:not(:disabled) { background: var(--bg-hover, rgba(0,0,0,0.06)) }
+.arch-diagram-page-info { font-size: 11px; color: var(--text-secondary, #666) }
+
+.arch-diagram-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-secondary, #666);
+  font-size: 12px;
+  flex: 1;
+}

@@ -157,6 +157,17 @@ export interface ConceptCard {
   lastReview: number
 }
 
+// ========== Architecture Diagram Types ==========
+export interface SavedDiagram {
+  id: string
+  documentId: string
+  url: string
+  thumbnail: string
+  title: string
+  topic: string
+  savedAt: number
+}
+
 // ========== Imported Document Types ==========
 export interface ImportedDocumentRecord {
   id: string
@@ -182,6 +193,7 @@ export interface UserPreferences {
   activeWorkspace: Source
   conceptMaxCount: number
   quizEnabledTypes: QuestionType[]
+  diagramSearchEngine?: 'google' | 'bing'
 }
 
 // ========== Concept Challenge Types ==========

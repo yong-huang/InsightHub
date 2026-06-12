@@ -6,7 +6,7 @@ import {
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, Trash2,
   ShieldCheck, Swords, GitBranch, Layers, TerminalSquare, Mic,
-  ArrowRightLeft, PenLine,
+  ArrowRightLeft, PenLine, Network,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -41,10 +41,26 @@ import { AIBubble } from '@/components/DocReader/AIBubble'
 import { CodeEditorPanel } from '@/components/DocReader/CodeEditorPanel'
 import { ShadowTypingPanel } from '@/components/DocReader/ShadowTypingPanel'
 import { WhiteboardPanel } from '@/components/DocReader/WhiteboardPanel'
+import { ArchitectureDiagramPanel } from '@/components/DocReader/ArchitectureDiagramPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
+
+/** Wrapper that ensures contentText is loaded before rendering the diagram panel */
+function ArchDiagramWrapper({ docId, docTitle, docContent, onClose, onDiagramChange }: {
+  docId: string; docTitle: string; docContent: string; onClose: () => void; onDiagramChange?: () => void
+}) {
+  const [content, setContent] = useState(docContent)
+  useEffect(() => {
+    if (!content) {
+      useDocumentStore.getState().ensureContentText(docId).then(doc => {
+        if (doc?.contentText) setContent(doc.contentText)
+      })
+    }
+  }, [docId, content])
+  return <ArchitectureDiagramPanel docId={docId} docTitle={docTitle} docContent={content} onClose={onClose} onDiagramChange={onDiagramChange} />
+}
 
 export function DocReaderPage() {
   const { docId } = useParams<{ docId: string }>()
@@ -166,6 +182,8 @@ export function DocReaderPage() {
   const [codeEditorText, setCodeEditorText] = useState<string | undefined>(undefined)
   const [showShadowTyping, setShowShadowTyping] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
+  const [showArchDiagram, setShowArchDiagram] = useState(false)
+  const [diagramVersion, setDiagramVersion] = useState(0)
   const [showScriptPanel, setShowScriptPanel] = useState(false)
   const [scriptText, setScriptText] = useState<string | null>(null)
   const [isScriptGenerating, setIsScriptGenerating] = useState(false)
@@ -209,6 +227,11 @@ export function DocReaderPage() {
   const docConceptCount = useMemo(
     () => docId ? conceptCards.filter(c => c.sourceDocId === docId).length : 0,
     [docId, conceptCards],
+  )
+
+  const docArchDiagramCount = useMemo(
+    () => docId ? storageService.getArchDiagrams().filter((d: any) => d.documentId === docId).length : 0,
+    [docId, diagramVersion],
   )
 
   const wasGenerating = useRef(isGenerating)
@@ -1073,6 +1096,16 @@ export function DocReaderPage() {
             <span className="dr-action-label">Whiteboard</span>
           </button>
 
+          {/* Architecture diagram button */}
+          <button
+            className={`dr-action-btn ${(docArchDiagramCount > 0 || showArchDiagram) ? 'active' : ''}`}
+            onClick={() => setShowArchDiagram(v => !v)}
+          >
+            <Network size={16} />
+            <span className="dr-action-label">Diagrams</span>
+            {docArchDiagramCount > 0 && <span className="dr-action-badge">{docArchDiagramCount}</span>}
+          </button>
+
           {/* Similar documents button */}
           {enabledFeatures.aiSimilarity && (
           <button
@@ -1296,6 +1329,14 @@ export function DocReaderPage() {
             <PenLine size={14} />
           </button>
           <button
+            className={`dr-action-btn${(docArchDiagramCount > 0 || showArchDiagram) ? ' active' : ''}`}
+            onClick={() => setShowArchDiagram(v => !v)}
+            title="Diagrams"
+          >
+            <Network size={14} />
+            {docArchDiagramCount > 0 && <span className="dr-action-badge">{docArchDiagramCount}</span>}
+          </button>
+          <button
             className="dr-action-btn"
             onClick={toggleFullscreen}
             title="Exit Fullscreen"
@@ -1323,6 +1364,19 @@ export function DocReaderPage() {
       {showWhiteboard && docId && (
         <Suspense fallback={null}>
           <WhiteboardPanel docId={docId} onClose={() => setShowWhiteboard(false)} />
+        </Suspense>
+      )}
+
+      {/* Floating architecture diagram panel */}
+      {showArchDiagram && docId && doc && (
+        <Suspense fallback={null}>
+          <ArchDiagramWrapper
+            docId={docId}
+            docTitle={doc.title}
+            docContent={doc.contentText}
+            onClose={() => setShowArchDiagram(false)}
+            onDiagramChange={() => setDiagramVersion(v => v + 1)}
+          />
         </Suspense>
       )}
 

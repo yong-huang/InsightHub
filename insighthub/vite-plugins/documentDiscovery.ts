@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { execSync, exec } from 'child_process'
 import * as os from 'os'
+import { Readable } from 'stream'
 import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
 import { extractHtmlMetadata } from '../scripts/lib/htmlMetadataExtractor'
@@ -299,6 +300,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           { file: '.insighthub-quiz-history.json', idField: 'documentId' },
           { file: '.insighthub-annotations.json', idField: 'documentId' },
           { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+          { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
         ]
         for (const { file, idField } of ARRAY_FILES) {
           const filePath = path.resolve(DATA_DIR, file)
@@ -415,6 +417,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             { file: '.insighthub-quiz-history.json', idField: 'documentId' },
             { file: '.insighthub-annotations.json', idField: 'documentId' },
             { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+            { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
           ]
           for (const { file, idField } of REMAP_FILES) {
             const filePath = path.resolve(DATA_DIR, file)
@@ -1472,6 +1475,344 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
         res.statusCode = 405
         res.end('Method Not Allowed')
+      })
+
+      // Architecture diagram persistence: shared across LAN clients via data/.insighthub-arch-diagrams.json
+      const archDiagramsPath = path.resolve(DATA_DIR, '.insighthub-arch-diagrams.json')
+
+      server.middlewares.use('/api/arch-diagrams', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          try {
+            if (fs.existsSync(archDiagramsPath)) {
+              res.end(fs.readFileSync(archDiagramsPath, 'utf-8'))
+            } else {
+              res.end('[]')
+            }
+          } catch {
+            res.end('[]')
+          }
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const diagrams: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              if (!Array.isArray(diagrams)) {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected array' }))
+                return
+              }
+              fs.writeFileSync(archDiagramsPath, JSON.stringify(diagrams, null, 2), 'utf-8')
+              res.end(JSON.stringify({ ok: true }))
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid JSON' }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
+      // POST /api/search-images — server-side proxy for search engine image results
+      server.middlewares.use('/api/search-images', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'Method not allowed' }))
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (chunk: Buffer) => chunks.push(chunk))
+        req.on('end', async () => {
+          try {
+            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const query = typeof body.query === 'string' ? body.query.trim() : ''
+            const engine = typeof body.engine === 'string' ? body.engine : 'bing'
+            const page = typeof body.page === 'number' ? Math.max(0, body.page) : 0
+
+            if (!query) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ success: false, error: 'Query is required' }))
+              return
+            }
+
+            const fullQuery = encodeURIComponent(query + ' architecture diagram')
+            const offset = page * 35
+
+            // SSRF protection helper
+            const checkSsrf = async (url: string): Promise<void> => {
+              const dns = await import('node:dns/promises')
+              const parsedUrl = new URL(url)
+              const lookup = await dns.lookup(parsedUrl.hostname, { verbatim: true })
+              const ip = lookup.address
+              const isPrivate = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1'
+                || ip.startsWith('10.') || ip.startsWith('192.168.')
+                || /^(172\.(1[6-9]|2\d|3[01]))\./.test(ip)
+                || ip.startsWith('169.254.')
+                || ip === '0.0.0.0' || ip.startsWith('::')
+              if (isPrivate) throw new Error('SSRF blocked')
+            }
+
+            // Establish a Bing session (fetch landing page, collect cookies)
+            const getBingCookies = async (): Promise<string> => {
+              try {
+                const r = await fetch('https://cn.bing.com/', {
+                  signal: AbortSignal.timeout(5000),
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                  },
+                  redirect: 'follow',
+                })
+                const setCookies = r.headers.getSetCookie?.() || []
+                return setCookies.map(c => c.split(';')[0]).join('; ')
+              } catch { return '' }
+            }
+
+            // Fetch a search engine page with timeout and proper headers
+            const fetchSearchPage = async (url: string, extraCookies = ''): Promise<string> => {
+              await checkSsrf(url)
+              const parsedUrl = new URL(url)
+              const controller = new AbortController()
+              const timeout = setTimeout(() => controller.abort(), 15_000)
+
+              const isBing = parsedUrl.hostname.includes('bing.com')
+              const headers: Record<string, string> = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"macOS"',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
+              }
+              if (isBing) {
+                headers['Referer'] = 'https://cn.bing.com/'
+                if (extraCookies) headers['Cookie'] = extraCookies
+              }
+
+              const response = await fetch(url, { signal: controller.signal, headers })
+              clearTimeout(timeout)
+              clearTimeout(timeout)
+              if (!response.ok) throw new Error(`HTTP ${response.status}`)
+              return response.text()
+            }
+
+            // Decode HTML entities commonly used in Bing attribute values
+            const decodeEntities = (s: string) =>
+              s.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'")
+
+            // Parse Bing image results
+            const parseBing = (html: string): { url: string; thumbnail: string; title: string; source: string; sourceUrl?: string }[] => {
+              const results: { url: string; thumbnail: string; title: string; source: string; sourceUrl?: string }[] = []
+              // Match <a ... class="iusc" ... m="..." > elements
+              const iuscRegex = /<a[^>]+class="iusc"[^>]+m="([^"]+)"[^>]*>/g
+              let match: RegExpExecArray | null
+              while ((match = iuscRegex.exec(html)) !== null) {
+                try {
+                  const data = JSON.parse(decodeEntities(match[1]))
+                  if (data.murl) {
+                    results.push({
+                      url: data.murl,
+                      thumbnail: data.turl || data.murl,
+                      title: data.t || '',
+                      source: 'bing',
+                      sourceUrl: data.purl || data.du || '',
+                    })
+                  }
+                } catch { /* skip malformed entries */ }
+              }
+              return results
+            }
+
+            // Parse Google image results (best-effort)
+            const parseGoogle = (html: string): { url: string; thumbnail: string; title: string; source: string; sourceUrl?: string }[] => {
+              const results: { url: string; thumbnail: string; title: string; source: string; sourceUrl?: string }[] = []
+              const seenUrls = new Set<string>()
+
+              // data-ou attribute pattern
+              const ouRegex = /data-ou="([^"]+)"/g
+              let m: RegExpExecArray | null
+              while ((m = ouRegex.exec(html)) !== null) {
+                if (!seenUrls.has(m[1])) {
+                  seenUrls.add(m[1])
+                  results.push({ url: m[1], thumbnail: m[1], title: '', source: 'google', sourceUrl: '' })
+                }
+              }
+
+              // Fallback: data-src on elements with data-tbnid
+              if (results.length === 0) {
+                const thumbRegex = /data-tbnid="[^"]*"[^>]*data-src="(https?:\/\/[^"]+)"/g
+                while ((m = thumbRegex.exec(html)) !== null) {
+                  if (!seenUrls.has(m[1])) {
+                    seenUrls.add(m[1])
+                    results.push({ url: m[1], thumbnail: m[1], title: '', source: 'google', sourceUrl: '' })
+                  }
+                }
+              }
+
+              return results
+            }
+
+            // Build URL and fetch — use cn.bing.com for better results in Chinese network environments
+            const bingUrl = `https://cn.bing.com/images/search?q=${fullQuery}&first=${offset + 1}&count=35&form=IRMLST`
+            const googleUrl = `https://www.google.com/search?q=${fullQuery}&tbm=isch&start=${offset}`
+
+            let results: { url: string; thumbnail: string; title: string; source: string }[] = []
+
+            // Bing requires session cookies for real results
+            const bingCookies = await getBingCookies()
+
+            if (engine === 'bing') {
+              // Try Bing first, fallback to Google on failure
+              try {
+                const html = await fetchSearchPage(bingUrl, bingCookies)
+                results = parseBing(html)
+                if (results.length === 0) throw new Error('No Bing results parsed')
+              } catch {
+                // Fallback: try Google
+                try {
+                  const html = await fetchSearchPage(googleUrl)
+                  results = parseGoogle(html)
+                } catch {
+                  // Both failed — return empty with error
+                }
+              }
+            } else {
+              // Try Google first, fallback to Bing on failure
+              try {
+                const html = await fetchSearchPage(googleUrl)
+                results = parseGoogle(html)
+                if (results.length === 0) throw new Error('No Google results parsed')
+              } catch {
+                // Fallback: try Bing
+                try {
+                  const html = await fetchSearchPage(bingUrl, bingCookies)
+                  results = parseBing(html)
+                } catch {
+                  // Both failed
+                }
+              }
+            }
+
+            res.end(JSON.stringify({ success: true, results }))
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              res.end(JSON.stringify({ success: false, error: 'Search timed out (15s)' }))
+            } else {
+              res.end(JSON.stringify({ success: false, error: e.message || 'Unknown error' }))
+            }
+          }
+        })
+      })
+
+      // GET /api/proxy-image — server-side proxy to fetch full-size images (bypasses referer/anti-hotlink checks)
+      server.middlewares.use('/api/proxy-image', async (req, res) => {
+        const params = new URL(req.url || '/', `http://${req.headers.host}`).searchParams
+        const imageUrl = params.get('url')
+        const refererHint = params.get('referer')
+        if (!imageUrl) {
+          res.statusCode = 400
+          res.end('Missing url parameter')
+          return
+        }
+        try {
+          const parsed = new URL(imageUrl)
+          if (!['http:', 'https:'].includes(parsed.protocol)) {
+            res.statusCode = 400
+            res.end('Invalid protocol')
+            return
+          }
+          // SSRF check
+          const dns = await import('node:dns/promises')
+          const lookup = await dns.lookup(parsed.hostname, { verbatim: true })
+          const ip = lookup.address
+          const isPrivate = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1'
+            || ip.startsWith('10.') || ip.startsWith('192.168.')
+            || /^(172\.(1[6-9]|2\d|3[01]))\./.test(ip)
+            || ip.startsWith('169.254.') || ip === '0.0.0.0' || ip.startsWith('::')
+          if (isPrivate) {
+            res.statusCode = 403
+            res.end('Blocked')
+            return
+          }
+
+          // Build referer: prefer hint from source page, fallback to image origin
+          let referer = parsed.origin + '/'
+          if (refererHint && /^https?:\/\//.test(refererHint)) {
+            referer = refererHint
+          }
+
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 20_000)
+          const imgRes = await fetch(imageUrl, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+              'Referer': referer,
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            },
+            redirect: 'follow',
+          })
+          clearTimeout(timeout)
+
+          if (!imgRes.ok) {
+            // Retry without referer as last resort
+            const retryRes = await fetch(imageUrl, {
+              signal: AbortSignal.timeout(10_000),
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+              },
+              redirect: 'follow',
+            })
+            if (!retryRes.ok) {
+              res.statusCode = imgRes.status
+              res.end(`Upstream ${imgRes.status}`)
+              return
+            }
+            const ct = retryRes.headers.get('content-type') || 'image/jpeg'
+            res.setHeader('Content-Type', ct)
+            res.setHeader('Cache-Control', 'public, max-age=86400')
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            if (retryRes.body) {
+              Readable.fromWeb(retryRes.body as any).pipe(res)
+            } else {
+              res.end()
+            }
+            return
+          }
+          const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+          res.setHeader('Content-Type', contentType)
+          res.setHeader('Cache-Control', 'public, max-age=86400')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          if (imgRes.body) {
+            Readable.fromWeb(imgRes.body as any).pipe(res)
+          } else {
+            res.end()
+          }
+        } catch (e: any) {
+          if (e.name === 'AbortError') {
+            res.statusCode = 504
+            res.end('Timeout')
+          } else {
+            res.statusCode = 502
+            res.end(e.message || 'Proxy error')
+          }
+        }
       })
 
       // Imported documents: written directly to TechInsight/<category>/, legacy metadata in data/.insighthub-imported-docs.json

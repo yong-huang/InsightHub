@@ -24,6 +24,7 @@ interface PreferenceState extends UserPreferences {
   addWorkspace: (ws: WorkspaceConfig) => void
   updateWorkspace: (ws: WorkspaceConfig) => void
   removeWorkspace: (id: string) => void
+  setDiagramSearchEngine: (engine: 'google' | 'bing') => void
   setEnabledFeatures: (f: Record<FeatureKey, boolean>) => void
   loadQuizSettingsFromServer: () => Promise<void>
   loadWorkspacesFromServer: () => Promise<void>
@@ -46,6 +47,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
   quizEnabledTypes: (storageService.getPreferences().quizEnabledTypes || ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']) as QuestionType[],
   workspaces: storageService.getPreferences().workspaces,
+  diagramSearchEngine: ((storageService.getPreferences() as any).diagramSearchEngine as 'google' | 'bing') || 'bing',
   enabledFeatures: (() => {
     const raw = storageService.getPreferences() as Record<string, any>
     const stored = raw.enabledFeatures as Record<FeatureKey, boolean> | undefined
@@ -130,6 +132,11 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     const workspaces = get().workspaces.filter(w => w.id !== id)
     savePrefs({ workspaces })
     set({ workspaces })
+  },
+
+  setDiagramSearchEngine: (diagramSearchEngine) => {
+    savePrefs({ diagramSearchEngine })
+    set({ diagramSearchEngine })
   },
 
   setEnabledFeatures: (enabledFeatures) => {

@@ -80,6 +80,7 @@ export function SettingsPage() {
     workspaces, addWorkspace, updateWorkspace, removeWorkspace,
     activeWorkspace,
     enabledFeatures, setEnabledFeatures,
+    diagramSearchEngine, setDiagramSearchEngine,
   } = usePreferenceStore()
 
   // AI profiles state
@@ -769,6 +770,25 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Card: Diagram Search */}
+      <div className="cs-card">
+        <div className="cs-card-header">DIAGRAM SEARCH</div>
+        <div className="cs-card-body">
+          <div className="cs-card-desc">
+            Choose the search engine used when searching for architecture diagrams in the document reader.
+          </div>
+          <label className="cs-select">
+            <select
+              value={diagramSearchEngine}
+              onChange={e => setDiagramSearchEngine(e.target.value as 'google' | 'bing')}
+            >
+              <option value="google">Google Images</option>
+              <option value="bing">Bing Images</option>
+            </select>
+          </label>
         </div>
       </div>
 

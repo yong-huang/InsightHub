@@ -31,6 +31,7 @@ export const storageKeys = {
   CODE_EDITOR: `${PREFIX}code-editor`,
   RATINGS: `${PREFIX}ratings`,
   SCRIPTS: `${PREFIX}scripts`,
+  ARCH_DIAGRAMS: `${PREFIX}arch-diagrams`,
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -501,6 +502,25 @@ export const storageService = {
     const key = `${source}:${category}`
     const list = storageService.getDeprecatedCategories().filter(k => k !== key)
     setItem(storageKeys.DEPRECATED_CATEGORIES, list)
+  },
+
+  // Architecture diagrams
+  getArchDiagrams: () => getItem<any[]>(storageKeys.ARCH_DIAGRAMS, []),
+
+  setArchDiagrams: (diagrams: any[]) => setItem(storageKeys.ARCH_DIAGRAMS, diagrams),
+
+  addArchDiagram: (diagram: any) => {
+    const diagrams = storageService.getArchDiagrams()
+    // Dedup by docId+url
+    if (diagrams.some((d: any) => d.documentId === diagram.documentId && d.url === diagram.url)) return false
+    diagrams.unshift(diagram)
+    storageService.setArchDiagrams(diagrams.slice(0, 200))
+    return true
+  },
+
+  removeArchDiagram: (id: string) => {
+    const diagrams = storageService.getArchDiagrams().filter((d: any) => d.id !== id)
+    storageService.setArchDiagrams(diagrams)
   },
 
   /** Rewrite all localStorage records referencing oldId to use newId */
