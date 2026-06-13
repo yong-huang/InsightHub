@@ -86,15 +86,16 @@ function setItem<T>(key: string, value: T): boolean {
   } catch (e) {
     // Quota exceeded — evict non-essential data and retry once
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      const serialized = JSON.stringify(value)
       let freed = false
       for (const evictKey of EVICTABLE_KEYS) {
-        try { localStorage.removeItem(evictKey); freed = true } catch {}
+        try { localStorage.removeItem(evictKey); freed = true } catch { /* ignore */ }
       }
       if (freed) {
         try {
-          localStorage.setItem(key, json)
+          localStorage.setItem(key, serialized)
           return true
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
     console.warn(`[storage] Failed to set ${key}:`, e)

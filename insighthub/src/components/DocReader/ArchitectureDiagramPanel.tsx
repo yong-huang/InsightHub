@@ -62,7 +62,7 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
       const all = JSON.parse(localStorage.getItem('insighthub:arch-diagram-topics') || '{}')
       const raw: string[] | { topic: string; source: 'ai' | 'manual' }[] = all[docId] || []
       // Migrate legacy plain string topics to AI-sourced
-      return raw.map((t: any) => typeof t === 'string' ? { topic: t, source: 'ai' as const } : t)
+      return raw.map((t: string | { topic: string; source: 'ai' | 'manual' }) => typeof t === 'string' ? { topic: t, source: 'ai' as const } : t)
     } catch { return [] }
   })
   const [activeTopic, setActiveTopic] = useState<string | null>(null)
@@ -272,7 +272,7 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
       else if (e.key === 'Escape') { setPreviewUrl(null); setPreviewMeta(null) }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => { try { window.removeEventListener('keydown', onKey) } catch { /* ignore cross-origin */ } }
   }, [previewUrl, navigatePreview])
 
   return (

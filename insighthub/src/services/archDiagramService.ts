@@ -33,8 +33,8 @@ Format: {"topics":["Topic 1","Topic 2","Topic 3"]}`,
       return { success: false, error: 'No topics extracted' }
     }
     return { success: true, topics }
-  } catch (e: any) {
-    return { success: false, error: e.message }
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
 
@@ -65,7 +65,7 @@ export async function searchDiagramImages(
     })
     const data = await res.json()
     return data as SearchImagesResponse
-  } catch (e: any) {
-    return { success: false, error: e.message }
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) }
   }
 }
