@@ -330,7 +330,7 @@ export function DocReaderPage() {
     return () => {
       document.removeEventListener('keydown', onKey)
       iframe?.removeEventListener('load', onLoad)
-      listenedDocs.forEach(d => d.removeEventListener('keydown', onKey))
+      listenedDocs.forEach(d => { try { d.removeEventListener('keydown', onKey) } catch { /* cross-origin */ } })
     }
   }, [isFullscreen])
 
@@ -491,7 +491,7 @@ export function DocReaderPage() {
       const win = doc?.defaultView
       win?.addEventListener('scroll', onScroll, { passive: true })
       return () => {
-        win?.removeEventListener('scroll', onScroll)
+        try { win?.removeEventListener('scroll', onScroll) } catch { /* cross-origin */ }
         if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
       }
     } catch {}
