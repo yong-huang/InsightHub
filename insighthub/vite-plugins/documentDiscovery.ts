@@ -2040,8 +2040,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: `Unsupported content type: ${contentType.split(';')[0]}` }))
                 return
               }
+
+              // Check CSP frame-ancestors — if the site blocks iframe embedding, download HTML instead
+              const cspHeader = response.headers.get('content-security-policy') || ''
+              const xFrameOptions = response.headers.get('x-frame-options') || ''
+              const hasFrameAncestorsBlock = /frame-ancestors\s+[^;]*'none'/i.test(cspHeader)
+                || /frame-ancestors\s+['"][^'"]+['"][^;]*/i.test(cspHeader)
+              const hasXFrameBlock = /DENY/i.test(xFrameOptions) || /SAMEORIGIN/i.test(xFrameOptions)
+
               const html = await response.text()
 
+              // Extract metadata from HTML
               const meta = extractHtmlMetadata(html)
               // Decode HTML entities in title (e.g. &#8211; → –, &#039; → ')
               const decodedTitle = meta.title.replace(/&#[xX]?[\da-fA-F]+;|&\w+;/g, e => {
@@ -2050,26 +2059,70 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'", '&nbsp;': '\u00a0' }
                 return entities[e] || e
               })
+
               const source = body.source || ''
               const category = body.category || ''
-              const id = `imported-url-${Date.now()}`
-              const fileName = (decodedTitle || `article-${Date.now()}`).replace(/[/\\?%*:|"<>&#;]/g, '-').replace(/-+/g, '-').slice(0, 80) + '.html'
+              const id = `imported-${Date.now()}`
 
-              const docs = loadImportedDocsFile()
-              docs.push({
-                id,
-                fileName,
-                source,
-                category,
-                importedAt: Date.now(),
-                title: decodedTitle,
-                wordCount: meta.wordCount,
-                language: meta.language,
-                url,
-              })
-              saveImportedDocsFile(docs)
+              if (hasFrameAncestorsBlock || hasXFrameBlock) {
+                // Site blocks iframe embedding — save HTML locally and serve as downloaded doc
+                let processedHtml = html
+                  .replace(/<script[\s\S]*?<\/script>/gi, '')
+                  .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+                  .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+                  .replace(/<meta[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '')
+                const baseUrl = new URL(url)
+                processedHtml = await inlineImages(processedHtml, baseUrl)
+                const originUrl = baseUrl.origin
+                const baseTag = `<base href="${originUrl}">`
+                processedHtml = processedHtml.includes('<head')
+                  ? processedHtml.replace(/<head[^>]*>/i, m => m + baseTag)
+                  : processedHtml.includes('<html')
+                    ? processedHtml.replace(/<html[^>]*>/i, m => m + `<head>${baseTag}</head>`)
+                    : baseTag + processedHtml
 
-              res.end(JSON.stringify({ id, title: decodedTitle, wordCount: meta.wordCount, language: meta.language }))
+                const fileName = (decodedTitle || `article-${Date.now()}`).replace(/[/\\?%*:|"<>&#;]/g, '-').replace(/-+/g, '-').slice(0, 80) + '.html'
+
+                const docs = loadImportedDocsFile()
+                docs.push({
+                  id,
+                  fileName,
+                  source,
+                  category,
+                  importedAt: Date.now(),
+                  title: decodedTitle,
+                  wordCount: meta.wordCount,
+                  language: meta.language,
+                  // No url field — forces documentStore to serve HTML from /api/imported-doc/<id>
+                })
+                saveImportedDocsFile(docs)
+
+                // Save HTML content to disk for /api/imported-doc/ serving
+                const targetDir = legacyImportsDir
+                if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
+                fs.writeFileSync(path.join(targetDir, `${id}.html`), processedHtml, 'utf-8')
+
+                res.end(JSON.stringify({ id, title: decodedTitle, wordCount: meta.wordCount, language: meta.language, downloaded: true }))
+              } else {
+                // Normal case: site allows iframe — save as URL-only reference
+                const fileName = (decodedTitle || `article-${Date.now()}`).replace(/[/\\?%*:|"<>&#;]/g, '-').replace(/-+/g, '-').slice(0, 80) + '.html'
+
+                const docs = loadImportedDocsFile()
+                docs.push({
+                  id,
+                  fileName,
+                  source,
+                  category,
+                  importedAt: Date.now(),
+                  title: decodedTitle,
+                  wordCount: meta.wordCount,
+                  language: meta.language,
+                  url,
+                })
+                saveImportedDocsFile(docs)
+
+                res.end(JSON.stringify({ id, title: decodedTitle, wordCount: meta.wordCount, language: meta.language }))
+              }
             } catch (fetchErr: any) {
               const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
               res.statusCode = 400
