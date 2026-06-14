@@ -3,10 +3,12 @@ import * as path from 'path'
 import type { Source } from '../../src/types'
 import type { DocumentManifestEntry, ScanOptions } from './scanDocuments'
 import { generateId, isExcluded } from './scanDocuments'
-import { extractHtmlMetadataFromFile } from './htmlMetadataExtractor'
+import { extractHtmlMetadataFromFile, type HtmlMetadata } from './htmlMetadataExtractor'
 
 interface ManifestEntry {
   file: string // relative path from source root
+  mtime?: number // fs.statSync().mtimeMs — used to skip metadata re-extraction
+  meta?: HtmlMetadata // cached metadata
 }
 
 interface Manifest {
@@ -47,6 +49,10 @@ function saveManifest(sourceDir: string, manifest: Manifest): void {
  *    - Else → generate new ID
  * 4. Remove manifest entries with no corresponding file
  * 5. Write back manifest (only if changed)
+ *
+ * Metadata caching: when extractMetadata is enabled, cached metadata from the
+ * manifest is reused if the file's mtime hasn't changed. Only changed/new
+ * files incur the cost of HTML parsing.
  */
 export function scanWithManifest(
   sourceDir: string,
@@ -57,15 +63,18 @@ export function scanWithManifest(
 ): DocumentManifestEntry[] {
   if (!fs.existsSync(sourceDir)) return []
 
-  // Step 1: Scan all .html files
+  // Step 1: Scan all .html files + collect mtimes
   const scannedFiles = new Map<string, string>() // relativePath → fileName
+  const fileMtimes = new Map<string, number>() // relativePath → mtimeMs
   for (const rawEntry of fs.readdirSync(sourceDir, { recursive: true })) {
     if (typeof rawEntry !== 'string') continue
     const absPath = path.join(sourceDir, rawEntry)
-    if (!fs.statSync(absPath).isFile()) continue
+    const stat = fs.statSync(absPath)
+    if (!stat.isFile()) continue
     if (!rawEntry.endsWith('.html')) continue
     if (isExcluded(rawEntry)) continue
     scannedFiles.set(rawEntry, path.basename(rawEntry))
+    fileMtimes.set(rawEntry, stat.mtimeMs)
   }
 
   // Step 2: Load existing manifest
@@ -74,11 +83,11 @@ export function scanWithManifest(
   // Build reverse indexes: relativePath → id, fileName → { id, file }
   const pathToId = new Map<string, string>()
   const fileNameToEntry = new Map<string, { id: string; file: string }>()
-  let changed = false
+  let manifestChanged = false
   for (const [id, entry] of Object.entries(manifest.entries)) {
     // Handle corrupted entries (string instead of {file: string})
     if (!entry || typeof entry !== 'object' || typeof entry.file !== 'string') {
-      changed = true // Force rewrite to fix
+      manifestChanged = true // Force rewrite to fix
       continue
     }
     pathToId.set(entry.file, id)
@@ -89,6 +98,7 @@ export function scanWithManifest(
   const newEntries: Record<string, ManifestEntry> = {}
   const results: DocumentManifestEntry[] = []
   const sourceName = sourceNameOverride || source
+  const needMeta = !!options?.extractMetadata
 
   for (const [relativePath, fileName] of scannedFiles) {
     let id: string
@@ -96,21 +106,18 @@ export function scanWithManifest(
     // Exact path match → reuse ID
     if (pathToId.has(relativePath)) {
       id = pathToId.get(relativePath)!
-      newEntries[id] = { file: relativePath }
       // Check if entry unchanged
-      if (manifest.entries[id]?.file !== relativePath) changed = true
+      if (manifest.entries[id]?.file !== relativePath) manifestChanged = true
     } else {
       // Check if same fileName exists (file moved)
       const existing = fileNameToEntry.get(fileName)
       if (existing) {
         id = existing.id
-        newEntries[id] = { file: relativePath }
-        changed = true // Path changed
+        manifestChanged = true // Path changed
       } else {
         // New file → generate new ID
         id = generateId(sourcePrefix, relativePath, fileName)
-        newEntries[id] = { file: relativePath }
-        changed = true
+        manifestChanged = true
       }
     }
 
@@ -129,20 +136,42 @@ export function scanWithManifest(
       subcategory,
     }
 
-    // Extract metadata if requested
-    if (options?.extractMetadata) {
-      const absFilePath = path.join(sourceDir, relativePath)
-      try {
-        const meta = extractHtmlMetadataFromFile(absFilePath)
-        entry.title = meta.title
-        entry.contentSnippet = meta.contentSnippet
-        entry.wordCount = meta.wordCount
-        entry.language = meta.language
-        entry.sections = meta.sections
-      } catch {
-        // Skip metadata for unreadable files
+    // Build manifest entry with metadata cache
+    const manifestEntry: ManifestEntry = { file: relativePath }
+    const currentMtime = fileMtimes.get(relativePath)!
+    const oldEntry = manifest.entries[id]
+    let metaChanged = false
+
+    if (needMeta) {
+      // Reuse cached metadata if mtime unchanged
+      if (oldEntry?.mtime === currentMtime && oldEntry?.meta) {
+        entry.title = oldEntry.meta.title
+        entry.contentSnippet = oldEntry.meta.contentSnippet
+        entry.wordCount = oldEntry.meta.wordCount
+        entry.language = oldEntry.meta.language
+        entry.sections = oldEntry.meta.sections
+        manifestEntry.meta = oldEntry.meta
+      } else {
+        // Extract metadata from file
+        const absFilePath = path.join(sourceDir, relativePath)
+        try {
+          const meta = extractHtmlMetadataFromFile(absFilePath)
+          entry.title = meta.title
+          entry.contentSnippet = meta.contentSnippet
+          entry.wordCount = meta.wordCount
+          entry.language = meta.language
+          entry.sections = meta.sections
+          manifestEntry.meta = meta
+          metaChanged = true
+        } catch {
+          // Skip metadata for unreadable files
+        }
       }
+      manifestEntry.mtime = currentMtime
     }
+
+    newEntries[id] = manifestEntry
+    if (metaChanged) manifestChanged = true
 
     results.push(entry)
   }
@@ -150,13 +179,13 @@ export function scanWithManifest(
   // Step 4: Detect removed entries (entries not in newEntries)
   for (const id of Object.keys(manifest.entries)) {
     if (!(id in newEntries)) {
-      changed = true
+      manifestChanged = true
       break
     }
   }
 
   // Step 5: Write back manifest if changed
-  if (changed || Object.keys(manifest.entries).length === 0) {
+  if (manifestChanged || Object.keys(manifest.entries).length === 0) {
     saveManifest(sourceDir, { version: 1, entries: newEntries })
   }
 

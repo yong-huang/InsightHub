@@ -487,7 +487,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
       // API endpoint: return document manifest (cached 1s to avoid redundant fs scans)
       let manifestCache: { data: string; ts: number } | null = null
-      const MANIFEST_TTL = 1000 // 1 second
+      const MANIFEST_TTL = 30_000 // 30 seconds
 
       server.middlewares.use('/api/documents', (_req, res) => {
         try {
@@ -2651,6 +2651,217 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
 
       // GET /api/code-runtimes — return list of available language runtimes
+      // API endpoint: scan for orphaned doc IDs and return current docs for matching
+      server.middlewares.use('/api/migrate-doc-ids', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method === 'GET') {
+          try {
+            // Build current doc ID set from manifest
+            const workspaces = loadWorkspaces()
+            const manifest = scanWorkspaces(workspaces, BASE_DIR, { extractMetadata: true })
+            const currentDocs: { id: string; title: string; fileName: string }[] = []
+            const currentIdSet = new Set<string>()
+            if (manifest.workspaces) {
+              for (const ws of manifest.workspaces) {
+                for (const cat of (ws.categories || [])) {
+                  for (const doc of (cat.documents || [])) {
+                    currentIdSet.add(doc.id)
+                    currentDocs.push({
+                      id: doc.id,
+                      title: doc.title || '',
+                      fileName: doc.file ? path.basename(doc.file) : '',
+                    })
+                  }
+                }
+              }
+            }
+
+            // Collect all docId references from data files
+            const orphanedIds = new Set<string>()
+
+            // Object stores (keys are docIds)
+            const OBJ_FILES = [
+              '.insighthub-read-meta.json',
+              '.insighthub-quizzes.json',
+            ]
+            for (const file of OBJ_FILES) {
+              const fp = path.resolve(DATA_DIR, file)
+              if (!fs.existsSync(fp)) continue
+              try {
+                const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                for (const key of Object.keys(obj)) {
+                  if (!currentIdSet.has(key)) orphanedIds.add(key)
+                }
+              } catch { /* ignore */ }
+            }
+
+            // Array stores (documentId / sourceDocId field)
+            const ARR_FILES: { file: string; idField: string }[] = [
+              { file: '.insighthub-read-history.json', idField: 'documentId' },
+              { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+              { file: '.insighthub-annotations.json', idField: 'documentId' },
+              { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+              { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
+            ]
+            for (const { file, idField } of ARR_FILES) {
+              const fp = path.resolve(DATA_DIR, file)
+              if (!fs.existsSync(fp)) continue
+              try {
+                const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                for (const item of arr) {
+                  const id = item[idField]
+                  if (typeof id === 'string' && !currentIdSet.has(id)) orphanedIds.add(id)
+                }
+              } catch { /* ignore */ }
+            }
+
+            // Client storage
+            const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
+            if (fs.existsSync(csPath)) {
+              try {
+                const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                for (const [, value] of Object.entries(obj)) {
+                  if (typeof value !== 'object' || value === null) continue
+                  if (!Array.isArray(value)) {
+                    // Object store: keys are docIds
+                    for (const key of Object.keys(value)) {
+                      if (!currentIdSet.has(key)) orphanedIds.add(key)
+                    }
+                  } else if (value.length > 0 && value[0]?.documentId) {
+                    for (const item of value) {
+                      if (item.documentId && !currentIdSet.has(item.documentId)) orphanedIds.add(item.documentId)
+                    }
+                  }
+                }
+              } catch { /* ignore */ }
+            }
+
+            res.end(JSON.stringify({ orphanedIds: [...orphanedIds].sort(), currentDocs }))
+          } catch (e) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: String(e) }))
+          }
+          return
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = []
+          req.on('data', (chunk: Buffer) => chunks.push(chunk))
+          req.on('end', () => {
+            try {
+              const body = JSON.parse(Buffer.concat(chunks).toString()) as { mappings: Record<string, string> }
+              const mappings = body.mappings
+              if (!mappings || typeof mappings !== 'object') {
+                res.statusCode = 400
+                res.end(JSON.stringify({ error: 'Expected { mappings: { oldId: newId } }' }))
+                return
+              }
+
+              let totalRewritten = 0
+
+              // Object stores (key = docId)
+              const OBJ_FILES = [
+                '.insighthub-read-meta.json',
+                '.insighthub-quizzes.json',
+              ]
+              for (const file of OBJ_FILES) {
+                const fp = path.resolve(DATA_DIR, file)
+                if (!fs.existsSync(fp)) continue
+                try {
+                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                  let changed = false
+                  const rewritten: Record<string, any> = {}
+                  for (const [k, v] of Object.entries(obj)) {
+                    const newK = mappings[k] || k
+                    if (v && typeof v === 'object' && v.id && mappings[v.id]) {
+                      v.id = mappings[v.id]
+                      changed = true
+                    }
+                    rewritten[newK] = v
+                    if (newK !== k) changed = true
+                  }
+                  if (changed) {
+                    const count = Object.keys(obj).filter(k => mappings[k]).length
+                    totalRewritten += count
+                    fs.writeFileSync(fp, JSON.stringify(rewritten, null, 2), 'utf-8')
+                  }
+                } catch { /* ignore */ }
+              }
+
+              // Array stores with documentId field
+              const ARR_FILES: { file: string; idField: string }[] = [
+                { file: '.insighthub-read-history.json', idField: 'documentId' },
+                { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+                { file: '.insighthub-annotations.json', idField: 'documentId' },
+                { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+                { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
+              ]
+              for (const { file, idField } of ARR_FILES) {
+                const fp = path.resolve(DATA_DIR, file)
+                if (!fs.existsSync(fp)) continue
+                try {
+                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                  let changed = false
+                  for (const item of arr) {
+                    const oldId = item[idField]
+                    if (typeof oldId === 'string' && mappings[oldId]) {
+                      item[idField] = mappings[oldId]
+                      changed = true
+                      totalRewritten++
+                    }
+                  }
+                  if (changed) fs.writeFileSync(fp, JSON.stringify(arr, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+
+              // Client storage
+              const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
+              if (fs.existsSync(csPath)) {
+                try {
+                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                  let changed = false
+                  for (const [key, value] of Object.entries(obj)) {
+                    if (typeof value !== 'object' || value === null) continue
+                    if (!Array.isArray(value)) {
+                      // Object store: docId keys
+                      const rewritten: Record<string, any> = {}
+                      for (const [k, v] of Object.entries(value)) {
+                        const newK = mappings[k] || k
+                        rewritten[newK] = v
+                        if (newK !== k) changed = true
+                      }
+                      if (changed) obj[key] = rewritten
+                    } else if (value.length > 0 && value[0]?.documentId) {
+                      for (const item of value) {
+                        if (item.documentId && mappings[item.documentId]) {
+                          item.documentId = mappings[item.documentId]
+                          changed = true
+                          totalRewritten++
+                        }
+                      }
+                    }
+                  }
+                  if (changed) fs.writeFileSync(csPath, JSON.stringify(obj, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+
+              // Clear manifest cache so next request picks up changes
+              manifestCache = null
+
+              res.end(JSON.stringify({ success: true, rewritten: totalRewritten }))
+            } catch (e) {
+              res.statusCode = 500
+              res.end(JSON.stringify({ error: String(e) }))
+            }
+          })
+          return
+        }
+
+        res.statusCode = 405
+        res.end('Method Not Allowed')
+      })
+
       server.middlewares.use('/api/code-runtimes', (req, res) => {
         if (req.method !== 'GET') { res.statusCode = 405; res.end('Method Not Allowed'); return }
         res.setHeader('Content-Type', 'application/json')

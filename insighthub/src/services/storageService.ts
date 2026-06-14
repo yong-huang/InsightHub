@@ -603,6 +603,17 @@ export const storageService = {
     } catch { /* ignore */ }
   },
 
+  /** Batch-rewrite all localStorage records for multiple doc ID mappings */
+  migrateDocumentIds(mappings: Record<string, string>): number {
+    let total = 0
+    for (const [oldId, newId] of Object.entries(mappings)) {
+      if (oldId === newId) continue
+      storageService.migrateDocumentId(oldId, newId)
+      total++
+    }
+    return total
+  },
+
   /** Low-level raw string getter for similarity cache */
   _getRaw: getRaw,
 

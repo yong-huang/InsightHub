@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle2, AlertTriangle, Zap, KeyRound,
   Loader2, ArrowLeft, Database, Plus, Trash2, FolderOpen, Folder, FileText,
-  ChevronRight, ChevronDown,
+  ChevronRight, ChevronDown, ArrowRightLeft,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -12,6 +12,7 @@ import type { Difficulty, WorkspaceConfig, QuestionType } from '@/types'
 import { exportAllData, importAllData } from '@/utils/dataExporter'
 import type { ExportData } from '@/utils/dataExporter'
 import { WORKSPACE_ICONS, AVAILABLE_ICON_NAMES } from '@/utils/workspaceIcons'
+import { storageService } from '@/services/storageService'
 
 interface AIProfile {
   id: string
@@ -68,6 +69,196 @@ function IconPicker({ value, onChange }: { value: string; onChange: (icon: strin
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+interface MigrationEntry {
+  oldId: string
+  matchedId: string
+  confidence: 'high' | 'medium' | 'none'
+}
+
+function DocumentMigrationCard() {
+  const [scanning, setScanning] = useState(false)
+  const [orphanedIds, setOrphanedIds] = useState<string[]>([])
+  const [currentDocs, setCurrentDocs] = useState<{ id: string; title: string; fileName: string }[]>([])
+  const [mappings, setMappings] = useState<MigrationEntry[]>([])
+  const [migrating, setMigrating] = useState(false)
+  const [resultMsg, setResultMsg] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const handleScan = async () => {
+    setScanning(true)
+    setResultMsg(null)
+    try {
+      const res = await fetch('/api/migrate-doc-ids')
+      if (!res.ok) throw new Error('Scan failed')
+      const data = await res.json() as { orphanedIds: string[]; currentDocs: { id: string; title: string; fileName: string }[] }
+      setOrphanedIds(data.orphanedIds)
+      setCurrentDocs(data.currentDocs)
+
+      // Auto-match: extract filename from old ID and match
+      const filenameToDocs = new Map<string, { id: string; title: string; fileName: string }[]>()
+      for (const doc of data.currentDocs) {
+        const fn = doc.fileName.toLowerCase()
+        const list = filenameToDocs.get(fn) || []
+        list.push(doc)
+        filenameToDocs.set(fn, list)
+      }
+
+      const autoMappings: MigrationEntry[] = data.orphanedIds.map(oldId => {
+        // Extract filename from ID: last segment after the prefix-category part
+        const oldFileName = oldId.split('-').slice(2).join('-') + '.html'
+        const exactMatch = filenameToDocs.get(oldFileName.toLowerCase())
+        if (exactMatch && exactMatch.length === 1) {
+          return { oldId, matchedId: exactMatch[0].id, confidence: 'high' }
+        }
+
+        // Try title substring match
+        const titlePart = oldId.split('-').slice(2).join(' ')
+        const titleMatches = data.currentDocs.filter(d =>
+          d.title.toLowerCase().includes(titlePart.toLowerCase()) ||
+          titlePart.toLowerCase().includes(d.title.toLowerCase())
+        )
+        if (titleMatches.length === 1) {
+          return { oldId, matchedId: titleMatches[0].id, confidence: 'medium' }
+        }
+
+        return { oldId, matchedId: '', confidence: 'none' }
+      })
+
+      setMappings(autoMappings)
+    } catch (e: any) {
+      setResultMsg({ ok: false, msg: `Scan failed: ${e.message}` })
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const updateMapping = (oldId: string, newId: string) => {
+    setMappings(prev => prev.map(m => {
+      if (m.oldId !== oldId) return m
+      const confidence = newId === m.matchedId ? m.confidence : 'none'
+      return { ...m, matchedId: newId, confidence: newId ? (confidence || 'none') : 'none' }
+    }))
+  }
+
+  const handleMigrate = async () => {
+    const validMappings: Record<string, string> = {}
+    for (const m of mappings) {
+      if (m.matchedId && m.oldId !== m.matchedId) {
+        validMappings[m.oldId] = m.matchedId
+      }
+    }
+    if (Object.keys(validMappings).length === 0) {
+      setResultMsg({ ok: false, msg: 'No valid mappings to execute.' })
+      return
+    }
+
+    setMigrating(true)
+    setResultMsg(null)
+    try {
+      const res = await fetch('/api/migrate-doc-ids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mappings: validMappings }),
+      })
+      if (!res.ok) throw new Error('Migration failed')
+      const data = await res.json() as { success: boolean; rewritten: number }
+      // Also migrate client-side localStorage
+      const localCount = storageService.migrateDocumentIds(validMappings)
+      setResultMsg({ ok: true, msg: `Migration complete. Rewrote ${data.rewritten} server + ${localCount} client records.` })
+      setOrphanedIds([])
+      setMappings([])
+    } catch (e: any) {
+      setResultMsg({ ok: false, msg: `Migration failed: ${e.message}` })
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  return (
+    <div className="cs-card">
+      <div className="cs-card-header">DOCUMENT MIGRATION</div>
+      <div className="cs-card-body">
+        <div className="cs-card-desc">
+          After restructuring workspaces (moving categories, renaming directories), document IDs change and existing data (annotations, read status, ratings, etc.) becomes orphaned. Use this tool to detect and remap orphaned IDs to their new counterparts.
+        </div>
+
+        <div className="cs-btn-group" style={{ marginBottom: mappings.length > 0 ? '0.75rem' : undefined }}>
+          <button
+            className="cs-btn cs-btn-primary"
+            onClick={handleScan}
+            disabled={scanning || migrating}
+          >
+            {scanning ? <Loader2 size={14} className="spin" /> : <ArrowRightLeft size={14} />}
+            {scanning ? 'Scanning...' : 'Scan for Orphaned Data'}
+          </button>
+          {mappings.length > 0 && (
+            <button
+              className="cs-btn cs-btn-primary"
+              onClick={handleMigrate}
+              disabled={migrating || mappings.every(m => !m.matchedId)}
+            >
+              {migrating ? <Loader2 size={14} className="spin" /> : <ArrowRightLeft size={14} />}
+              {migrating ? 'Migrating...' : `Execute Migration (${mappings.filter(m => m.matchedId).length})`}
+            </button>
+          )}
+        </div>
+
+        {orphanedIds.length === 0 && !scanning && mappings.length === 0 && !resultMsg && (
+          <div className="cs-empty-hint">Click "Scan" to check for orphaned document IDs in your data files.</div>
+        )}
+
+        {mappings.length > 0 && (
+          <div className="cs-migrate-table-wrap">
+            <table className="cs-migrate-table">
+              <thead>
+                <tr>
+                  <th>Old ID</th>
+                  <th>Mapped To</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mappings.map(m => (
+                  <tr key={m.oldId}>
+                    <td className="cs-migrate-old-id" title={m.oldId}>
+                      {m.oldId.length > 40 ? m.oldId.slice(0, 37) + '...' : m.oldId}
+                    </td>
+                    <td>
+                      <select
+                        className="cs-migrate-select"
+                        value={m.matchedId}
+                        onChange={e => updateMapping(m.oldId, e.target.value)}
+                      >
+                        <option value="">-- select --</option>
+                        {currentDocs.map(doc => (
+                          <option key={doc.id} value={doc.id}>
+                            {doc.title || doc.id}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <span className={`cs-migrate-badge cs-migrate-badge-${m.confidence}`}>
+                        {m.confidence === 'high' ? 'Exact' : m.confidence === 'medium' ? 'Partial' : 'Manual'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {resultMsg && (
+          <div className={`cs-test-result ${resultMsg.ok ? 'success' : 'error'}`}>
+            {resultMsg.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+            {resultMsg.msg}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -896,6 +1087,8 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+
+      <DocumentMigrationCard />
 
       {/* Directory browser dialog */}
       {browseOpen && (

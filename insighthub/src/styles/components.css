@@ -1108,6 +1108,80 @@
   color: var(--accent-red);
 }
 
+/* Migration table */
+.cs-migrate-table-wrap {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.cs-migrate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.cs-migrate-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-default);
+}
+.cs-migrate-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: middle;
+}
+.cs-migrate-table tr:last-child td {
+  border-bottom: none;
+}
+.cs-migrate-old-id {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  color: var(--accent-red);
+  word-break: break-all;
+}
+.cs-migrate-select {
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.cs-migrate-select:focus {
+  border-color: var(--accent-primary);
+}
+.cs-migrate-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cs-migrate-badge-high {
+  background: rgba(87, 242, 135, 0.12);
+  color: var(--accent-green);
+}
+.cs-migrate-badge-medium {
+  background: rgba(255, 170, 51, 0.12);
+  color: var(--accent-orange);
+}
+.cs-migrate-badge-none {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--accent-red);
+}
+
 /* Empty hint */
 .cs-empty-hint {
   padding: 1rem;
