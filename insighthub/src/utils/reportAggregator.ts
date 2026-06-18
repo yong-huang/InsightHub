@@ -91,13 +91,12 @@ export function buildReportData(
     ? Array.from(documents.values()).filter(d => workspaceDocIds.has(d.id))
     : Array.from(documents.values())
 
-  // Filter read history by period and workspace
+  // Filter read history by period and workspace (used for activeDays and reading habits)
   const filteredReadHistory = readHistory.filter(e => {
     if (e.readAt < start) return false
     if (workspaceDocIds && !workspaceDocIds.has(e.documentId)) return false
     return true
   })
-  const readDocIds = new Set(filteredReadHistory.map(e => e.documentId))
 
   // Filter quiz history by period and workspace
   const filteredQuizzes = quizHistory.filter(q => {
@@ -124,21 +123,21 @@ export function buildReportData(
     ? achievementState.unlockedIds.length
     : Object.values(achievementState.unlockedAt).filter(ts => ts >= start).length
 
-  // Overview
+  // Overview — use doc.isRead for accurate counts (readHistory may contain stale/orphaned IDs)
+  const readDocs = allDocs.filter(d => d.isRead)
   const overview: ReportOverview = {
     totalDocs: allDocs.length,
-    readDocs: readDocIds.size,
-    totalWords: allDocs.filter(d => readDocIds.has(d.id)).reduce((s, d) => s + d.wordCount, 0),
+    readDocs: readDocs.length,
+    totalWords: readDocs.reduce((s, d) => s + d.wordCount, 0),
     activeDays: activeDaysSet.size,
     achievements: achievementCount,
     quizCount: filteredQuizzes.length,
     annotationCount: filteredAnnotations.length,
   }
 
-  // Category distribution (only read docs in period)
+  // Category distribution (use doc.isRead for consistency)
   const catMap = new Map<string, { read: number; words: number }>()
-  for (const doc of allDocs) {
-    if (!readDocIds.has(doc.id)) continue
+  for (const doc of readDocs) {
     const c = catMap.get(doc.category) || { read: 0, words: 0 }
     c.read++
     c.words += doc.wordCount
@@ -287,10 +286,11 @@ export function buildReportData(
     longestStreak,
   }
 
-  // Tag cloud
+  // Tag cloud — use readDocIds set derived from doc.isRead
+  const readDocIdSet = new Set(readDocs.map(d => d.id))
   const tagCounts = new Map<string, number>()
   for (const tag of tags) {
-    const relevantDocs = tag.documentIds.filter(id => readDocIds.has(id))
+    const relevantDocs = tag.documentIds.filter(id => readDocIdSet.has(id))
     if (relevantDocs.length > 0) {
       tagCounts.set(tag.id, relevantDocs.length)
     }

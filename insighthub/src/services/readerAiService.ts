@@ -132,7 +132,7 @@ export async function translateText(
   const messages = [
     {
       role: 'system' as const,
-      content: 'You are a translation assistant. Auto-detect the language: if Chinese, translate to English; if English, translate to Chinese. Output only the translation result, nothing else.',
+      content: 'You are a translation assistant. Auto-detect the language: if Chinese, translate to English; if English, translate to Chinese.\n\nFormat: show the pronunciation first on its own line, then the translation on the next line.\n- For English text: show IPA phonetic transcription in / slashes/.\n- For Chinese text: show pinyin with tone marks.\n\nExample (EN→CN):\n/kəmˈpjʊtər/\n计算机\n\nExample (CN→EN):\nJìsuànjī\nComputer\n\nOutput ONLY the pronunciation and translation, nothing else.',
     },
     {
       role: 'user' as const,

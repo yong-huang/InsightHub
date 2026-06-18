@@ -16,19 +16,40 @@ export async function extractConcepts(
   maxCount: number = 10,
   onChunk?: (text: string) => void,
 ) {
-  const truncatedContent = docContent.slice(0, 6000)
+  // Send as much content as possible — split into 6000-char chunks to stay within token limits
+  const CHUNK_SIZE = 6000
+  const chunks: string[] = []
+  let remaining = docContent
+  while (remaining.length > 0) {
+    chunks.push(remaining.slice(0, CHUNK_SIZE))
+    remaining = remaining.slice(CHUNK_SIZE)
+  }
+  const contentText = chunks.length > 1
+    ? chunks.map((c, i) => `[Section ${i + 1}/${chunks.length}]\n${c}`).join('\n\n---\n\n')
+    : docContent.slice(0, CHUNK_SIZE)
 
   const messages = [
     {
       role: 'system' as const,
-      content: `You are a knowledge extraction assistant. Extract up to ${maxCount} core concepts from the document. Each concept should include a name, definition, examples, and related concepts.
-Return only JSON, no other text.
-Format:
-{"concepts":[{"conceptName":"Concept Name","definition":"Definition","examples":["Example 1"],"relatedConcepts":["Related Concept 1"],"sourceSection":"Source Section"}]}`,
+      content: `You are a meticulous knowledge extraction assistant. Your job is to extract EVERY notable concept, term, keyword, and named entity from the document. Be exhaustive — do NOT summarize or skip any concept just because it seems "obvious" or "minor".
+
+Extraction rules:
+1. Include ALL domain-specific terms, technical keywords, API names, method names, class names, protocol names, file formats, design patterns, algorithms, data structures, and acronyms.
+2. Include each variation as a separate concept (e.g. "list", "linked list", "doubly linked list" are separate concepts).
+3. Include any parameter, option, flag, or attribute that has specific technical meaning.
+4. Include comparison pairs (e.g. "== vs ===", "deep copy vs shallow copy") as separate concepts.
+5. Include idioms, conventions, and best practices mentioned in the text.
+6. Include numbers, constants, or version-specific details if they carry meaning.
+7. If the text defines something explicitly (even in parentheses or asides), extract it.
+8. If a term appears in a code example or table, extract it.
+
+Output format — JSON array, as many concepts as you can find:
+{"concepts":[{"conceptName":"short name","definition":"1-2 sentence definition based on how the document describes it","examples":["brief example from the text or a common usage"],"relatedConcepts":["other concepts from this document that are related"]}]}
+Return ONLY the JSON array. No markdown, no commentary, no "here are the concepts" preamble.`,
     },
     {
       role: 'user' as const,
-      content: `Title: ${docTitle}\n\nDocument content:\n${truncatedContent}`,
+      content: `Title: ${docTitle}\n\nDocument content:\n${contentText}`,
     },
   ]
 

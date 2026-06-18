@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { GripVertical, X, Bookmark, Trash2, Plus, Loader2, ChevronLeft, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react'
+import { GripVertical, X, Bookmark, Trash2, Plus, Loader2, ChevronLeft, ChevronRight, RefreshCw, ExternalLink, Search } from 'lucide-react'
 import { extractTopics, searchDiagramImages } from '@/services/archDiagramService'
 import type { SearchImageResult } from '@/services/archDiagramService'
 import { storageService } from '@/services/storageService'
@@ -9,6 +9,7 @@ interface ArchitectureDiagramPanelProps {
   docId: string
   docTitle: string
   docContent: string
+  initialSearch?: string
   onClose: () => void
   onDiagramChange?: () => void
 }
@@ -46,7 +47,7 @@ interface SavedDiagram {
   sourceUrl?: string
 }
 
-export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose, onDiagramChange }: ArchitectureDiagramPanelProps) {
+export function ArchitectureDiagramPanel({ docId, docTitle, docContent, initialSearch, onClose, onDiagramChange }: ArchitectureDiagramPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const initialPos = useRef(loadPanelPosition(docId))
 
@@ -55,6 +56,7 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
     storageService.getArchDiagrams().filter((d: SavedDiagram) => d.documentId === docId),
   )
   const [savedPage, setSavedPage] = useState(0)
+  const [urlInput, setUrlInput] = useState('')
 
   // Topics: { topic: string; source: 'ai' | 'manual' }
   const [topics, setTopics] = useState<{ topic: string; source: 'ai' | 'manual' }[]>(() => {
@@ -71,6 +73,9 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
   const [showNewTopicInput, setShowNewTopicInput] = useState(false)
   const [extracting, setExtracting] = useState(false)
 
+  // Search input
+  const [searchInput, setSearchInput] = useState('')
+
   // Search results
   const [searchResults, setSearchResults] = useState<SearchImageResult[]>([])
   const [searchPage, setSearchPage] = useState(0)
@@ -79,9 +84,19 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
 
   // Preview (track source for save/delete actions and navigation)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewMeta, setPreviewMeta] = useState<{ isSaved: boolean; id?: string; img?: SearchImageResult; topic?: string; index: number; sourceUrl?: string } | null>(null)
+  const [previewMeta, setPreviewMeta] = useState<{ isSaved: boolean; saved?: boolean; id?: string; img?: SearchImageResult; topic?: string; index: number; sourceUrl?: string } | null>(null)
 
   const diagramSearchEngine = usePreferenceStore(s => s.diagramSearchEngine)
+
+  // Auto-search when initialSearch is provided (e.g. from text selection)
+  useEffect(() => {
+    if (initialSearch) {
+      setSearchInput(initialSearch)
+      setActiveTopic(initialSearch)
+      handleSearch(initialSearch, 0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Persist topics to localStorage
   useEffect(() => {
@@ -199,6 +214,16 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
     onDiagramChange?.()
   }
 
+  const handleSaveByUrl = () => {
+    const url = urlInput.trim()
+    if (!url) return
+    // Basic URL validation
+    if (!/^https?:\/\//i.test(url)) return
+    const fakeImg: SearchImageResult = { url, title: 'Manual URL', sourceUrl: '' }
+    handleSaveDiagram(fakeImg, 'manual')
+    setUrlInput('')
+  }
+
   const handleAddTopic = () => {
     if (newTopicInput.trim()) {
       setTopics(prev => [...prev, { topic: newTopicInput.trim(), source: 'manual' }])
@@ -252,9 +277,9 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
       const params = new URLSearchParams({ url: img.url })
       if (img.sourceUrl) params.set('referer', img.sourceUrl)
       setPreviewUrl(`/api/proxy-image?${params}`)
-      setPreviewMeta({ isSaved: false, img, topic: activeTopic || 'manual', index, sourceUrl: img.sourceUrl })
+      setPreviewMeta({ isSaved: false, saved: savedDiagrams.some(d => d.url === img.url), img, topic: activeTopic || 'manual', index, sourceUrl: img.sourceUrl })
     }
-  }, [savedPaged, resultsPaged, activeTopic])
+  }, [savedPaged, resultsPaged, activeTopic, savedDiagrams])
 
   const navigatePreview = useCallback((dir: -1 | 1) => {
     if (!previewMeta || previewTotal <= 1) return
@@ -292,6 +317,27 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
         <div className="arch-diagram-saved">
           <div className="arch-diagram-section-header">
             <span>Saved ({savedDiagrams.length})</span>
+          </div>
+          <div className="arch-diagram-url-input-wrap">
+            <input
+              className="arch-diagram-url-input"
+              type="text"
+              placeholder="Paste image URL..."
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter') handleSaveByUrl()
+              }}
+            />
+            <button
+              className="arch-diagram-url-save-btn"
+              disabled={!urlInput.trim() || !/^https?:\/\//i.test(urlInput.trim())}
+              onClick={handleSaveByUrl}
+              title="Save image URL"
+            >
+              <Bookmark size={14} fill="currentColor" />
+            </button>
           </div>
           {savedPaged.length > 0 ? (
             <div className="arch-diagram-saved-list">
@@ -350,6 +396,36 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
             >
               {extracting ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
               {extracting ? 'Extracting...' : topics.length ? 'Re-extract' : 'Extract Topics'}
+            </button>
+          </div>
+
+          {/* Search input */}
+          <div className="arch-diagram-search-input-wrap">
+            <input
+              className="arch-diagram-search-input"
+              type="text"
+              placeholder="Search diagrams..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter' && searchInput.trim()) {
+                  setActiveTopic(searchInput.trim())
+                  handleSearch(searchInput.trim(), 0)
+                }
+              }}
+            />
+            <button
+              className="arch-diagram-search-btn"
+              disabled={searching}
+              onClick={() => {
+                if (searchInput.trim()) {
+                  setActiveTopic(searchInput.trim())
+                  handleSearch(searchInput.trim(), 0)
+                }
+              }}
+            >
+              {searching ? <Loader2 size={12} className="spin" /> : <><Search size={12} /><span>Search</span></>}
             </button>
           </div>
 
@@ -544,14 +620,14 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, onClose,
               </button>
             ) : previewMeta?.img ? (
               <button
-                className="arch-diagram-preview-btn save"
+                className={`arch-diagram-preview-btn save${previewMeta.saved ? ' saved' : ''}`}
                 onClick={() => {
                   handleSaveDiagram(previewMeta.img!, previewMeta.topic || 'manual')
-                  setPreviewMeta(prev => prev ? { ...prev, isSaved: true } : null)
+                  setPreviewMeta(prev => prev ? { ...prev, saved: true } : null)
                 }}
                 title="Save"
               >
-                <Bookmark size={16} />
+                <Bookmark size={16} fill={previewMeta.saved ? 'currentColor' : 'none'} />
               </button>
             ) : null}
             <button

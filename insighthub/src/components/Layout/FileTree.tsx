@@ -18,11 +18,11 @@ interface TreeNode {
   isRead?: boolean
 }
 
-/** Cached uppercase for directory labels */
-const upperCache = new Map<string, string>()
-function toUpperCached(s: string): string {
-  let v = upperCache.get(s)
-  if (v === undefined) { v = s.toUpperCase(); upperCache.set(s, v) }
+/** Cached lowercase for directory labels */
+const lowerCache = new Map<string, string>()
+function toLowerCached(s: string): string {
+  let v = lowerCache.get(s)
+  if (v === undefined) { v = s.toLowerCase(); lowerCache.set(s, v) }
   return v
 }
 
@@ -142,7 +142,7 @@ function TreeNodeView({
           <span className="file-tree-icon">
             {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
           </span>
-          <span className="file-tree-label">{isTopLevel ? toUpperCached(node.name) : node.name}</span>
+          <span className="file-tree-label">{isTopLevel ? toLowerCached(node.name) : node.name}</span>
           {node.docCount !== undefined && (
             <span className="file-tree-count">{node.docCount}</span>
           )}
@@ -288,25 +288,31 @@ export function FileTree() {
     return tree.filter(node => !deprecatedCats.has(`${activeWorkspace}:${node.path}`))
   }, [tree, deprecatedCats, activeWorkspace])
 
-  // Auto-expand first level if no saved state (only once when tree is ready)
+  // Load saved expanded paths when workspace changes; auto-expand first level if no saved state
   const hasAutoExpanded = useRef<string | null>(null)
   useEffect(() => {
     if (tree.length === 0 || !activeWorkspace) return
-    if (hasAutoExpanded.current === activeWorkspace) return
     const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
     if (saved?.length > 0) {
-      hasAutoExpanded.current = activeWorkspace
+      expandedPathsWs.current = activeWorkspace
       setExpandedPaths(new Set(saved))
-    } else if (tree.length === 1 && tree[0].isDir) {
+    } else if (hasAutoExpanded.current !== activeWorkspace && tree.length === 1 && tree[0].isDir) {
       hasAutoExpanded.current = activeWorkspace
+      expandedPathsWs.current = activeWorkspace
       setExpandedPaths(new Set([tree[0].path]))
       usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [tree[0].path])
     }
   }, [tree, activeWorkspace])
 
-  // Persist expanded paths to store on every change
+  // Track the workspace that expandedPaths currently belongs to, to avoid
+  // persisting stale paths when activeWorkspace changes (race condition).
+  const expandedPathsWs = useRef(activeWorkspace)
+
+  // Persist expanded paths to store — only when paths belong to the current workspace
   useEffect(() => {
-    usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [...expandedPaths])
+    if (expandedPathsWs.current === activeWorkspace) {
+      usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [...expandedPaths])
+    }
   }, [expandedPaths, activeWorkspace])
 
   const toggleExpand = useCallback((path: string) => {

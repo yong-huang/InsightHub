@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen, FileText,
@@ -48,8 +48,8 @@ import { extractConcepts, createConceptCard } from '@/services/conceptService'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 /** Wrapper that ensures contentText is loaded before rendering the diagram panel */
-function ArchDiagramWrapper({ docId, docTitle, docContent, onClose, onDiagramChange }: {
-  docId: string; docTitle: string; docContent: string; onClose: () => void; onDiagramChange?: () => void
+function ArchDiagramWrapper({ docId, docTitle, docContent, initialSearch, onClose, onDiagramChange }: {
+  docId: string; docTitle: string; docContent: string; initialSearch?: string; onClose: () => void; onDiagramChange?: () => void
 }) {
   const [content, setContent] = useState(docContent)
   useEffect(() => {
@@ -59,7 +59,7 @@ function ArchDiagramWrapper({ docId, docTitle, docContent, onClose, onDiagramCha
       })
     }
   }, [docId, content])
-  return <ArchitectureDiagramPanel docId={docId} docTitle={docTitle} docContent={content} onClose={onClose} onDiagramChange={onDiagramChange} />
+  return <ArchitectureDiagramPanel docId={docId} docTitle={docTitle} docContent={content} initialSearch={initialSearch} onClose={onClose} onDiagramChange={onDiagramChange} />
 }
 
 export function DocReaderPage() {
@@ -71,6 +71,20 @@ export function DocReaderPage() {
   const scrollToAnnotationId = (location.state as { scrollToAnnotation?: string } | null)?.scrollToAnnotation
   const allDocuments = useDocumentStore(s => s.documents)
   const doc = allDocuments.get(docId || '')
+  const setWorkspace = usePreferenceStore(s => s.setWorkspace)
+  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
+
+  // Sync active workspace when the URL navigates to a doc in another workspace
+  // (e.g. browser back/forward). Only triggers when docId actually changes,
+  // NOT when activeWorkspace changes (to avoid conflicting with manual switches).
+  const prevDocIdForWs = useRef(docId)
+  useLayoutEffect(() => {
+    if (doc && docId && docId !== prevDocIdForWs.current && doc.source !== activeWorkspace) {
+      setWorkspace(doc.source)
+    }
+    if (docId) prevDocIdForWs.current = docId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId])
 
   // Redirect orphaned documentIds to their new location
   useEffect(() => {
@@ -183,6 +197,7 @@ export function DocReaderPage() {
   const [showShadowTyping, setShowShadowTyping] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [showArchDiagram, setShowArchDiagram] = useState(false)
+  const [diagramInitialSearch, setDiagramInitialSearch] = useState<string | undefined>(undefined)
   const [diagramVersion, setDiagramVersion] = useState(0)
   const [showScriptPanel, setShowScriptPanel] = useState(false)
   const [scriptText, setScriptText] = useState<string | null>(null)
@@ -1099,7 +1114,15 @@ export function DocReaderPage() {
           {/* Architecture diagram button */}
           <button
             className={`dr-action-btn ${(docArchDiagramCount > 0 || showArchDiagram) ? 'active' : ''}`}
-            onClick={() => setShowArchDiagram(v => !v)}
+            onClick={() => {
+              if (selectionInfo) {
+                setDiagramInitialSearch(selectionInfo.text)
+                clearSelection()
+              } else {
+                setDiagramInitialSearch(undefined)
+              }
+              setShowArchDiagram(v => !v)
+            }}
           >
             <Network size={16} />
             <span className="dr-action-label">Diagrams</span>
@@ -1371,10 +1394,12 @@ export function DocReaderPage() {
       {showArchDiagram && docId && doc && (
         <Suspense fallback={null}>
           <ArchDiagramWrapper
+            key={docId}
             docId={docId}
             docTitle={doc.title}
             docContent={doc.contentText}
-            onClose={() => setShowArchDiagram(false)}
+            initialSearch={diagramInitialSearch}
+            onClose={() => { setShowArchDiagram(false); setDiagramInitialSearch(undefined) }}
             onDiagramChange={() => setDiagramVersion(v => v + 1)}
           />
         </Suspense>

@@ -2657,24 +2657,18 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
         if (req.method === 'GET') {
           try {
-            // Build current doc ID set from manifest
+            // Build current doc ID set from manifest (flat array of DocumentManifestEntry)
             const workspaces = loadWorkspaces()
             const manifest = scanWorkspaces(workspaces, BASE_DIR, { extractMetadata: true })
             const currentDocs: { id: string; title: string; fileName: string }[] = []
             const currentIdSet = new Set<string>()
-            if (manifest.workspaces) {
-              for (const ws of manifest.workspaces) {
-                for (const cat of (ws.categories || [])) {
-                  for (const doc of (cat.documents || [])) {
-                    currentIdSet.add(doc.id)
-                    currentDocs.push({
-                      id: doc.id,
-                      title: doc.title || '',
-                      fileName: doc.file ? path.basename(doc.file) : '',
-                    })
-                  }
-                }
-              }
+            for (const doc of manifest) {
+              currentIdSet.add(doc.id)
+              currentDocs.push({
+                id: doc.id,
+                title: doc.title || '',
+                fileName: doc.fileName,
+              })
             }
 
             // Collect all docId references from data files

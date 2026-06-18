@@ -174,29 +174,28 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
       const res = await fetch('/api/workspaces')
       if (!res.ok) return
       const serverWorkspaces: WorkspaceConfig[] = await res.json()
-      if (!Array.isArray(serverWorkspaces) || serverWorkspaces.length === 0) return
+      if (!Array.isArray(serverWorkspaces)) return
+
+      if (serverWorkspaces.length === 0) return
 
       const localWorkspaces = get().workspaces
-      const localIds = new Set(localWorkspaces.map(w => w.id))
-      const serverIds = new Set(serverWorkspaces.map(w => w.id))
+      const localMap = new Map(localWorkspaces.map(w => [w.id, w]))
 
-      // Only merge if server has workspaces not in local
-      const hasNew = serverWorkspaces.some(w => !localIds.has(w.id))
-      if (!hasNew) return
-
-      // Merge: local workspace data for existing IDs takes precedence (has shortLabel/subtitle),
-      // but add any server-only workspaces
-      const merged = [...localWorkspaces]
-      for (const sw of serverWorkspaces) {
-        if (!localIds.has(sw.id)) {
-          merged.push(sw)
+      // Server defines the authoritative workspace list.
+      // Preserve local-only custom fields (shortLabel, subtitle) for existing IDs.
+      // Server-removed workspaces are deleted.
+      const merged = serverWorkspaces.map(sw => {
+        const local = localMap.get(sw.id)
+        if (local) {
+          return { ...sw, shortLabel: local.shortLabel, subtitle: local.subtitle, icon: local.icon }
         }
-      }
+        return sw
+      })
 
       savePrefs({ workspaces: merged })
       set({ workspaces: merged })
 
-      // Auto-select first workspace if none is active
+      // Auto-select first workspace if none is active or active was removed
       const currentActive = get().activeWorkspace
       if (!currentActive || !merged.some(w => w.id === currentActive)) {
         const firstId = merged[0]?.id || ''

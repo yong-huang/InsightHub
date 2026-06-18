@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -56,7 +56,7 @@ export function CategoryPage() {
   const prevCategoryRef = useRef(category)
 
   // Apply URL-based filters on mount and sync workspace
-  useEffect(() => {
+  useLayoutEffect(() => {
     const urlSource = source || (category ? getSourceFromCategory(category, documents) : undefined)
     if (urlSource) {
       setWorkspace(urlSource)
