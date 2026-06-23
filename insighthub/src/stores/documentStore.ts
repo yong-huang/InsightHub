@@ -30,6 +30,7 @@ interface DocumentState {
   // Actions
   initializeDocuments: () => Promise<void>
   reloadDocuments: () => Promise<void>
+  refreshReadMeta: () => void
   setFilters: (filters: Partial<SearchFilters>) => void
   resetFilters: () => void
   markAsRead: (docId: string, rating?: number) => void
@@ -313,6 +314,34 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set({ documents: new Map(), isLoading: true, filteredDocuments: [], categoryCounts: {}, stats: { total: 0, read: 0, unread: 0, categories: 0 } })
     clearIndex()
     await loadAllDocuments(get, set)
+  },
+
+  /** Lightweight: re-sync isRead/rating from localStorage without reloading documents */
+  refreshReadMeta: () => {
+    const { documents } = get()
+    if (documents.size === 0) return
+    const meta = storageService.getDocumentMeta()
+    let changed = false
+    const updated = new Map(documents)
+    for (const doc of updated.values()) {
+      const m = meta[doc.id]
+      if (m) {
+        if (!doc.isRead && m.isRead) {
+          doc.isRead = true
+          doc.readCount = m.readCount ?? doc.readCount
+          doc.lastReadAt = m.lastReadAt ?? doc.lastReadAt
+          changed = true
+        }
+        if (doc.rating !== m.rating && m.rating != null) {
+          doc.rating = m.rating
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      set({ documents: updated })
+      get().applyFilters()
+    }
   },
 
   setFilters: (newFilters) => {

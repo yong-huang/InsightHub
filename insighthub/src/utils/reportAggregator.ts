@@ -123,7 +123,7 @@ export function buildReportData(
     ? achievementState.unlockedIds.length
     : Object.values(achievementState.unlockedAt).filter(ts => ts >= start).length
 
-  // Overview — use doc.isRead for accurate counts (readHistory may contain stale/orphaned IDs)
+  // Overview — use doc.isRead (refreshed from localStorage by refreshReadMeta on page mount)
   const readDocs = allDocs.filter(d => d.isRead)
   const overview: ReportOverview = {
     totalDocs: allDocs.length,

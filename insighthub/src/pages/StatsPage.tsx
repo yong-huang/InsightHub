@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Monitor, Globe } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -37,8 +37,14 @@ export function StatsPage() {
   const tags = useTagStore(s => s.tags)
   const annotations = useAnnotationStore(s => s.annotations)
   const isLoading = useDocumentStore(s => s.isLoading)
+  const refreshReadMeta = useDocumentStore(s => s.refreshReadMeta)
   const readHistory = useMemo(() => storageService.getReadHistory(), [isLoading])
   const achievementState = useMemo(() => storageService.getAchievementState(), [isLoading])
+
+  // Re-sync isRead from localStorage when entering StatsPage
+  useEffect(() => {
+    if (!isLoading) refreshReadMeta()
+  }, [isLoading, refreshReadMeta])
 
   // Resolve activeWorkspace (may be id or prefix) to the document source prefix
   const activeSource = useMemo(() => {
