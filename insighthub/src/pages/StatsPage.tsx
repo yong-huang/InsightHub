@@ -1,12 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Monitor, Globe } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
-import { useDocumentStore } from '@/stores/documentStore'
-import { useQuizStore } from '@/stores/quizStore'
-import { useTagStore } from '@/stores/tagStore'
-import { useAnnotationStore } from '@/stores/annotationStore'
-import { storageService } from '@/services/storageService'
-import { buildReportData, type ReportPeriod } from '@/utils/reportAggregator'
+import { buildReportData, type ReportData, type ReportPeriod } from '@/utils/reportAggregator'
+import type { Document } from '@/types'
+import type { ReadHistoryEntry } from '@/services/storageService'
 import { ChartCard } from '@/components/stats/ChartCard'
 import { ReadingHeatmap } from '@/components/stats/ReadingHeatmap'
 import { ReportHero } from '@/components/visualization/ReportHero'
@@ -32,40 +29,96 @@ const PERIODS: { key: ReportPeriod; label: string }[] = [
 export function StatsPage() {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const workspaces = usePreferenceStore(s => s.workspaces)
-  const documents = useDocumentStore(s => s.documents)
-  const quizHistory = useQuizStore(s => s.quizHistory)
-  const tags = useTagStore(s => s.tags)
-  const annotations = useAnnotationStore(s => s.annotations)
-  const isLoading = useDocumentStore(s => s.isLoading)
-  const refreshReadMeta = useDocumentStore(s => s.refreshReadMeta)
-  const readHistory = useMemo(() => storageService.getReadHistory(), [isLoading])
-  const achievementState = useMemo(() => storageService.getAchievementState(), [isLoading])
-
-  // Re-sync isRead from localStorage when entering StatsPage
-  useEffect(() => {
-    if (!isLoading) refreshReadMeta()
-  }, [isLoading, refreshReadMeta])
-
-  // Resolve activeWorkspace (may be id or prefix) to the document source prefix
-  const activeSource = useMemo(() => {
-    if (!activeWorkspace) return undefined
-    // If it matches a document source directly, use it
-    const docSources = new Set(Array.from(documents.values()).map(d => d.source))
-    if (docSources.has(activeWorkspace)) return activeWorkspace
-    // Otherwise look up the workspace config by id to get the prefix
-    const ws = workspaces.find(w => w.id === activeWorkspace)
-    return ws?.prefix || activeWorkspace
-  }, [activeWorkspace, documents, workspaces])
 
   const [scope, setScope] = useState<'workspace' | 'global'>('workspace')
   const [period, setPeriod] = useState<ReportPeriod>('all')
+  const [report, setReport] = useState<ReportData | null>(null)
+  const [docs, setDocs] = useState<Map<string, Document> | null>(null)
+  const [readHistory, setReadHistory] = useState<ReadHistoryEntry[] | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Resolve activeWorkspace to the document source prefix using workspace config
+  const activeSource = useMemo(() => {
+    if (!activeWorkspace) return undefined
+    const ws = workspaces.find(w => w.id === activeWorkspace)
+    return ws?.prefix || activeWorkspace
+  }, [activeWorkspace, workspaces])
 
   const source = scope === 'global' ? undefined : activeSource
 
-  const report = useMemo(
-    () => buildReportData(documents, tags, quizHistory, annotations, readHistory, achievementState, period, source),
-    [documents, tags, quizHistory, annotations, readHistory, achievementState, period, source],
-  )
+  // Fetch fresh data from server endpoints on every mount + scope/period change
+  useEffect(() => {
+    let cancelled = false
+    async function loadStats() {
+      setIsLoading(true)
+      try {
+        const bust = `?_t=${Date.now()}`
+        const [manifestRes, readMetaRes, readHistoryRes, annotationsRes, quizHistoryRes, tagsRes, clientStorageRes] = await Promise.all([
+          fetch('/api/documents' + bust),
+          fetch('/api/read-meta' + bust),
+          fetch('/api/read-history' + bust),
+          fetch('/api/annotations' + bust),
+          fetch('/api/quiz-history' + bust),
+          fetch('/api/tags' + bust),
+          fetch('/api/client-storage' + bust),
+        ])
+        if (cancelled) return
+
+        const manifest = await manifestRes.json()
+        const readMeta = await readMetaRes.json()
+        const readHistory = await readHistoryRes.json()
+        const annotations = await annotationsRes.json()
+        const quizHistory = await quizHistoryRes.json()
+        const tags = await tagsRes.json()
+        const clientStorage = await clientStorageRes.json()
+
+        if (cancelled) return
+
+        // Build documents Map from manifest (only fields used by buildReportData)
+        const docs = new Map<string, Document>()
+        const entries = manifest.documents || manifest
+        for (const entry of entries) {
+          docs.set(entry.id, {
+            id: entry.id,
+            title: entry.title || (entry.fileName || '').replace(/\.html$/, ''),
+            source: entry.source,
+            category: entry.category,
+            wordCount: entry.wordCount || 0,
+            isRead: !!readMeta[entry.id]?.isRead,
+          } as Document)
+        }
+
+        // Build readDocIdSet from server read-meta
+        const readIds = Object.entries(readMeta)
+          .filter(([, m]) => m.isRead)
+          .map(([id]) => id)
+        const readDocIdSet = readIds.length > 0 ? new Set(readIds) : undefined
+
+        // Achievement state from client-storage
+        const achKey = 'insighthub:achievements'
+        const achData = clientStorage[achKey]
+
+        const result = buildReportData(docs, tags || [], quizHistory || [], annotations || [], readHistory || [], achData || { unlockedIds: [], unlockedAt: {} }, period, source, readDocIdSet)
+        setReport(result)
+        setDocs(docs)
+        setReadHistory(readHistory || [])
+      } catch (e) {
+        console.error('Failed to load stats:', e)
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    loadStats()
+    return () => { cancelled = true }
+  }, [period, source])
+
+  if (isLoading || !report || !docs || !readHistory) {
+    return (
+      <div className="cs-settings" style={{ textAlign: 'center', paddingTop: '4rem' }}>
+        <p className="cs-empty-hint">Loading statistics…</p>
+      </div>
+    )
+  }
 
   return (
     <div className="cs-settings">
@@ -113,7 +166,7 @@ export function StatsPage() {
 
       {/* Heatmap */}
       <ChartCard title="Reading Heatmap">
-        <ReadingHeatmap entries={readHistory} documents={documents} source={source} />
+        <ReadingHeatmap entries={readHistory} documents={docs} source={source} />
       </ChartCard>
 
       {/* Two-column: Category Radar + Quiz Performance */}
