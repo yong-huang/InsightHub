@@ -21,6 +21,7 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
   const removeAnnotation = useAnnotationStore(s => s.removeAnnotation)
   const allAnnotations = useAnnotationStore(s => s.annotations)
   const restoreTimeoutRef = useRef<number | null>(null)
+  const suppressSelectionRef = useRef(false)
 
   const getIframeDoc = useCallback((): Document | null => {
     try {
@@ -31,6 +32,10 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
   }, [iframeRef])
 
   const handleMouseUp = useCallback(() => {
+    // Ignore selection events right after applying a highlight — the DOM
+    // mutation (splitting text nodes, inserting <mark>) can cause the browser
+    // to shift the selection to a different part of the document.
+    if (suppressSelectionRef.current) return
     const doc = getIframeDoc()
     if (!doc) return
 
@@ -113,9 +118,22 @@ export function useAnnotationIframe(iframeRef: React.RefObject<HTMLIFrameElement
     }
 
     addAnnotation(annotation)
+    // Suppress selection events for a short window after DOM mutation to
+    // prevent the browser's selection adjustment from triggering a
+    // stale handleMouseUp that could show the bar on wrong content.
+    suppressSelectionRef.current = true
+    // Preserve scroll position — inserting <mark> elements can reflow
+    // the document and shift the viewport.
+    const iframeDoc = getIframeDoc()
+    const scrollTop = iframeDoc?.defaultView?.scrollY ?? 0
+    const scrollLeft = iframeDoc?.defaultView?.scrollX ?? 0
     applyMarkToRange(range, id, color)
     clearSelection()
-  }, [selectionInfo, addAnnotation, clearSelection])
+    if (iframeDoc?.defaultView) {
+      iframeDoc.defaultView.scrollTo(scrollLeft, scrollTop)
+    }
+    setTimeout(() => { suppressSelectionRef.current = false }, 400)
+  }, [selectionInfo, addAnnotation, clearSelection, getIframeDoc])
 
   const removeHighlight = useCallback((annotationId: string, _documentId: string) => {
     const doc = getIframeDoc()

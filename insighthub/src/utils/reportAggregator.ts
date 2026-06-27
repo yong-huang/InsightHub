@@ -79,6 +79,7 @@ export function buildReportData(
   achievementState: { unlockedIds: string[]; unlockedAt: Record<string, number> },
   period: ReportPeriod,
   source?: string,
+  readDocIdSet?: Set<string>,
 ): ReportData {
   const start = getPeriodStart(period)
 
@@ -123,8 +124,10 @@ export function buildReportData(
     ? achievementState.unlockedIds.length
     : Object.values(achievementState.unlockedAt).filter(ts => ts >= start).length
 
-  // Overview — use doc.isRead (refreshed from localStorage by refreshReadMeta on page mount)
-  const readDocs = allDocs.filter(d => d.isRead)
+  // Overview — prefer readDocIdSet from localStorage (authoritative) over doc.isRead (store, can be stale)
+  const readDocs = readDocIdSet
+    ? allDocs.filter(d => readDocIdSet.has(d.id))
+    : allDocs.filter(d => d.isRead)
   const overview: ReportOverview = {
     totalDocs: allDocs.length,
     readDocs: readDocs.length,
@@ -286,11 +289,11 @@ export function buildReportData(
     longestStreak,
   }
 
-  // Tag cloud — use readDocIds set derived from doc.isRead
-  const readDocIdSet = new Set(readDocs.map(d => d.id))
+  // Tag cloud — derive read doc IDs from filtered readDocs
+  const readDocIds = new Set(readDocs.map(d => d.id))
   const tagCounts = new Map<string, number>()
   for (const tag of tags) {
-    const relevantDocs = tag.documentIds.filter(id => readDocIdSet.has(id))
+    const relevantDocs = tag.documentIds.filter(id => readDocIds.has(id))
     if (relevantDocs.length > 0) {
       tagCounts.set(tag.id, relevantDocs.length)
     }

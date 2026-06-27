@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Monitor, Globe } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { buildReportData, type ReportData, type ReportPeriod } from '@/utils/reportAggregator'
@@ -28,7 +28,6 @@ const PERIODS: { key: ReportPeriod; label: string }[] = [
 
 export function StatsPage() {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
-  const workspaces = usePreferenceStore(s => s.workspaces)
 
   const [scope, setScope] = useState<'workspace' | 'global'>('workspace')
   const [period, setPeriod] = useState<ReportPeriod>('all')
@@ -37,14 +36,8 @@ export function StatsPage() {
   const [readHistory, setReadHistory] = useState<ReadHistoryEntry[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Resolve activeWorkspace to the document source prefix using workspace config
-  const activeSource = useMemo(() => {
-    if (!activeWorkspace) return undefined
-    const ws = workspaces.find(w => w.id === activeWorkspace)
-    return ws?.prefix || activeWorkspace
-  }, [activeWorkspace, workspaces])
-
-  const source = scope === 'global' ? undefined : activeSource
+  // activeWorkspace IS the document source (workspace ID), matching document.source in manifest
+  const source = scope === 'global' ? undefined : activeWorkspace
 
   // Fetch fresh data from server endpoints on every mount + scope/period change
   useEffect(() => {
