@@ -1292,7 +1292,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
 
       function saveQuizHistoryFile(history: any[]): void {
-        fs.writeFileSync(quizHistoryPath, JSON.stringify(history.slice(0, 100), null, 2), 'utf-8')
+        fs.writeFileSync(quizHistoryPath, JSON.stringify(history, null, 2), 'utf-8')
       }
 
       server.middlewares.use('/api/quiz-history', (req, res) => {

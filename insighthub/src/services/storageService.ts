@@ -98,7 +98,10 @@ function setItem<T>(key: string, value: T): boolean {
         } catch { /* ignore */ }
       }
     }
-    console.warn(`[storage] Failed to set ${key}:`, e)
+    // Keys with dedicated server sync endpoints silently fall back to server storage
+    if (!DEDICATED_SYNC_KEYS.has(key)) {
+      console.warn(`[storage] Failed to set ${key}:`, e)
+    }
     return false
   }
 }
