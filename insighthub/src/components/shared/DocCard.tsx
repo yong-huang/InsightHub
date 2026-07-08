@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { CheckCircle2, Circle, FileText, Clock } from 'lucide-react'
+import { CheckCircle2, Circle, FileText, Clock, ImageIcon } from 'lucide-react'
 import type { Document } from '@/types'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { highlightText } from '@/services/searchService'
@@ -60,8 +60,20 @@ export const DocCard = memo(function DocCard({ doc, snippet, query }: DocCardPro
           </span>
         )}
         <span className="doc-card-words">
-          <FileText size={13} />
-          {doc.wordCount.toLocaleString()} words
+          {doc.fileType === 'image' ? (
+            <>
+              <ImageIcon size={13} />
+              {(() => {
+                const ext = doc.fileName.match(/\.[^.]+$/)
+                return ext ? ext[0].slice(1).toUpperCase() : 'IMG'
+              })()}
+            </>
+          ) : (
+            <>
+              <FileText size={13} />
+              {doc.wordCount.toLocaleString()} words
+            </>
+          )}
         </span>
       </div>
 

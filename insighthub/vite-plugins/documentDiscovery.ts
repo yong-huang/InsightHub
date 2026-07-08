@@ -32,6 +32,7 @@ interface TTSConfig {
 interface AppConfig {
   profiles: AIProfile[]
   activeProfileId: string
+  visionProfileId?: string
   // Legacy fields kept for backward compat
   aiApiUrl: string
   aiModel: string
@@ -66,6 +67,10 @@ const MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+  '.tiff': 'image/tiff',
+  '.tif': 'image/tiff',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
@@ -635,6 +640,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             aiApiKey: maskApiKey(p.aiApiKey),
           })),
           activeProfileId: appConfig.activeProfileId,
+          visionProfileId: appConfig.visionProfileId || '',
           quizDifficulty: appConfig.quizDifficulty,
           quizQuestionCount: appConfig.quizQuestionCount,
           tts: appConfig.tts || { ttsApiUrl: '', ttsModel: '', ttsVoice: '' },
@@ -719,6 +725,20 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
 
+              if (update.action === 'setVisionProfile') {
+                const id = update.visionProfileId as string
+                // Empty string means "same as active"
+                if (id && !appConfig.profiles.find(p => p.id === id)) {
+                  res.statusCode = 404
+                  res.end(JSON.stringify({ error: 'Profile not found' }))
+                  return
+                }
+                appConfig.visionProfileId = id || undefined
+                persistConfig()
+                res.end(JSON.stringify({ ok: true, ...configGetResponse() }))
+                return
+              }
+
               // Legacy flat update (backward compat)
               if (typeof update.aiApiUrl === 'string') appConfig.aiApiUrl = update.aiApiUrl
               if (typeof update.aiModel === 'string') appConfig.aiModel = update.aiModel
@@ -749,13 +769,6 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
       // Helper: normalize base URL — strip trailing path segments like /v1, /chat/completions, etc.
       const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, '').replace(/\/(v\d+|chat\/completions|models)$/, '')
-
-      // Helper: resolve target URL from active profile
-      const resolveTargetUrl = () => {
-        const active = getActiveProfile(appConfig)
-        const base = normalizeBaseUrl(active?.aiApiUrl || appConfig.aiApiUrl)
-        return `${base}/v1/chat/completions`
-      }
 
       // Cache: detect if server is Ollama (has /api/tags endpoint)
       const ollamaCache = new Map<string, { isOllama: boolean; ts: number }>()
@@ -830,11 +843,28 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         for await (const chunk of req) reqChunks.push(chunk as Buffer)
         const rawBody = Buffer.concat(reqChunks)
 
+        // Check if this is a vision request — use vision profile if configured
+        let effectiveModel = currentModel
+        let effectiveApiKey = currentApiKey
+        let effectiveApiUrl = active?.aiApiUrl || appConfig.aiApiUrl
+
+        try {
+          const preParse: any = JSON.parse(rawBody.toString())
+          if (preParse.purpose === 'vision' && appConfig.visionProfileId) {
+            const visionProfile = appConfig.profiles.find(p => p.id === appConfig.visionProfileId)
+            if (visionProfile) {
+              effectiveModel = visionProfile.aiModel || currentModel
+              effectiveApiKey = visionProfile.aiApiKey ?? currentApiKey
+              effectiveApiUrl = visionProfile.aiApiUrl || effectiveApiUrl
+            }
+          }
+        } catch { /* body parse failed, will be handled below */ }
+
         const proxyHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
         }
-        if (currentApiKey) {
-          proxyHeaders['Authorization'] = `Bearer ${currentApiKey}`
+        if (effectiveApiKey) {
+          proxyHeaders['Authorization'] = `Bearer ${effectiveApiKey}`
         } else if (req.headers['authorization']) {
           proxyHeaders['Authorization'] = req.headers['authorization'] as string
         }
@@ -844,8 +874,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           try { parsed = JSON.parse(rawBody.toString()) } catch {}
           if (!parsed) { res.statusCode = 400; res.end('{"error":"Invalid JSON"}'); return }
 
-          parsed.model = currentModel
-          const baseUrl = normalizeBaseUrl(active?.aiApiUrl || appConfig.aiApiUrl)
+          // Remove purpose field before forwarding
+          delete parsed.purpose
+          parsed.model = effectiveModel
+          const baseUrl = normalizeBaseUrl(effectiveApiUrl)
 
           // If request includes `think` param AND server is Ollama, use native API
           const useOllamaNative = 'think' in parsed && await isOllamaServer(baseUrl)
@@ -853,7 +885,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             console.log(`[AI proxy] Ollama detected → using native API, model=${parsed.model}, stream=${!!parsed.stream}, think=${parsed.think}`)
             const isStream = !!parsed.stream
             const ollamaBody: Record<string, any> = {
-              model: currentModel,
+              model: effectiveModel,
               messages: parsed.messages,
               stream: isStream,
               think: parsed.think,
@@ -874,7 +906,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const fallbackBody = { ...parsed }
               delete fallbackBody.think
               // Keep chat_template_kwargs for vLLM/transformers servers
-              const fbRes = await fetch(resolveTargetUrl(), {
+              const fallbackUrl = `${normalizeBaseUrl(effectiveApiUrl)}/v1/chat/completions`
+              const fbRes = await fetch(fallbackUrl, {
                 method: 'POST',
                 headers: proxyHeaders,
                 body: Buffer.from(JSON.stringify(fallbackBody)),
@@ -898,7 +931,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 id: `chatcmpl-${Date.now()}`,
                 object: 'chat.completion',
                 created: Math.floor(Date.now() / 1000),
-                model: currentModel,
+                model: effectiveModel,
                 choices: [{
                   index: 0,
                   message: ollamaData.message || { role: 'assistant', content: '' },
@@ -932,7 +965,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                       const sseData = {
                         id: `chatcmpl-${Date.now()}`,
                         object: 'chat.completion.chunk',
-                        model: currentModel,
+                        model: effectiveModel,
                         choices: [{
                           index: 0,
                           delta: chunk.message || {},
@@ -954,7 +987,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
           // Standard OpenAI-compatible proxy (no `think` param)
           const body = Buffer.from(JSON.stringify(parsed))
-          const aiRes = await fetch(resolveTargetUrl(), {
+          const stdUrl = `${normalizeBaseUrl(effectiveApiUrl)}/v1/chat/completions`
+          const aiRes = await fetch(stdUrl, {
             method: 'POST',
             headers: proxyHeaders,
             body,
@@ -1225,7 +1259,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
 
       function saveReadHistoryFile(history: any[]): void {
-        fs.writeFileSync(readHistoryPath, JSON.stringify(history.slice(0, 365), null, 2), 'utf-8')
+        fs.writeFileSync(readHistoryPath, JSON.stringify(history, null, 2), 'utf-8')
       }
 
       server.middlewares.use('/api/read-history', (req, res) => {

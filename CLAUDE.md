@@ -109,9 +109,9 @@ Default config: `http://127.0.0.1:7001/v1`, model `Qwen/Qwen3.5-27B-4bit`. Confi
 
 Text selection in iframe is detected via `contentWindow.getSelection()`. Ranges are serialized to XPath + offsets for persistence. On restore: exact XPath resolution → whitespace-normalized matching → fuzzy sliding-window match (character similarity >= 70%). Cross-element ranges use `splitText` + wrap to avoid DOM corruption. `trimRangeEdges` removes trailing whitespace before serialization. 6 highlight colors, threaded comments with replies. Touch support via `selectionchange` event with debounced detection.
 
-### Spaced Repetition System (`src/services/spacedRepetition.ts`, `src/stores/conceptCardStore.ts`)
+### Spaced Repetition System (`src/stores/conceptCardStore.ts`)
 
-Concept cards (AI-extracted from documents) reviewed with SM-2 algorithm:
+Concept cards (AI-extracted from documents) reviewed with SM-2 algorithm (implemented in `sm2Review` function, line 21):
 - **SM-2 scheduling**: grade 0-5, intervals: 1→6→N×efactor days. Failed (grade<3) reset to interval=1. Interval >= 21 days = "mastered".
 - **Workspace isolation**: Cards filtered by active workspace via document source.
 - **Keyboard shortcuts**: Space/Enter to flip, 0-5 to grade, S to skip.

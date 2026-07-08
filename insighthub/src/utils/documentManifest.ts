@@ -13,6 +13,7 @@ export interface DocumentManifestEntry {
   wordCount?: number
   language?: 'zh' | 'en' | 'mixed'
   sections?: Array<{ id: string; title: string; level: 2 | 3 }>
+  fileType?: 'html' | 'image'
 }
 
 let manifestCache: Promise<DocumentManifestEntry[]> | null = null

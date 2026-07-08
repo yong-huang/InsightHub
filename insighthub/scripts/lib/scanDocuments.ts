@@ -16,10 +16,24 @@ export interface DocumentManifestEntry {
   wordCount?: number
   language?: 'zh' | 'en' | 'mixed'
   sections?: Array<{ id: string; title: string; level: 2 | 3 }>
+  fileType?: 'html' | 'image'
 }
 
 export const EXCLUDE_DIRS = ['backups', 'template']
 const EXCLUDE_FILES = ['index.html']
+
+export const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.avif', '.tiff', '.tif',
+])
+
+export function isImageFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase()
+  return IMAGE_EXTENSIONS.has(ext)
+}
+
+export function isDocumentFile(filePath: string): boolean {
+  return filePath.endsWith('.html') || isImageFile(filePath)
+}
 
 export function isExcluded(filePath: string): boolean {
   const parts = filePath.split(path.sep)
@@ -41,7 +55,8 @@ export function generateId(
   relativePath: string,
   fileName: string,
 ): string {
-  const nameWithoutExt = fileName.replace(/\.html$/, '')
+  const ext = path.extname(fileName)
+  const nameWithoutExt = ext ? fileName.slice(0, -ext.length) : fileName
   // Use directory parts only (exclude the filename which is already handled)
   const dirParts = relativePath
     .split(path.sep)

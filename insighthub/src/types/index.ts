@@ -38,6 +38,7 @@ export interface Document {
   readCount: number
   indexedAt?: number
   url?: string
+  fileType?: 'html' | 'image'
 }
 
 export interface Section {

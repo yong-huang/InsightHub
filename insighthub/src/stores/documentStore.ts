@@ -167,9 +167,13 @@ async function loadAllDocuments(
 
   // Phase 1: build Document objects from enriched manifest (0 fetches)
   for (const entry of manifest) {
+    const isImage = entry.fileType === 'image'
     const title = entry.title
       ? stripTitleSuffix(entry.title, titleSuffixes)
-      : entry.fileName.replace(/\.html$/, '')
+      : (() => {
+          const ext = entry.fileName.match(/\.[^.]+$/)
+          return ext ? entry.fileName.slice(0, -ext[0].length) : entry.fileName
+        })()
 
     const doc: Document = {
       id: entry.id,
@@ -182,11 +186,12 @@ async function loadAllDocuments(
       language: entry.language || 'en',
       wordCount: entry.wordCount || 0,
       sections: entry.sections || [],
-      contentText: entry.contentSnippet || '',
+      contentText: isImage ? '' : (entry.contentSnippet || ''),
       tags: [],
       isRead: false,
       readCount: 0,
       indexedAt: Date.now(),
+      ...(isImage ? { fileType: 'image' } : {}),
     }
     docs.set(doc.id, doc)
     categoryCounts[doc.category] = (categoryCounts[doc.category] || 0) + 1
@@ -278,7 +283,7 @@ async function indexAllDocs(
     const batch = allDocs.slice(i, i + BATCH_SIZE)
     await Promise.all(batch.map(async (doc) => {
       try {
-        if (!doc.contentText) return
+        if (!doc.contentText || doc.fileType === 'image') return
         // Snapshot text for similarity before it gets freed
         addSnippet(doc.id, doc.contentText, doc.source, doc.category, doc.subcategory)
         await indexDocument(doc)

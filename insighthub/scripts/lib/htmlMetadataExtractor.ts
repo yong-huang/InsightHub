@@ -35,10 +35,19 @@ function analyzeText(text: string): { wordCount: number; language: 'zh' | 'en' |
   return { wordCount, language }
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&#[xX][\da-fA-F]+;|&#\d+;|&\w+;/g, e => {
+    if (e.startsWith('&#x') || e.startsWith('&#X')) return String.fromCodePoint(parseInt(e.slice(3, -1), 16))
+    if (e.startsWith('&#')) return String.fromCodePoint(parseInt(e.slice(2, -1)))
+    const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'", '&nbsp;': '\u00a0' }
+    return entities[e] || e
+  })
+}
+
 export function extractHtmlMetadata(html: string): HtmlMetadata {
-  // Title
+  // Title (decode HTML entities like &#x90E8; → 部)
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-  const title = titleMatch ? titleMatch[1].trim() : ''
+  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : ''
 
   // Remove non-content block elements
   const cleaned = html.replace(REMOVE_BLOCK, '')
@@ -63,7 +72,7 @@ export function extractHtmlMetadata(html: string): HtmlMetadata {
   let headingMatch: RegExpExecArray | null
   while ((headingMatch = headingRegex.exec(bodyContent)) !== null) {
     const level = headingMatch[1] === 'h2' ? 2 : 3
-    const headingContent = headingMatch[2].replace(/<[^>]+>/g, '').trim()
+    const headingContent = decodeHtmlEntities(headingMatch[2].replace(/<[^>]+>/g, '').trim())
     if (headingContent) {
       sections.push({ id: `section-${sectionIndex++}`, title: headingContent, level })
     }

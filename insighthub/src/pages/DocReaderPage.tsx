@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  ArrowLeft, CheckCircle2, BookOpen, FileText,
+  ArrowLeft, CheckCircle2, BookOpen,
   Sparkles, Plus, X, Maximize, Minimize, RefreshCw, Loader2,
   Highlighter, BrainCircuit, Bookmark,
   MessageCircle, Lightbulb, Languages, Trash2,
   ShieldCheck, Swords, GitBranch, Layers, TerminalSquare, Mic,
-  ArrowRightLeft, PenLine, Network,
+  ArrowRightLeft, PenLine, Network, Eye,
 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useTagStore } from '@/stores/tagStore'
@@ -42,6 +42,8 @@ import { CodeEditorPanel } from '@/components/DocReader/CodeEditorPanel'
 import { ShadowTypingPanel } from '@/components/DocReader/ShadowTypingPanel'
 import { WhiteboardPanel } from '@/components/DocReader/WhiteboardPanel'
 import { ArchitectureDiagramPanel } from '@/components/DocReader/ArchitectureDiagramPanel'
+import { ImageViewer } from '@/components/DocReader/ImageViewer'
+import { ImageAnalysisPanel } from '@/components/DocReader/ImageAnalysisPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
 import { extractConcepts, createConceptCard } from '@/services/conceptService'
@@ -360,6 +362,10 @@ export function DocReaderPage() {
   )
 
   const catInfo = doc ? getCategoryInfo(doc.category) : null
+  const isImageDoc = doc?.fileType === 'image'
+
+  // Image analysis panel state
+  const [showImageAnalysis, setShowImageAnalysis] = useState(false)
 
   // Restore highlights on iframe load and scroll to annotation if requested
   useEffect(() => {
@@ -459,6 +465,7 @@ export function DocReaderPage() {
     setScriptError(null)
     setScriptPoppedOut(false)
     setScriptText(null)
+    setShowImageAnalysis(false)
     if (docId) {
       const cached = storageService.getSummaries()[docId]
       setSummaryText(cached || null)
@@ -843,8 +850,14 @@ export function DocReaderPage() {
           </span>
           {catInfo && <span className="badge">{catInfo.label}</span>}
           <span className="badge">
-            <FileText size={12} />
-            {doc.wordCount.toLocaleString()} words
+            {isImageDoc ? (
+              <>{(() => {
+                const ext = doc.fileName.match(/\.[^.]+$/)
+                return ext ? ext[0].slice(1).toUpperCase() : 'IMG'
+              })()}</>
+            ) : (
+              <>{doc.wordCount.toLocaleString()} words</>
+            )}
           </span>
           <div className="tag-list">
             {tags.map(tag => (
@@ -929,6 +942,17 @@ export function DocReaderPage() {
         </div>
 
         <div className="doc-reader-toolbar-actions">
+          {/* AI Vision button — only for image documents */}
+          {isImageDoc && (
+            <button
+              className={`dr-action-btn ${showImageAnalysis ? 'active' : ''}`}
+              onClick={() => setShowImageAnalysis(v => !v)}
+            >
+              <Eye size={16} />
+              <span className="dr-action-label">Vision</span>
+            </button>
+          )}
+
           {/* Read status toggle */}
           <button
             className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
@@ -939,6 +963,7 @@ export function DocReaderPage() {
           </button>
 
           {/* Annotation panel toggle */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${showAnnotationPanel || docAnnotations.length > 0 ? 'active' : ''}`}
             onClick={() => setShowAnnotationPanel(v => !v)}
@@ -947,8 +972,10 @@ export function DocReaderPage() {
             <span className="dr-action-label">Notes</span>
             {docAnnotations.length > 0 && <span className="dr-action-badge">{docAnnotations.length}</span>}
           </button>
+          )}
 
           {/* Chat panel toggle */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${showChatPanel || chatHistorySize > 0 ? 'active' : ''}`}
             onClick={() => setShowChatPanel(v => !v)}
@@ -957,8 +984,10 @@ export function DocReaderPage() {
             <span className="dr-action-label">Chat</span>
             {chatHistorySize > 0 && <span className="dr-action-badge">{chatHistorySize}</span>}
           </button>
+          )}
 
           {/* Challenge panel toggle */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${showChallengePanel ? 'active' : ''}`}
             onClick={() => setShowChallengePanel(v => !v)}
@@ -966,9 +995,10 @@ export function DocReaderPage() {
             <Swords size={16} />
             <span className="dr-action-label">Challenge</span>
           </button>
+          )}
 
           {/* Summary panel toggle */}
-          {enabledFeatures.aiSummary && (
+          {!isImageDoc && enabledFeatures.aiSummary && (
           <button
             className={`dr-action-btn ${showSummaryPanel || summaryText ? 'active' : ''}`}
             onClick={() => {
@@ -987,7 +1017,7 @@ export function DocReaderPage() {
           )}
 
           {/* Inception panel toggle */}
-          {enabledFeatures.aiInception && (
+          {!isImageDoc && enabledFeatures.aiInception && (
           <button
             className={`dr-action-btn ${showInceptionPanel || inceptionText ? 'active' : ''}`}
             onClick={() => {
@@ -1006,7 +1036,7 @@ export function DocReaderPage() {
           )}
 
           {/* Script panel toggle */}
-          {enabledFeatures.aiScript && (
+          {!isImageDoc && enabledFeatures.aiScript && (
           <button
             className={`dr-action-btn ${showScriptPanel || scriptText ? 'active' : ''}`}
             onClick={() => {
@@ -1020,7 +1050,7 @@ export function DocReaderPage() {
           )}
 
           {/* Evaluation button */}
-          {enabledFeatures.aiEvaluation && (
+          {!isImageDoc && enabledFeatures.aiEvaluation && (
           <button
             className={`dr-action-btn ${showEvalPanel || evalResult ? 'active' : ''}`}
             onClick={() => {
@@ -1041,7 +1071,7 @@ export function DocReaderPage() {
           )}
 
           {/* Extract concepts button */}
-          {enabledFeatures.aiConcept && (
+          {!isImageDoc && enabledFeatures.aiConcept && (
           <button
             className={`dr-action-btn ${(docConceptCount > 0 || showConceptPanel) ? 'active' : ''}`}
             onClick={() => {
@@ -1062,7 +1092,7 @@ export function DocReaderPage() {
           )}
 
           {/* Quiz button area */}
-          {enabledFeatures.aiQuiz && (
+          {!isImageDoc && enabledFeatures.aiQuiz && (
           <button
             className={`dr-action-btn ${(existingQuiz || showQuizPanel) ? 'active' : ''}`}
             onClick={() => {
@@ -1085,6 +1115,7 @@ export function DocReaderPage() {
           )}
 
           {/* Code editor button */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${showCodeEditor ? 'active' : ''}`}
             onClick={() => { setCodeEditorText(undefined); setShowCodeEditor(v => !v) }}
@@ -1092,8 +1123,10 @@ export function DocReaderPage() {
             <TerminalSquare size={16} />
             <span className="dr-action-label">Code</span>
           </button>
+          )}
 
           {/* Shadow typing button */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${showShadowTyping ? 'active' : ''}`}
             onClick={() => setShowShadowTyping(v => !v)}
@@ -1101,6 +1134,7 @@ export function DocReaderPage() {
             <Languages size={16} />
             <span className="dr-action-label">Shadow</span>
           </button>
+          )}
 
           {/* Whiteboard button */}
           <button
@@ -1112,6 +1146,7 @@ export function DocReaderPage() {
           </button>
 
           {/* Architecture diagram button */}
+          {!isImageDoc && (
           <button
             className={`dr-action-btn ${(docArchDiagramCount > 0 || showArchDiagram) ? 'active' : ''}`}
             onClick={() => {
@@ -1128,9 +1163,10 @@ export function DocReaderPage() {
             <span className="dr-action-label">Diagrams</span>
             {docArchDiagramCount > 0 && <span className="dr-action-badge">{docArchDiagramCount}</span>}
           </button>
+          )}
 
           {/* Similar documents button */}
-          {enabledFeatures.aiSimilarity && (
+          {!isImageDoc && enabledFeatures.aiSimilarity && (
           <button
             className={`dr-action-btn ${showSimilarPanel ? 'active' : ''}`}
             onClick={() => {
@@ -1217,16 +1253,20 @@ export function DocReaderPage() {
       )}
 
       <div className="doc-reader-content">
-        <iframe
-          key={docId}
-          ref={iframeRef}
-          src={iframeSrc}
-          className="doc-reader-iframe"
-          style={{ background: '#fff', border: 'none', flex: 1, display: (showQuizPanel || showConceptPanel) ? 'none' : undefined }}
-          title={doc.title}
-        />
+        {isImageDoc ? (
+          <ImageViewer src={iframeSrc || ''} title={doc.title} />
+        ) : (
+          <iframe
+            key={docId}
+            ref={iframeRef}
+            src={iframeSrc}
+            className="doc-reader-iframe"
+            style={{ background: '#fff', border: 'none', flex: 1, display: (showQuizPanel || showConceptPanel) ? 'none' : undefined }}
+            title={doc.title}
+          />
+        )}
 
-        {showAnnotationPanel && !showQuizPanel && !showConceptPanel && (
+        {!isImageDoc && showAnnotationPanel && !showQuizPanel && !showConceptPanel && (
           <AnnotationPanel
             annotations={docAnnotations}
             titleLookup={titleLookup}
@@ -1325,6 +1365,12 @@ export function DocReaderPage() {
 
         {showQuizPanel && <QuizPanel docId={doc.id} onClose={() => setShowQuizPanel(false)} />}
         {showConceptPanel && <ConceptCardsPanel docId={doc.id} onClose={() => setShowConceptPanel(false)} />}
+        {isImageDoc && showImageAnalysis && (
+          <ImageAnalysisPanel
+            imageSrc={iframeSrc || ''}
+            onClose={() => setShowImageAnalysis(false)}
+          />
+        )}
       </div>
 
       {/* Fullscreen floating mini-toolbar — hover to reveal */}

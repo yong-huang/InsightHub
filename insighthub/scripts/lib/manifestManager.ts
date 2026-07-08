@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { Source } from '../../src/types'
 import type { DocumentManifestEntry, ScanOptions } from './scanDocuments'
-import { generateId, isExcluded } from './scanDocuments'
+import { generateId, isExcluded, isDocumentFile, isImageFile } from './scanDocuments'
 import { extractHtmlMetadataFromFile, type HtmlMetadata } from './htmlMetadataExtractor'
 
 interface ManifestEntry {
@@ -71,7 +71,7 @@ export function scanWithManifest(
     const absPath = path.join(sourceDir, rawEntry)
     const stat = fs.statSync(absPath)
     if (!stat.isFile()) continue
-    if (!rawEntry.endsWith('.html')) continue
+    if (!isDocumentFile(rawEntry)) continue
     if (isExcluded(rawEntry)) continue
     scannedFiles.set(rawEntry, path.basename(rawEntry))
     fileMtimes.set(rawEntry, stat.mtimeMs)
@@ -142,7 +142,16 @@ export function scanWithManifest(
     const oldEntry = manifest.entries[id]
     let metaChanged = false
 
-    if (needMeta) {
+    if (isImageFile(relativePath)) {
+      // Image files: use filename as title, skip HTML metadata extraction
+      entry.fileType = 'image'
+      const ext = path.extname(fileName)
+      entry.title = ext ? fileName.slice(0, -ext.length) : fileName
+      entry.contentSnippet = ''
+      entry.wordCount = 0
+      entry.language = 'en'
+      entry.sections = []
+    } else if (needMeta) {
       // Reuse cached metadata if mtime unchanged
       if (oldEntry?.mtime === currentMtime && oldEntry?.meta) {
         entry.title = oldEntry.meta.title

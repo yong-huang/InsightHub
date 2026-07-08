@@ -26,6 +26,15 @@ function toLowerCached(s: string): string {
   return v
 }
 
+const FILE_EXTENSIONS = new Set([
+  '.html', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.avif', '.tiff', '.tif',
+])
+
+function getFileExtension(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot >= 0 ? name.slice(dot).toLowerCase() : ''
+}
+
 function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean }[]): TreeNode[] {
   const root: TreeNode[] = []
 
@@ -39,12 +48,14 @@ function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
-      const isFile = i === parts.length - 1 && part.endsWith('.html')
+      const ext = getFileExtension(part)
+      const isFile = i === parts.length - 1 && FILE_EXTENSIONS.has(ext)
       const currentPath = parts.slice(0, i + 1).join('/')
 
       if (isFile) {
+        const name = FILE_EXTENSIONS.has(ext) ? part.slice(0, -ext.length) : part
         currentLevel.push({
-          name: part.replace(/\.html$/, ''),
+          name,
           path: currentPath,
           isDir: false,
           children: [],

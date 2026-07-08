@@ -12,6 +12,9 @@ import { json } from '@codemirror/lang-json'
 import { markdown } from '@codemirror/lang-markdown'
 import { xml } from '@codemirror/lang-xml'
 import { go } from '@codemirror/lang-go'
+import { yaml } from '@codemirror/lang-yaml'
+import { StreamLanguage } from '@codemirror/language'
+import { shell } from '@codemirror/legacy-modes/mode/shell'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { acceptCompletion, closeCompletion, completionStatus } from '@codemirror/autocomplete'
 import { keymap, EditorView } from '@codemirror/view'
@@ -36,6 +39,8 @@ const LANGUAGES = [
   { value: 'json', label: 'JSON' },
   { value: 'markdown', label: 'Markdown' },
   { value: 'xml', label: 'XML' },
+  { value: 'yaml', label: 'YAML' },
+  { value: 'bash', label: 'Bash' },
   { value: 'plaintext', label: 'Plain Text' },
 ] as const
 
@@ -59,6 +64,8 @@ function getLangExtension(lang: LangValue) {
     case 'json': return json()
     case 'markdown': return markdown()
     case 'xml': return xml()
+    case 'yaml': return yaml()
+    case 'bash': return StreamLanguage.define(shell)
     default: return []
   }
 }

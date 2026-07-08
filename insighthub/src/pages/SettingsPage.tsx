@@ -25,6 +25,7 @@ interface AIProfile {
 interface AIConfig {
   profiles: AIProfile[]
   activeProfileId: string
+  visionProfileId: string
   quizDifficulty: string
   quizQuestionCount: number
 }
@@ -277,6 +278,7 @@ export function SettingsPage() {
   // AI profiles state
   const [profiles, setProfiles] = useState<AIProfile[]>([])
   const [activeProfileId, setActiveProfileId] = useState('')
+  const [visionProfileId, setVisionProfileId] = useState('')
   const [editingId, setEditingId] = useState('')
   const [editName, setEditName] = useState('')
   const [editUrl, setEditUrl] = useState('')
@@ -333,6 +335,7 @@ export function SettingsPage() {
       .then((cfg: AIConfig) => {
         setProfiles(cfg.profiles || [])
         setActiveProfileId(cfg.activeProfileId || '')
+        setVisionProfileId(cfg.visionProfileId || '')
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
         if (cfg.quizDifficulty) setQuizDifficulty(cfg.quizDifficulty as Difficulty)
@@ -347,6 +350,7 @@ export function SettingsPage() {
     const cfg: AIConfig = await res.json()
     setProfiles(cfg.profiles || [])
     setActiveProfileId(cfg.activeProfileId || '')
+    setVisionProfileId(cfg.visionProfileId || '')
   }
 
   const handleSwitchProfile = async (profileId: string) => {
@@ -397,6 +401,19 @@ export function SettingsPage() {
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
       }
+    } catch {}
+    setSaving(false)
+  }
+
+  const handleSetVisionProfile = async (id: string) => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setVisionProfile', visionProfileId: id }),
+      })
+      await refreshFromResponse(res)
     } catch {}
     setSaving(false)
   }
@@ -660,6 +677,32 @@ export function SettingsPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Vision profile selector */}
+          {profiles.length > 0 && (
+            <>
+              <div className="cs-form-separator" style={{ marginTop: '1rem' }}>
+                <div className="cs-section-label">VISION MODEL (for image analysis)</div>
+              </div>
+              <div className="cs-form-row">
+                <div className="cs-form-group">
+                  <label>Vision Profile</label>
+                  <select
+                    value={visionProfileId}
+                    onChange={e => handleSetVisionProfile(e.target.value)}
+                    disabled={saving || loading}
+                  >
+                    <option value="">Same as active</option>
+                    {profiles.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.aiModel || 'no model'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Add / Edit form — separated by border */}
