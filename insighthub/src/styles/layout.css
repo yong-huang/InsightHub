@@ -505,6 +505,43 @@
   color: var(--accent-blue-light);
 }
 
+/* Rating background for file nodes — matches directory row width via background-image */
+.file-tree-row.rating-5 {
+  background-image: linear-gradient(to right, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.12));
+  background-size: calc(100% - 28px) 100%;
+  background-position: 28px 0;
+  background-repeat: no-repeat;
+}
+.file-tree-row.rating-4 {
+  background-image: linear-gradient(to right, rgba(20, 184, 166, 0.10), rgba(20, 184, 166, 0.10));
+  background-size: calc(100% - 28px) 100%;
+  background-position: 28px 0;
+  background-repeat: no-repeat;
+}
+.file-tree-row.rating-3 {
+  background-image: linear-gradient(to right, rgba(139, 92, 246, 0.07), rgba(139, 92, 246, 0.07));
+  background-size: calc(100% - 28px) 100%;
+  background-position: 28px 0;
+  background-repeat: no-repeat;
+}
+.file-tree-row.rating-2 {
+  background-image: linear-gradient(to right, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.08));
+  background-size: calc(100% - 28px) 100%;
+  background-position: 28px 0;
+  background-repeat: no-repeat;
+}
+.file-tree-row.rating-1 {
+  background-image: linear-gradient(to right, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.08));
+  background-size: calc(100% - 28px) 100%;
+  background-position: 28px 0;
+  background-repeat: no-repeat;
+}
+.file-tree-row.rating-5:hover { background-color: rgba(59, 130, 246, 0.06); }
+.file-tree-row.rating-4:hover { background-color: rgba(20, 184, 166, 0.05); }
+.file-tree-row.rating-3:hover { background-color: rgba(139, 92, 246, 0.04); }
+.file-tree-row.rating-2:hover { background-color: rgba(249, 115, 22, 0.04); }
+.file-tree-row.rating-1:hover { background-color: rgba(239, 68, 68, 0.04); }
+
 .file-tree-row.is-dir {
   font-weight: 500;
   color: var(--text-primary);

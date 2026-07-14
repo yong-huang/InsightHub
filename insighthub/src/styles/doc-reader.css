@@ -607,6 +607,24 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+.image-viewer-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  height: 100%;
+}
+.image-viewer-error p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.image-viewer-error-hint {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
 .image-viewer-zoom-label {
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.8);

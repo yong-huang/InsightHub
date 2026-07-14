@@ -942,6 +942,15 @@ export function DocReaderPage() {
         </div>
 
         <div className="doc-reader-toolbar-actions">
+          {/* Read status toggle */}
+          <button
+            className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
+            onClick={() => setShowRatingDialog(true)}
+          >
+            <CheckCircle2 size={16} fill={doc.isRead ? 'currentColor' : 'none'} />
+            <span className="dr-action-label">{doc.isRead ? 'Read' : 'Unread'}</span>
+          </button>
+
           {/* AI Vision button — only for image documents */}
           {isImageDoc && (
             <button
@@ -952,15 +961,6 @@ export function DocReaderPage() {
               <span className="dr-action-label">Vision</span>
             </button>
           )}
-
-          {/* Read status toggle */}
-          <button
-            className={`dr-action-btn ${doc.isRead ? 'active' : ''}`}
-            onClick={() => setShowRatingDialog(true)}
-          >
-            <CheckCircle2 size={16} fill={doc.isRead ? 'currentColor' : 'none'} />
-            <span className="dr-action-label">{doc.isRead ? 'Read' : 'Unread'}</span>
-          </button>
 
           {/* Annotation panel toggle */}
           {!isImageDoc && (

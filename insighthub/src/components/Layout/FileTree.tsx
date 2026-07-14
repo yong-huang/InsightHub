@@ -16,6 +16,7 @@ interface TreeNode {
   docCount?: number
   readCount?: number
   isRead?: boolean
+  rating?: number
 }
 
 /** Cached lowercase for directory labels */
@@ -35,12 +36,12 @@ function getFileExtension(name: string): string {
   return dot >= 0 ? name.slice(dot).toLowerCase() : ''
 }
 
-function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean }[]): TreeNode[] {
+function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean; rating?: number }[]): TreeNode[] {
   const root: TreeNode[] = []
 
   const sorted = [...filePaths].sort((a, b) => a.filePath.localeCompare(b.filePath))
 
-  for (const { filePath, docId, isRead } of sorted) {
+  for (const { filePath, docId, isRead, rating } of sorted) {
     // filePath like: academic/article.html or algorithms/binary-search/doc.html
     const parts = filePath.split('/').filter(Boolean)
 
@@ -61,6 +62,7 @@ function buildTree(filePaths: { filePath: string; docId: string; isRead: boolean
           children: [],
           docId,
           isRead,
+          rating,
         })
       } else {
         let existing = currentLevel.find(n => n.isDir && n.name === part)
@@ -214,13 +216,14 @@ function TreeNodeView({
     )
   }
 
-  // File node — show read status
+  // File node — show read status + rating background
   const isActive = activeDocId === node.docId
+  const ratingClass = node.rating ? ` rating-${node.rating}` : ''
 
   return (
     <div className="file-tree-node">
       <div
-        className={`file-tree-row${isActive ? ' active' : ''}`}
+        className={`file-tree-row${isActive ? ' active' : ''}${ratingClass}`}
         onClick={() => node.docId && onDocClick(node.docId)}
       >
         <span style={{ width: 16 }} />
@@ -278,14 +281,14 @@ export function FileTree() {
 
   // Build file tree from workspace documents, stripping the leading ../<workspaceDir>/ prefix
   const filePaths = useMemo(() => {
-    const result: { filePath: string; docId: string; isRead: boolean }[] = []
+    const result: { filePath: string; docId: string; isRead: boolean; rating?: number }[] = []
     const prefix = wsDirName ? `../${wsDirName}/` : ''
     for (const [docId, doc] of documents.entries()) {
       if (doc.source === activeWorkspace && !doc.isDeprecated && !deprecatedCats.has(`${activeWorkspace}:${doc.category}`) && doc.filePath) {
         const fp = prefix && doc.filePath.startsWith(prefix)
           ? doc.filePath.slice(prefix.length)
           : doc.filePath
-        result.push({ filePath: fp, docId, isRead: doc.isRead })
+        result.push({ filePath: fp, docId, isRead: doc.isRead, rating: doc.rating })
       }
     }
     return result

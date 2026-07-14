@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { ZoomIn, ZoomOut, Maximize, RotateCcw } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize, RotateCcw, ImageOff } from 'lucide-react'
 
 interface ImageViewerProps {
   src: string
@@ -8,6 +8,7 @@ interface ImageViewerProps {
 
 export function ImageViewer({ src, title }: ImageViewerProps) {
   const [scale, setScale] = useState(1)
+  const [loadError, setLoadError] = useState(false)
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
@@ -67,15 +68,24 @@ export function ImageViewer({ src, title }: ImageViewerProps) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <img
-        src={src}
-        alt={title}
-        className={`image-viewer-img${isZoomed ? ' zoomed' : ''}`}
-        draggable={false}
-        style={{
-          transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-        }}
-      />
+      {loadError ? (
+        <div className="image-viewer-error">
+          <ImageOff size={48} />
+          <p>Image not found</p>
+          <p className="image-viewer-error-hint">The file may have been moved or deleted.</p>
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={title}
+          className={`image-viewer-img${isZoomed ? ' zoomed' : ''}`}
+          draggable={false}
+          onError={() => setLoadError(true)}
+          style={{
+            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+          }}
+        />
+      )}
 
       <div className="image-viewer-toolbar">
         <button className="image-viewer-btn" onClick={handleZoomOut} title="Zoom Out">
