@@ -608,13 +608,14 @@
 }
 
 .image-viewer-error {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   color: var(--text-dim);
-  height: 100%;
 }
 .image-viewer-error p {
   margin: 0;

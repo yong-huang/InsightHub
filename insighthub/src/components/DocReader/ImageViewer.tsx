@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { ZoomIn, ZoomOut, Maximize, RotateCcw, ImageOff } from 'lucide-react'
 
 interface ImageViewerProps {
@@ -13,6 +13,13 @@ export function ImageViewer({ src, title }: ImageViewerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Reset error and zoom when image source changes
+  useEffect(() => {
+    setLoadError(false)
+    setScale(1)
+    setTranslate({ x: 0, y: 0 })
+  }, [src])
 
   const isZoomed = scale !== 1
 
@@ -68,23 +75,28 @@ export function ImageViewer({ src, title }: ImageViewerProps) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {loadError ? (
+      {/* Always render <img> so it can load; overlay error on top if failed.
+          This avoids React StrictMode's mount-unmount-remount cycle causing
+          spurious onError → loadError=true that prevents subsequent loads. */}
+      <img
+        key={src}
+        src={src}
+        alt={title}
+        className={`image-viewer-img${isZoomed ? ' zoomed' : ''}`}
+        draggable={false}
+        onError={() => setLoadError(true)}
+        onLoad={() => setLoadError(false)}
+        style={{
+          transform: isZoomed ? `translate(${translate.x}px, ${translate.y}px) scale(${scale})` : undefined,
+        }}
+      />
+
+      {loadError && (
         <div className="image-viewer-error">
           <ImageOff size={48} />
           <p>Image not found</p>
           <p className="image-viewer-error-hint">The file may have been moved or deleted.</p>
         </div>
-      ) : (
-        <img
-          src={src}
-          alt={title}
-          className={`image-viewer-img${isZoomed ? ' zoomed' : ''}`}
-          draggable={false}
-          onError={() => setLoadError(true)}
-          style={{
-            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-          }}
-        />
       )}
 
       <div className="image-viewer-toolbar">

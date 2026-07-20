@@ -264,6 +264,64 @@ function DocumentMigrationCard() {
   )
 }
 
+function SimplifiedIdMigrationCard() {
+  const [migrating, setMigrating] = useState(false)
+  const [resultMsg, setResultMsg] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const handleMigrate = async () => {
+    setMigrating(true)
+    setResultMsg(null)
+    try {
+      const res = await fetch('/api/migrate-to-simplified-ids', { method: 'POST' })
+      if (!res.ok) throw new Error('Migration failed')
+      const data = await res.json() as { success: boolean; totalMappings: number; mappings: Record<string, string> }
+
+      if (data.totalMappings === 0) {
+        setResultMsg({ ok: true, msg: 'Already migrated — no IDs need updating.' })
+      } else {
+        // Migrate client-side localStorage
+        storageService.migrateDocumentIds(data.mappings)
+        setResultMsg({ ok: true, msg: `Migration complete. ${data.totalMappings} IDs simplified. Reloading...` })
+        // Reload after a brief delay so the user sees the success message
+        setTimeout(() => window.location.reload(), 1500)
+      }
+    } catch (e: any) {
+      setResultMsg({ ok: false, msg: `Migration failed: ${e.message}` })
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  return (
+    <div className="cs-card">
+      <div className="cs-card-header">SIMPLIFIED DOCUMENT IDS</div>
+      <div className="cs-card-body">
+        <div className="cs-card-desc">
+          Simplify document IDs from <code>prefix-category-filename</code> to <code>prefix-filename</code>, making IDs resilient to category restructuring. This is a one-time operation that rewrites all server data files and client storage, then regenerates manifests.
+        </div>
+
+        <div className="cs-btn-group">
+          <button
+            className="cs-btn cs-btn-primary"
+            onClick={handleMigrate}
+            disabled={migrating}
+          >
+            {migrating ? <Loader2 size={14} className="spin" /> : <Database size={14} />}
+            {migrating ? 'Migrating...' : 'Migrate to Simplified IDs'}
+          </button>
+        </div>
+
+        {resultMsg && (
+          <div className={`cs-test-result ${resultMsg.ok ? 'success' : 'error'}`}>
+            {resultMsg.ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+            {resultMsg.msg}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPage() {
   const {
     quizDifficulty, quizQuestionCount, quizEnabledTypes,
@@ -1132,6 +1190,7 @@ export function SettingsPage() {
       </div>
 
       <DocumentMigrationCard />
+      <SimplifiedIdMigrationCard />
 
       {/* Directory browser dialog */}
       {browseOpen && (

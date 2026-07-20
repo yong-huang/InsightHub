@@ -521,24 +521,61 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const trashedDocs = storageService.getTrashedDocs()
     const { documents } = get()
 
-    // Permanently delete each trashed doc
+    // Separate imported vs workspace docs
+    const importedIds: string[] = []
+    const workspaceIds: string[] = []
     for (const { docId } of trashedDocs) {
-      const doc = documents.get(docId)
-      if (!doc) continue
-
+      if (!documents.has(docId)) continue
       if (docId.startsWith('imported-')) {
-        try { await deleteImportedDocument(docId) } catch {}
+        importedIds.push(docId)
       } else {
-        try {
-          await fetch(`/api/workspace-document?id=${encodeURIComponent(docId)}`, { method: 'DELETE' })
-        } catch {}
+        workspaceIds.push(docId)
       }
+    }
+
+    // Delete imported docs sequentially (each has its own API)
+    await Promise.all(importedIds.map(id => deleteImportedDocument(id).catch(() => {})))
+
+    // Bulk-delete workspace docs in a single request
+    if (workspaceIds.length > 0) {
+      try {
+        await fetch('/api/bulk-delete-documents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: workspaceIds }),
+        })
+      } catch {}
     }
 
     storageService.clearTrash()
 
-    // Reload documents to reflect removals
-    await get().reloadDocuments()
+    // Remove deleted docs from the existing Map instead of full reload
+    const allDeletedIds = new Set([...importedIds, ...workspaceIds])
+    const updated = new Map(documents)
+    for (const id of allDeletedIds) updated.delete(id)
+    // Update category counts
+    const categoryCounts = { ...get().categoryCounts }
+    for (const id of allDeletedIds) {
+      const doc = documents.get(id)
+      if (doc) {
+        categoryCounts[doc.category] = (categoryCounts[doc.category] || 1) - 1
+        if (categoryCounts[doc.category] <= 0) delete categoryCounts[doc.category]
+      }
+    }
+    const docArray = Array.from(updated.values())
+    const readCount = docArray.filter(d => d.isRead).length
+    set({
+      documents: updated,
+      filteredDocuments: [],
+      categoryCounts,
+      stats: {
+        total: docArray.length,
+        read: readCount,
+        unread: docArray.length - readCount,
+        categories: new Set(docArray.map(d => d.category)).size,
+      },
+    })
+    get().applyFilters()
   },
 
   applyFilters: () => {

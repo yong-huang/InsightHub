@@ -2,7 +2,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type { Source } from '../../src/types'
 import type { DocumentManifestEntry, ScanOptions } from './scanDocuments'
-import { generateId, isExcluded, isDocumentFile, isImageFile } from './scanDocuments'
+import { isExcluded, isDocumentFile, isImageFile } from './scanDocuments'
+import { generateIdWithConflictResolution } from './idGenerator'
 import { extractHtmlMetadataFromFile, type HtmlMetadata } from './htmlMetadataExtractor'
 
 interface ManifestEntry {
@@ -94,32 +95,100 @@ export function scanWithManifest(
     fileNameToEntry.set(path.basename(entry.file), { id, file: entry.file })
   }
 
-  // Step 3: Reconcile
+  // Step 3: Reconcile (two-pass: existing first, then new with conflict resolution)
   const newEntries: Record<string, ManifestEntry> = {}
   const results: DocumentManifestEntry[] = []
   const sourceName = sourceNameOverride || source
   const needMeta = !!options?.extractMetadata
+  const usedIds = new Set<string>()
 
+  // Pass A: Process files that have existing manifest entries (exact path or filename reuse)
   for (const [relativePath, fileName] of scannedFiles) {
-    let id: string
+    let id: string | undefined
 
     // Exact path match → reuse ID
     if (pathToId.has(relativePath)) {
       id = pathToId.get(relativePath)!
-      // Check if entry unchanged
-      if (manifest.entries[id]?.file !== relativePath) manifestChanged = true
     } else {
       // Check if same fileName exists (file moved)
       const existing = fileNameToEntry.get(fileName)
       if (existing) {
         id = existing.id
-        manifestChanged = true // Path changed
-      } else {
-        // New file → generate new ID
-        id = generateId(sourcePrefix, relativePath, fileName)
-        manifestChanged = true
       }
     }
+
+    if (id !== undefined) {
+      // Check if entry unchanged
+      if (manifest.entries[id]?.file !== relativePath) manifestChanged = true
+      usedIds.add(id)
+
+      const parts = relativePath.split(path.sep).filter(s => s.length > 0)
+      const dirParts = parts.length > 1 ? parts.slice(0, -1) : []
+      const category = dirParts[0] || ''
+      const subcategory = dirParts.length > 2 ? dirParts.slice(1).join(path.sep) : (dirParts[1] || undefined)
+
+      const entry: DocumentManifestEntry = {
+        id,
+        filePath: `../${sourceName}/${relativePath}`,
+        fileName,
+        source,
+        category,
+        subcategory,
+      }
+
+      // Build manifest entry with metadata cache
+      const manifestEntry: ManifestEntry = { file: relativePath }
+      const currentMtime = fileMtimes.get(relativePath)!
+      const oldEntry = manifest.entries[id]
+      let metaChanged = false
+
+      if (isImageFile(relativePath)) {
+        entry.fileType = 'image'
+        const ext = path.extname(fileName)
+        entry.title = ext ? fileName.slice(0, -ext.length) : fileName
+        entry.contentSnippet = ''
+        entry.wordCount = 0
+        entry.language = 'en'
+        entry.sections = []
+      } else if (needMeta) {
+        if (oldEntry?.mtime === currentMtime && oldEntry?.meta) {
+          entry.title = oldEntry.meta.title
+          entry.contentSnippet = oldEntry.meta.contentSnippet
+          entry.wordCount = oldEntry.meta.wordCount
+          entry.language = oldEntry.meta.language
+          entry.sections = oldEntry.meta.sections
+          manifestEntry.meta = oldEntry.meta
+        } else {
+          const absFilePath = path.join(sourceDir, relativePath)
+          try {
+            const meta = extractHtmlMetadataFromFile(absFilePath)
+            entry.title = meta.title
+            entry.contentSnippet = meta.contentSnippet
+            entry.wordCount = meta.wordCount
+            entry.language = meta.language
+            entry.sections = meta.sections
+            manifestEntry.meta = meta
+            metaChanged = true
+          } catch { /* skip */ }
+        }
+        manifestEntry.mtime = currentMtime
+      }
+
+      newEntries[id] = manifestEntry
+      if (metaChanged) manifestChanged = true
+      results.push(entry)
+    }
+  }
+
+  // Pass B: Process new files with conflict resolution
+  for (const [relativePath, fileName] of scannedFiles) {
+    // Skip files already processed in Pass A
+    if (pathToId.has(relativePath) || fileNameToEntry.has(fileName)) continue
+
+    // New file → generate simplified ID with conflict resolution
+    const id = generateIdWithConflictResolution(sourcePrefix, relativePath, fileName, usedIds)
+    usedIds.add(id)
+    manifestChanged = true
 
     const parts = relativePath.split(path.sep).filter(s => s.length > 0)
     // parts[-1] is always the filename; if file is at root, skip it

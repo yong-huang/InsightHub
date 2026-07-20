@@ -6,6 +6,7 @@ import * as os from 'os'
 import { Readable } from 'stream'
 import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
+import { generateIdWithConflictResolution } from '../scripts/lib/idGenerator'
 import { extractHtmlMetadata } from '../scripts/lib/htmlMetadataExtractor'
 
 export interface DocumentDiscoveryOptions {
@@ -1181,6 +1182,45 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
+      // Helper: migrate all docId-keyed data stores when a document is moved/renamed
+      function migrateDocIdData(oldId: string, newId: string): void {
+        // Object stores (key = docId): read-meta, quizzes
+        const objFiles = ['.insighthub-read-meta.json', '.insighthub-quizzes.json']
+        for (const file of objFiles) {
+          const filePath = path.resolve(DATA_DIR, file)
+          if (!fs.existsSync(filePath)) continue
+          try {
+            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, any>
+            if (!obj[oldId]) continue
+            const entry = obj[oldId]
+            if (entry && typeof entry === 'object' && entry.id) entry.id = newId
+            obj[newId] = entry
+            delete obj[oldId]
+            fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf-8')
+          } catch { /* ignore */ }
+        }
+        // Array stores with documentId/sourceDocId field
+        const arrFiles: { file: string; idField: string }[] = [
+          { file: '.insighthub-read-history.json', idField: 'documentId' },
+          { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+          { file: '.insighthub-annotations.json', idField: 'documentId' },
+          { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+          { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
+        ]
+        for (const { file, idField } of arrFiles) {
+          const filePath = path.resolve(DATA_DIR, file)
+          if (!fs.existsSync(filePath)) continue
+          try {
+            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as any[]
+            let changed = false
+            for (const item of arr) {
+              if (item[idField] === oldId) { item[idField] = newId; changed = true }
+            }
+            if (changed) fs.writeFileSync(filePath, JSON.stringify(arr, null, 2), 'utf-8')
+          } catch { /* ignore */ }
+        }
+      }
+
       // Read meta persistence: shared across all LAN clients via data/.insighthub-read-meta.json
       const readMetaPath = path.resolve(DATA_DIR, '.insighthub-read-meta.json')
 
@@ -2199,12 +2239,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
 
-              // Generate ID matching scanDocuments format: <prefix>-<category>-<name>
-              const nameWithoutExt = body.fileName.replace(/\.html$/, '')
+              // Generate simplified ID: <prefix>-<name> (no category)
               const workspaces = loadWorkspaces()
               const ws = workspaces.find(w => w.id === body.source) || workspaces[0]
               const prefix = ws.prefix || ws.id
-              const id = category ? `${prefix}-${category}-${nameWithoutExt}` : `${prefix}-${nameWithoutExt}`
+
+              // Collect existing IDs for conflict checking
+              const allManifest = scanWorkspaces(workspaces, BASE_DIR)
+              const usedIds = new Set(allManifest.map(e => e.id))
+              const relativePath = category ? `${category}/${body.fileName}` : body.fileName
+              const id = generateIdWithConflictResolution(prefix, relativePath, body.fileName, usedIds)
               const dirs = getWorkspaceDirs()
               const wsDir = dirs[ws.id]
               if (!wsDir) {
@@ -2311,6 +2355,57 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         res.end('Method Not Allowed')
       })
 
+      // POST /api/bulk-delete-documents — permanently delete multiple documents from filesystem
+      server.middlewares.use('/api/bulk-delete-documents', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (c: Buffer) => chunks.push(c))
+        req.on('end', () => {
+          try {
+            const { ids } = JSON.parse(Buffer.concat(chunks).toString()) as { ids?: string[] }
+            if (!Array.isArray(ids) || ids.length === 0) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Missing ids array' }))
+              return
+            }
+            const dirs = getWorkspaceDirs()
+            const workspaces = loadWorkspaces()
+            const idSet = new Set(ids)
+            let deleted = 0
+
+            for (const ws of workspaces) {
+              const wsDir = dirs[ws.id]
+              if (!wsDir) continue
+              try {
+                const manifest = scanWorkspaces([ws], BASE_DIR)
+                for (const entry of manifest) {
+                  if (!idSet.has(entry.id)) continue
+                  const filePath = path.join(wsDir, entry.filePath)
+                  if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath)
+                    deleted++
+                  }
+                  idSet.delete(entry.id)
+                }
+              } catch {}
+              if (idSet.size === 0) break
+            }
+
+            // Invalidate manifest cache once
+            manifestCache = null
+            res.end(JSON.stringify({ ok: true, deleted }))
+          } catch (e) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: String(e) }))
+          }
+        })
+      })
+
       // POST /api/move-workspace-document — move a document to another workspace
       server.middlewares.use('/api/move-workspace-document', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
@@ -2362,9 +2457,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return
               }
 
-              // Generate new ID: prefix-category-name
-              const nameWithoutExt = sourceFileName!.replace(/\.html?$/, '')
-              const newId = `${targetWs.prefix || targetWs.id}-${targetCategory}-${nameWithoutExt}`
+              // Generate new simplified ID: prefix-name (no category)
+              const allManifest = scanWorkspaces(workspaces, BASE_DIR)
+              const usedIds = new Set(allManifest.map(e => e.id))
+              const relativePath = `${targetCategory}/${sourceFileName!}`
+              const newId = generateIdWithConflictResolution(targetWs.prefix || targetWs.id, relativePath, sourceFileName!, usedIds)
 
               // Read source, write to target dir
               const htmlContent = fs.readFileSync(sourceFilePath, 'utf-8')
@@ -2380,6 +2477,9 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
               // Invalidate manifest cache
               manifestCache = null
+
+              // Migrate associated data (read-meta, quizzes, annotations, etc.)
+              migrateDocIdData(id, newId)
 
               res.end(JSON.stringify({ ok: true, newId }))
             } catch (e) {
@@ -2516,6 +2616,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const mappings: Record<string, string> = {}
               const targetPrefix = targetWs.prefix || targetWs.id
 
+              // Collect existing IDs for conflict checking
+              const allManifest = scanWorkspaces(workspaces, BASE_DIR)
+              const usedIds = new Set(allManifest.map(e => e.id))
+
               for (const entry of entries) {
                 const sourceFilePath = path.join(sourceDir, entry.filePath)
                 if (!fs.existsSync(sourceFilePath)) continue
@@ -2523,9 +2627,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 // Read source
                 const htmlContent = fs.readFileSync(sourceFilePath, 'utf-8')
 
-                // Generate new ID
-                const nameWithoutExt = entry.fileName.replace(/\.html?$/, '')
-                const newId = `${targetPrefix}-${targetCategory}-${nameWithoutExt}`
+                // Generate new simplified ID
+                const relativePath = `${targetCategory}/${entry.fileName}`
+                const newId = generateIdWithConflictResolution(targetPrefix, relativePath, entry.fileName, usedIds)
+                usedIds.add(newId)
 
                 // Write to target
                 const targetFilePath = path.join(targetCategoryDir, entry.fileName)
@@ -2544,6 +2649,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
               // Invalidate manifest cache
               manifestCache = null
+
+              // Migrate associated data for all moved documents
+              for (const [oldId, newId] of Object.entries(mappings)) {
+                migrateDocIdData(oldId, newId)
+              }
 
               res.end(JSON.stringify({ ok: true, mappings }))
             } catch (e) {
@@ -2888,6 +2998,175 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
         res.statusCode = 405
         res.end('Method Not Allowed')
+      })
+
+      // POST /api/migrate-to-simplified-ids — one-time migration from prefix-category-filename to prefix-filename
+      server.middlewares.use('/api/migrate-to-simplified-ids', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+
+        const chunks: Buffer[] = []
+        req.on('data', (chunk: Buffer) => chunks.push(chunk))
+        req.on('end', () => {
+          try {
+            const workspaces = loadWorkspaces()
+            const dirs = getWorkspaceDirs()
+            const mappings: Record<string, string> = {}
+            let totalMappings = 0
+
+            for (const ws of workspaces) {
+              const wsDir = dirs[ws.id]
+              if (!wsDir) continue
+
+              const manifestPath = path.join(wsDir, '.manifest.json')
+              if (!fs.existsSync(manifestPath)) continue
+
+              let manifestData: { entries: Record<string, { file: string }> }
+              try {
+                manifestData = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+              } catch { continue }
+
+              // Collect all entry files sorted by path (deterministic order)
+              const entries = Object.entries(manifestData.entries)
+                .filter(([, entry]) => entry && typeof entry.file === 'string')
+                .sort((a, b) => a[1].file.localeCompare(b[1].file))
+
+              const usedIds = new Set<string>()
+
+              // Compute new IDs using conflict resolution
+              for (const [oldId, entry] of entries) {
+                const relativePath = entry.file
+                const fileName = path.basename(relativePath)
+                const newId = generateIdWithConflictResolution(
+                  ws.prefix || ws.id,
+                  relativePath,
+                  fileName,
+                  usedIds,
+                )
+                usedIds.add(newId)
+                if (oldId !== newId) {
+                  mappings[oldId] = newId
+                  totalMappings++
+                }
+              }
+
+              // Delete manifest so it gets regenerated with new IDs
+              fs.unlinkSync(manifestPath)
+            }
+
+            // Rewrite all JSON data files using the mapping
+            if (totalMappings > 0) {
+              // Object stores (key = docId)
+              const OBJ_FILES = [
+                '.insighthub-read-meta.json',
+                '.insighthub-quizzes.json',
+              ]
+              for (const file of OBJ_FILES) {
+                const fp = path.resolve(DATA_DIR, file)
+                if (!fs.existsSync(fp)) continue
+                try {
+                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                  let changed = false
+                  const rewritten: Record<string, any> = {}
+                  for (const [k, v] of Object.entries(obj)) {
+                    const newK = mappings[k] || k
+                    if (v && typeof v === 'object' && v.id && mappings[v.id]) {
+                      v.id = mappings[v.id]
+                      changed = true
+                    }
+                    rewritten[newK] = v
+                    if (newK !== k) changed = true
+                  }
+                  if (changed) fs.writeFileSync(fp, JSON.stringify(rewritten, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+
+              // Array stores with documentId field
+              const ARR_FILES: { file: string; idField: string }[] = [
+                { file: '.insighthub-read-history.json', idField: 'documentId' },
+                { file: '.insighthub-quiz-history.json', idField: 'documentId' },
+                { file: '.insighthub-annotations.json', idField: 'documentId' },
+                { file: '.insighthub-concept-cards.json', idField: 'sourceDocId' },
+                { file: '.insighthub-arch-diagrams.json', idField: 'documentId' },
+              ]
+              for (const { file, idField } of ARR_FILES) {
+                const fp = path.resolve(DATA_DIR, file)
+                if (!fs.existsSync(fp)) continue
+                try {
+                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                  let changed = false
+                  for (const item of arr) {
+                    const oldId = item[idField]
+                    if (typeof oldId === 'string' && mappings[oldId]) {
+                      item[idField] = mappings[oldId]
+                      changed = true
+                    }
+                  }
+                  if (changed) fs.writeFileSync(fp, JSON.stringify(arr, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+
+              // Tags: documentIds arrays
+              const tagsPath = path.resolve(DATA_DIR, '.insighthub-tags.json')
+              if (fs.existsSync(tagsPath)) {
+                try {
+                  const tagsArr = JSON.parse(fs.readFileSync(tagsPath, 'utf-8')) as any[]
+                  let changed = false
+                  for (const tag of tagsArr) {
+                    if (Array.isArray(tag.documentIds)) {
+                      tag.documentIds = tag.documentIds.map((id: string) => mappings[id] || id)
+                      changed = true
+                    }
+                  }
+                  if (changed) fs.writeFileSync(tagsPath, JSON.stringify(tagsArr, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+
+              // Client storage (generic key-value)
+              const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
+              if (fs.existsSync(csPath)) {
+                try {
+                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                  let changed = false
+                  for (const [key, value] of Object.entries(obj)) {
+                    if (typeof value !== 'object' || value === null) continue
+                    if (!Array.isArray(value)) {
+                      // Object store: docId keys
+                      const rewritten: Record<string, any> = {}
+                      for (const [k, v] of Object.entries(value)) {
+                        const newK = mappings[k] || k
+                        rewritten[newK] = v
+                        if (newK !== k) changed = true
+                      }
+                      if (changed) obj[key] = rewritten
+                    } else if (value.length > 0 && value[0]?.documentId) {
+                      for (const item of value) {
+                        if (item.documentId && mappings[item.documentId]) {
+                          item.documentId = mappings[item.documentId]
+                          changed = true
+                        }
+                      }
+                    }
+                  }
+                  if (changed) fs.writeFileSync(csPath, JSON.stringify(obj, null, 2), 'utf-8')
+                } catch { /* ignore */ }
+              }
+            }
+
+            // Invalidate manifest cache
+            manifestCache = null
+
+            res.end(JSON.stringify({ success: true, totalMappings, mappings }))
+          } catch (e) {
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: String(e) }))
+          }
+        })
       })
 
       server.middlewares.use('/api/code-runtimes', (req, res) => {

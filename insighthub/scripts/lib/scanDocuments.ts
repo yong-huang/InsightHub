@@ -2,6 +2,7 @@ import * as path from 'path'
 import type { Source, WorkspaceEntry } from '../../src/types'
 import { scanWithManifest } from './manifestManager'
 export { scanWithManifest }
+export { generateId, generateIdWithConflictResolution } from './idGenerator'
 
 export interface DocumentManifestEntry {
   id: string
@@ -48,22 +49,6 @@ export function isExcluded(filePath: string): boolean {
     if (parts[parts.length - 1] === exclude) return true
   }
   return false
-}
-
-export function generateId(
-  source: string,
-  relativePath: string,
-  fileName: string,
-): string {
-  const ext = path.extname(fileName)
-  const nameWithoutExt = ext ? fileName.slice(0, -ext.length) : fileName
-  // Use directory parts only (exclude the filename which is already handled)
-  const dirParts = relativePath
-    .split(path.sep)
-    .filter(s => s.length > 0)
-    .slice(0, -1)
-    .join('-')
-  return `${source}-${dirParts}-${nameWithoutExt}`
 }
 
 /**

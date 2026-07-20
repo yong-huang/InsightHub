@@ -1367,6 +1367,7 @@ export function DocReaderPage() {
         {showConceptPanel && <ConceptCardsPanel docId={doc.id} onClose={() => setShowConceptPanel(false)} />}
         {isImageDoc && showImageAnalysis && (
           <ImageAnalysisPanel
+            key={iframeSrc}
             imageSrc={iframeSrc || ''}
             onClose={() => setShowImageAnalysis(false)}
           />

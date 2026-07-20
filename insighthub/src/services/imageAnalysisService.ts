@@ -185,3 +185,115 @@ export async function analyzeImage(
   if (usage) recordUsage('image-analysis', usage)
   return { usage }
 }
+
+export async function chatAboutImage(
+  imageDataUrl: string,
+  analysisText: string,
+  chatMessages: { role: 'user' | 'assistant'; content: string }[],
+  onChunk: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<{ usage?: UsageInfo }> {
+  // Pre-flight: check if vision profile is configured
+  const visionOk = await checkVisionConfigured()
+  if (!visionOk) {
+    throw new Error(VISION_NOT_CONFIGURED)
+  }
+
+  const messages: VisionMessage[] = [
+    {
+      role: 'system',
+      content: `You are an assistant that answers questions about an image. The image analysis is provided below for context. Answer in the same language as the user's question.\n\n## Image Analysis\n${analysisText}`,
+    },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Based on the image analysis above, answer the following question.' },
+        { type: 'image_url', image_url: { url: imageDataUrl } },
+      ],
+    },
+    ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+  ]
+
+  const controller = new AbortController()
+  if (signal) {
+    if (signal.aborted) controller.abort()
+    else signal.addEventListener('abort', () => controller.abort(), { once: true })
+  }
+
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  let fullText = ''
+  let usage: UsageInfo | undefined
+  let idleTimer: ReturnType<typeof setTimeout> | undefined = undefined
+
+  try {
+    const response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        temperature: 0.7,
+        max_tokens: 4096,
+        stream: true,
+        chat_template_kwargs: { enable_thinking: false },
+        think: false,
+        purpose: 'vision',
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '')
+      throw new Error(`AI error: ${response.status} ${errBody.slice(0, 100)}`)
+    }
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    const resetIdle = () => {
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS)
+    }
+    resetIdle()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      resetIdle()
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+        if (data === '[DONE]') continue
+        try {
+          const parsed = JSON.parse(data)
+          const delta = parsed.choices?.[0]?.delta?.content
+          if (delta) {
+            fullText += delta
+            onChunk(fullText)
+          }
+          if (parsed.usage) {
+            usage = {
+              promptTokens: parsed.usage.prompt_tokens || 0,
+              completionTokens: parsed.usage.completion_tokens || 0,
+              totalTokens: parsed.usage.total_tokens || 0,
+            }
+          }
+        } catch { /* skip malformed chunks */ }
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId)
+    clearTimeout(idleTimer)
+  }
+
+  if (usage) recordUsage('image-analysis', usage)
+  return { usage }
+}
