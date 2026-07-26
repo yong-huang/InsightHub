@@ -17,8 +17,8 @@ export function MoveCategoryDialog({ workspaceId, category, docCount, onClose }:
   const workspaces = usePreferenceStore(s => s.workspaces)
   const reloadDocuments = useDocumentStore(s => s.reloadDocuments)
 
-  const otherWorkspaces = workspaces.filter(ws => ws.id !== workspaceId)
-  const [targetWorkspaceId, setTargetWorkspaceId] = useState(otherWorkspaces[0]?.id || '')
+  const allWorkspaces = workspaces
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState(workspaceId)
   const targetCategories = useDynamicCategories(targetWorkspaceId)
   const [targetCategory, setTargetCategory] = useState('__root__')
   const [customCategory, setCustomCategory] = useState('')
@@ -27,6 +27,9 @@ export function MoveCategoryDialog({ workspaceId, category, docCount, onClose }:
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const currentWsLabel = workspaces.find(ws => ws.id === workspaceId)?.label || workspaceId
+
+  const resolvedTargetCategory = targetCategory === '__root__' ? category : (targetCategory === '__custom__' ? customCategory.trim() : targetCategory)
+  const isSameLocation = targetWorkspaceId === workspaceId && resolvedTargetCategory === category
 
   const handleMove = async () => {
     setError('')
@@ -93,8 +96,8 @@ export function MoveCategoryDialog({ workspaceId, category, docCount, onClose }:
             }}
             disabled={moving}
           >
-            {otherWorkspaces.map(ws => (
-              <option key={ws.id} value={ws.id}>{ws.label}</option>
+            {allWorkspaces.map(ws => (
+              <option key={ws.id} value={ws.id}>{ws.id === workspaceId ? `${ws.label} (current)` : ws.label}</option>
             ))}
           </select>
         </div>
@@ -107,10 +110,14 @@ export function MoveCategoryDialog({ workspaceId, category, docCount, onClose }:
             onChange={e => setTargetCategory(e.target.value)}
             disabled={moving}
           >
-            <option value="__root__">(Root — no subcategory)</option>
-            {targetCategories.map(cat => (
-              <option key={cat.key} value={cat.key}>{cat.label}</option>
-            ))}
+            {targetWorkspaceId === workspaceId && (
+              <option value="__root__">(Root — no subcategory)</option>
+            )}
+            {targetCategories
+              .filter(cat => !(targetWorkspaceId === workspaceId && cat.key === category))
+              .map(cat => (
+                <option key={cat.key} value={cat.key}>{cat.label}</option>
+              ))}
             <option value="__custom__">+ New Category...</option>
           </select>
           {targetCategory === '__custom__' && (
@@ -143,7 +150,7 @@ export function MoveCategoryDialog({ workspaceId, category, docCount, onClose }:
         {!moving && (
           <div className="import-dialog-actions">
             <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleMove}>
+            <button className="btn btn-primary" onClick={handleMove} disabled={isSameLocation}>
               <ArrowRightLeft size={14} />
               Move
             </button>

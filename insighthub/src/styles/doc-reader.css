@@ -569,13 +569,12 @@
 
 .image-viewer-toolbar {
   position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 0.75rem;
+  right: 0.75rem;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+  gap: 2px;
+  padding: 4px 8px;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   border-radius: var(--radius-full, 999px);

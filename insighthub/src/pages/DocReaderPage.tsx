@@ -1192,7 +1192,7 @@ export function DocReaderPage() {
           <button
             className="dr-action-btn"
             onClick={() => setShowMoveDialog(true)}
-            title="Move to another workspace"
+            title="Move document"
           >
             <ArrowRightLeft size={16} />
             <span className="dr-action-label">Move</span>
@@ -1208,8 +1208,20 @@ export function DocReaderPage() {
                 return
               }
               setTrashingDoc(false)
+              // Find adjacent sibling document to navigate to
+              const siblings = Array.from(allDocuments.values())
+                .filter(d => d.source === doc.source && d.category === doc.category && !d.isDeprecated)
+                .sort((a, b) => a.filePath.localeCompare(b.filePath))
+              const idx = siblings.findIndex(d => d.id === doc.id)
+              const nextSibling = idx >= 0
+                ? (siblings[idx + 1] || siblings[idx - 1])
+                : siblings[0]
               useDocumentStore.getState().trashDocument(doc.id)
-              navigate(fromPath || `/${doc.source}/${doc.category}`)
+              if (nextSibling) {
+                navigate(`/doc/${nextSibling.id}`)
+              } else {
+                navigate(fromPath || `/${doc.source}/${doc.category}`)
+              }
             }}
             title="Delete document"
           >

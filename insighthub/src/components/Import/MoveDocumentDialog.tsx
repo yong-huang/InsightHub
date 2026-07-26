@@ -19,8 +19,8 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const reloadDocuments = useDocumentStore(s => s.reloadDocuments)
 
-  const otherWorkspaces = workspaces.filter(ws => ws.id !== doc.source)
-  const [targetWorkspaceId, setTargetWorkspaceId] = useState(otherWorkspaces[0]?.id || '')
+  const allWorkspaces = workspaces
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState(doc.source)
   const targetCategories = useDynamicCategories(targetWorkspaceId)
   const [targetCategory, setTargetCategory] = useState(targetCategories[0]?.key || '')
   const [customCategory, setCustomCategory] = useState('')
@@ -30,6 +30,10 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
 
   const currentWsLabel = workspaces.find(ws => ws.id === doc.source)?.label || doc.source
   const targetWsLabel = workspaces.find(ws => ws.id === targetWorkspaceId)?.label || targetWorkspaceId
+
+  // Disable move button when source and target are the same
+  const isSameCategory = targetWorkspaceId === doc.source && (targetCategory === '__custom__' ? customCategory.trim() === doc.category : targetCategory === doc.category)
+  const isSameLocation = targetWorkspaceId === doc.source && isSameCategory
 
   const handleMove = async () => {
     setError('')
@@ -93,8 +97,8 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
             }}
             disabled={moving}
           >
-            {otherWorkspaces.map(ws => (
-              <option key={ws.id} value={ws.id}>{ws.label}</option>
+            {allWorkspaces.map(ws => (
+              <option key={ws.id} value={ws.id}>{ws.id === doc.source ? `${ws.label} (current)` : ws.label}</option>
             ))}
           </select>
         </div>
@@ -107,10 +111,14 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
             onChange={e => setTargetCategory(e.target.value)}
             disabled={moving}
           >
-            {targetCategories.map(cat => (
-              <option key={cat.key} value={cat.key}>{cat.label}</option>
-            ))}
-            <option value="">(Root — no subdirectory)</option>
+            {targetCategories
+              .filter(cat => !(targetWorkspaceId === doc.source && cat.key === doc.category))
+              .map(cat => (
+                <option key={cat.key} value={cat.key}>{cat.label}</option>
+              ))}
+            {targetWorkspaceId === doc.source && (
+              <option value="">(Root — no subdirectory)</option>
+            )}
             <option value="__custom__">+ New Category...</option>
           </select>
           {targetCategory === '__custom__' && (
@@ -143,7 +151,7 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
         {!moving && (
           <div className="import-dialog-actions">
             <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleMove}>
+            <button className="btn btn-primary" onClick={handleMove} disabled={isSameLocation}>
               {moving ? <Loader size={14} className="spin" /> : <ArrowRightLeft size={14} />}
               Move
             </button>

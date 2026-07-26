@@ -6,6 +6,7 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { storageService } from '@/services/storageService'
 import { MoveCategoryDialog } from '@/components/Import/MoveCategoryDialog'
+import { MoveDocumentDialog } from '@/components/Import/MoveDocumentDialog'
 
 interface TreeNode {
   name: string
@@ -118,6 +119,9 @@ function TreeNodeView({
   onMoveCategory,
   onDeleteCategory,
   deleteArmed,
+  onDeleteDoc,
+  deleteDocArmed,
+  onMoveDoc,
 }: {
   node: TreeNode
   depth: number
@@ -131,6 +135,9 @@ function TreeNodeView({
   onMoveCategory?: (categoryPath: string, docCount: number) => void
   onDeleteCategory?: (categoryPath: string) => void
   deleteArmed?: boolean
+  onDeleteDoc?: (docId: string) => void
+  deleteDocArmed?: boolean
+  onMoveDoc?: (docId: string) => void
 }) {
   const isExpanded = expandedPaths.has(node.path)
 
@@ -208,6 +215,9 @@ function TreeNodeView({
                 onMoveCategory={onMoveCategory}
                 onDeleteCategory={onDeleteCategory}
                 deleteArmed={deleteArmed}
+                onDeleteDoc={onDeleteDoc}
+                deleteDocArmed={deleteDocArmed}
+                onMoveDoc={onMoveDoc}
               />
             ))}
           </div>
@@ -234,6 +244,28 @@ function TreeNodeView({
           }
         </span>
         <span className="file-tree-label">{node.name}</span>
+        {(onMoveDoc || onDeleteDoc) && node.docId && (
+          <span className="file-tree-actions">
+            {onMoveDoc && (
+              <span
+                className="file-tree-hide-btn"
+                onClick={e => { e.stopPropagation(); onMoveDoc(node.docId!) }}
+                title="Move document"
+              >
+                <ArrowRightLeft size={12} />
+              </span>
+            )}
+            {onDeleteDoc && (
+              <span
+                className={`file-tree-hide-btn${deleteDocArmed ? ' file-tree-action-danger' : ''}`}
+                onClick={e => { e.stopPropagation(); onDeleteDoc(node.docId!) }}
+                title={deleteDocArmed ? 'Click again to confirm delete' : 'Delete document'}
+              >
+                <Trash2 size={12} />
+              </span>
+            )}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -248,7 +280,9 @@ export function FileTree() {
   const location = useLocation()
 
   const [moveCategoryTarget, setMoveCategoryTarget] = useState<{ category: string; docCount: number } | null>(null)
+  const [moveDocTarget, setMoveDocTarget] = useState<string | null>(null)
   const [deleteArmedCategory, setDeleteArmedCategory] = useState<string | null>(null)
+  const [deleteArmedDoc, setDeleteArmedDoc] = useState<string | null>(null)
   const deleteArmTimer = useRef<ReturnType<typeof setTimeout>>()
 
   // Auto-disarm delete after 3s
@@ -258,6 +292,12 @@ export function FileTree() {
       return () => clearTimeout(deleteArmTimer.current)
     }
   }, [deleteArmedCategory])
+  useEffect(() => {
+    if (deleteArmedDoc) {
+      const t = setTimeout(() => setDeleteArmedDoc(null), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [deleteArmedDoc])
 
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
@@ -379,6 +419,44 @@ export function FileTree() {
     ? decodeURIComponent(location.pathname.replace('/doc/', ''))
     : undefined
 
+  const onDeleteDoc = useCallback((docId: string) => {
+    // Two-click confirm pattern
+    if (deleteArmedDoc !== docId) {
+      setDeleteArmedDoc(docId)
+      return
+    }
+
+    setDeleteArmedDoc(null)
+
+    // Find adjacent document in the tree (same category, next/previous sibling)
+    const idx = filePaths.findIndex(f => f.docId === docId)
+    const nextDocId = idx >= 0
+      ? (filePaths[idx + 1] || filePaths[idx - 1])?.docId
+      : filePaths[0]?.docId
+
+    trashDocument(docId)
+
+    // Navigate: to adjacent doc if deleting active doc, or stay
+    if (activeDocId === docId) {
+      if (nextDocId) {
+        navigate(`/doc/${nextDocId}`)
+      } else {
+        navigate(`/${activeWorkspace}`)
+      }
+    }
+  }, [deleteArmedDoc, filePaths, activeDocId, trashDocument, navigate, activeWorkspace])
+
+  const onMoveDoc = useCallback((docId: string) => {
+    setMoveDocTarget(docId)
+  }, [])
+
+  const handleDocMoved = useCallback((newId: string) => {
+    setMoveDocTarget(null)
+    if (activeDocId) {
+      navigate(`/doc/${newId}`, { replace: true })
+    }
+  }, [activeDocId, navigate])
+
   if (sidebarCollapsed) {
     return null
   }
@@ -408,6 +486,9 @@ export function FileTree() {
           onMoveCategory={onMoveCategory}
           onDeleteCategory={onDeleteCategory}
           deleteArmed={deleteArmedCategory === node.path}
+          onDeleteDoc={onDeleteDoc}
+          deleteDocArmed={deleteArmedDoc !== null}
+          onMoveDoc={onMoveDoc}
         />
       ))}
       {moveCategoryTarget && createPortal(
@@ -419,6 +500,17 @@ export function FileTree() {
         />,
         document.body,
       )}
+      {moveDocTarget && (() => {
+        const doc = documents.get(moveDocTarget)
+        return doc && createPortal(
+          <MoveDocumentDialog
+            doc={doc}
+            onClose={() => setMoveDocTarget(null)}
+            onMoved={handleDocMoved}
+          />,
+          document.body,
+        )
+      })()}
     </div>
   )
 }
