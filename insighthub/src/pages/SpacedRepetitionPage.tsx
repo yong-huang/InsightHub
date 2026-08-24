@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Lightbulb, RotateCcw, Trash2, BookOpen,
-  Clock, CheckCircle2, AlertCircle, Star, Zap, ChevronLeft, Send, Sparkles,
+  Clock, CheckCircle2, AlertCircle, Star, Zap, ChevronLeft, Sparkles,
 } from 'lucide-react'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -50,7 +50,7 @@ export function SpacedRepetitionPage() {
       const doc = documents.get(c.sourceDocId)
       return doc?.source === activeWorkspace || c.sourceDocId.startsWith(getPrefix(activeWorkspace, workspaces) || '')
     }),
-    [cards, documents, activeWorkspace, filterDocId]
+    [cards, documents, activeWorkspace, filterDocId, workspaces]
   )
 
   const [viewMode, setViewMode] = useState<ViewMode>('review')
@@ -605,7 +605,6 @@ const CardItem = memo(function CardItem({ card, onRemove }: { card: ConceptCard;
   const documents = useDocumentStore(s => s.documents)
   const docTitle = card.sourceDocId ? (documents.get(card.sourceDocId)?.title || 'Unknown Document') : 'Unknown Document'
 
-  const now = Date.now()
   const status = card.lastReview === 0 ? 'new' : card.interval >= 21 ? 'mastered' : card.interval >= 1 ? 'learning' : 'due'
   const statusLabel = status === 'new' ? 'New' : status === 'mastered' ? 'Mastered' : status === 'learning' ? formatInterval(card.nextReview) : 'Due'
   const statusColor = status === 'new' ? '#22c55e' : status === 'mastered' ? '#a855f7' : status === 'learning' ? '#3b82f6' : '#ef4444'

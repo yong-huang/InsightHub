@@ -123,10 +123,9 @@ function buildSimilarityIndex(): void {
         textSnippets = [] // free memory
         return
       }
-    } catch {}
+    } catch { /* corrupted cache — rebuild */ }
   }
-
-  let vectors = buildTfIdfVectors(textSnippets)
+  const vectors = buildTfIdfVectors(textSnippets)
 
   // Build tag lookup: docId → Set<tagId>
   const docTagMap = new Map<string, Set<string>>()
@@ -191,8 +190,7 @@ function buildSimilarityIndex(): void {
 
   indexCache = results
   textSnippets = [] // free memory
-  vectors = null as any // release TF-IDF vectors for GC
-
+  // (vectors is function-local; it becomes collectible when this function returns)
   // Cache to localStorage
   try {
     const serializable: Record<string, SimilarityResult[]> = {}
@@ -244,5 +242,5 @@ export function clearSimilarityCache(): void {
   indexCache = null
   textSnippets = []
   resetBuildFlag()
-  try { localStorage.removeItem(CACHE_KEY) } catch {}
+  try { localStorage.removeItem(CACHE_KEY) } catch { /* ignore */ }
 }

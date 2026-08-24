@@ -226,7 +226,7 @@ export function WhiteboardPanel({ docId, onClose }: WhiteboardPanelProps) {
   const drawingRef = useRef(false)
   const currentStrokeRef = useRef<Stroke | null>(null)
   const strokesRef = useRef(strokes)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const aiAbortRef = useRef<AbortController | null>(null)
   const isAnalyzingRef = useRef(false)
 

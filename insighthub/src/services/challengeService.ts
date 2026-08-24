@@ -75,7 +75,7 @@ Be fair but rigorous. A score of 80+ means excellent understanding. 50-79 shows 
   }
 
   try {
-    const parsed = extractJSON(result.data)
+    const parsed = extractJSON(String(result.data)) as Record<string, unknown>
     return {
       score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
       feedback: String(parsed.feedback || 'No feedback available.'),

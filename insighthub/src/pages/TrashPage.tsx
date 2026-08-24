@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Trash2, Search, Undo2, Folder } from 'lucide-react'
+import { Trash2, Search, Undo2 } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { storageService } from '@/services/storageService'
@@ -75,11 +75,11 @@ export function TrashPage() {
 
     setConfirmingId(null)
     if (docId.startsWith('imported-')) {
-      try { await useDocumentStore.getState().removeDocument(docId) } catch {}
+      try { await useDocumentStore.getState().removeDocument(docId) } catch { /* local-only doc */ }
     } else {
       try {
         await fetch(`/api/workspace-document?id=${encodeURIComponent(docId)}`, { method: 'DELETE' })
-      } catch {}
+      } catch { /* server unavailable — restore locally */ }
     }
     storageService.restoreTrashed(docId)
     setTrashedDocs(storageService.getTrashedDocs())

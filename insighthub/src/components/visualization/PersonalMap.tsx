@@ -202,8 +202,8 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
   const connectedIds = useCallback((nodeId: string): Set<string> => {
     const ids = new Set<string>([nodeId])
     for (const link of graphData.links) {
-      const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
-      const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
+      const sid = typeof link.source === 'string' ? link.source : (link.source as { id: string }).id
+      const tid = typeof link.target === 'string' ? link.target : (link.target as { id: string }).id
       if (sid === nodeId) ids.add(tid)
       if (tid === nodeId) ids.add(sid)
     }
@@ -371,7 +371,7 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
     } else if (node.type === 'tag' && node.data?.tagId) {
       navigate(`/tag/${node.data.tagId}`)
     }
-  }, [navigate, documents])
+  }, [navigate, location.pathname])
 
   if (graphData.nodes.length === 0) {
     return (
@@ -446,8 +446,8 @@ export function PersonalMap({ documents, tags, quizHistory, annotations, showDoc
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* Links */}
           {graphData.links.map((link, i) => {
-            const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
-            const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
+            const sid = typeof link.source === 'string' ? link.source : (link.source as { id: string }).id
+            const tid = typeof link.target === 'string' ? link.target : (link.target as { id: string }).id
             const sn = simNodes.find(n => n.id === sid)
             const tn = simNodes.find(n => n.id === tid)
             if (!sn || !tn) return null

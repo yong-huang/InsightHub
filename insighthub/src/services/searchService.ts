@@ -1,5 +1,5 @@
 import { Document } from 'flexsearch'
-import type { SearchResult, SearchFilters, Source } from '@/types'
+import type { SearchResult, SearchFilters, Source, Document as AppDocument } from '@/types'
 
 let searchIndex: Document | null = null
 export let isIndexing = false
@@ -8,7 +8,6 @@ export function setIsIndexing(value: boolean): void {
   isIndexing = value
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createIndex(): Document {
   const index = new Document({
     tokenize: 'forward',
@@ -152,7 +151,7 @@ export async function search(
       for (const group of titleResults) {
         for (const result of group.result) {
           const id = String(result.id)
-          const doc = result.doc as Record<string, any> | undefined
+          const doc = result.doc as Record<string, string | undefined> | undefined
           if (!results.find(r => r.id === id)) {
             const snippet: string = doc?.snippet || ''
             results.push({
@@ -178,7 +177,7 @@ export async function search(
       for (const group of contentResults) {
         for (const result of group.result) {
           const id = String(result.id)
-          const doc = result.doc as Record<string, any> | undefined
+          const doc = result.doc as Record<string, string | undefined> | undefined
           if (!results.find(r => r.id === id)) {
             const snippet: string = doc?.snippet || ''
             results.push({
@@ -204,7 +203,7 @@ export async function search(
 export function applyFilters(
   results: SearchResult[],
   filters: SearchFilters,
-  docMap: Map<string, any>
+  docMap: Map<string, Partial<AppDocument>>
 ): SearchResult[] {
   let filtered = [...results]
 
@@ -215,9 +214,10 @@ export function applyFilters(
     filtered = filtered.filter(r => r.category === filters.category)
   }
   if (filters.tag) {
+    const tag = filters.tag
     filtered = filtered.filter(r => {
       const doc = docMap.get(r.id)
-      return doc?.tags?.includes(filters.tag)
+      return doc?.tags?.includes(tag)
     })
   }
   if (filters.isRead !== undefined && filters.isRead !== null) {
@@ -255,7 +255,7 @@ export async function suggestTitles(query: string, limit = 5): Promise<string[]>
     if (Array.isArray(results) && results.length > 0) {
       for (const group of results) {
         for (const r of group.result) {
-          const doc = r.doc as Record<string, any> | undefined
+          const doc = r.doc as Record<string, string | undefined> | undefined
           if (doc?.title) titles.push(String(doc.title))
         }
       }

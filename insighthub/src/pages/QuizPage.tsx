@@ -34,7 +34,7 @@ export function QuizPage() {
 
   const {
     currentQuiz, currentAttempt, isGrading, error,
-    setCurrentQuiz, setCurrentAttempt, setGrading, setError, reset,
+    setCurrentQuiz, setCurrentAttempt, setGrading, setError,
   } = useQuizStore()
 
   const removeSavedQuiz = useQuizStore(s => s.removeSavedQuiz)
@@ -54,7 +54,7 @@ export function QuizPage() {
     } else {
       setError('Quiz not found. Please generate a quiz from the document page first.')
     }
-  }, [docId, quizId, savedQuizzes])
+  }, [docId, quizId, savedQuizzes, currentQuiz, setCurrentAttempt, setCurrentQuiz, setError])
 
   const handleAnswer = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
@@ -67,8 +67,8 @@ export function QuizPage() {
       const attempt = await gradeQuiz(currentQuiz, answers)
       setCurrentAttempt(attempt)
       useQuizStore.getState().saveAttempt(attempt)
-    } catch (e: any) {
-      setError(e.message || 'Grading failed')
+    } catch (e) {
+      setError((e instanceof Error ? e.message : String(e)) || 'Grading failed')
     } finally {
       setGrading(false)
     }
@@ -285,9 +285,6 @@ export function QuizPage() {
               ? ['true', 'false']
               : currentQuestion.options || []
             ).map((opt: string, i: number) => {
-              const optLetter = currentQuestion.type === 'choice'
-                ? String.fromCharCode(65 + i)
-                : opt === 'true' ? 'T' : 'F'
               const value = currentQuestion.type === 'truefalse'
                 ? opt
                 : String.fromCharCode(65 + i)

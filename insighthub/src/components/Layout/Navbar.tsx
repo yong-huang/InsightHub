@@ -58,6 +58,7 @@ export function Navbar() {
   }, [])
 
   const readLaterCount = useMemo(() => {
+    void storageVersion // intentional refresh trigger
     const readLaterList = storageService.getReadLaterList()
     return readLaterList.filter(item => {
       const doc = documents.get(item.documentId)
@@ -66,10 +67,12 @@ export function Navbar() {
   }, [documents, activeWorkspace, storageVersion])
 
   const achievementCount = useMemo(() => {
+    void storageVersion // intentional refresh trigger
     return storageService.getAchievementState().unlockedIds.length
   }, [storageVersion])
 
   const deprecatedCount = useMemo(() => {
+    void storageVersion // intentional refresh trigger
     const deprecatedIds = storageService.getDeprecatedIds()
     const docCount = deprecatedIds.filter(id => {
       const doc = documents.get(id)
@@ -80,6 +83,7 @@ export function Navbar() {
   }, [documents, activeWorkspace, storageVersion])
 
   const trashCount = useMemo(() => {
+    void storageVersion // intentional refresh trigger
     return storageService.getTrashedDocs().filter(t => {
       const doc = documents.get(t.docId)
       return doc?.source === activeWorkspace

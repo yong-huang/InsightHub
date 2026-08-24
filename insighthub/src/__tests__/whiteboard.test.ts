@@ -143,8 +143,14 @@ function createMockCanvas(w = 400, h = 300) {
   return canvas
 }
 
+/** Mock context exposing tracked calls and state for assertions */
+interface MockCtx extends CanvasRenderingContext2D {
+  __calls: Record<string, unknown[][]>
+  __state: Record<string, unknown>
+}
+
 /** Create a mock CanvasRenderingContext2D with tracked method calls */
-function createMockCtx() {
+function createMockCtx(): MockCtx {
   const calls: Record<string, unknown[][]> = {}
   const state: Record<string, unknown> = {
     globalCompositeOperation: 'source-over',
@@ -160,22 +166,24 @@ function createMockCtx() {
     get(_target, prop) {
       if (prop === '__calls') return calls
       if (prop === '__state') return state
+      const key = String(prop)
       // Return state for property reads
-      if (prop in state) return state[prop]
+      if (key in state) return state[key]
       // Return callable mock for methods
       return (...args: unknown[]) => {
-        ;(calls[prop] ??= []).push(args)
+        ;(calls[key] ??= []).push(args)
         // save/restore: no-op for mock (real ctx.save/restore are no-ops in our tests)
         return undefined
       }
     },
     set(_target, prop, value) {
-      if (prop in state) state[prop] = value
+      const key = String(prop)
+      if (key in state) state[key] = value
       return true
     },
   }
 
-  return new Proxy({} as unknown as CanvasRenderingContext2D, handler)
+  return new Proxy({} as unknown as CanvasRenderingContext2D, handler) as MockCtx
 }
 
 function makePointerEvent(overrides: Partial<PointerEvent> = {}): PointerEvent {

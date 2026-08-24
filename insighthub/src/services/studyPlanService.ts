@@ -84,8 +84,8 @@ ${categoryList}`,
 
   let selectedCats: string[]
   try {
-    const parsed = extractJSON(stage1.data)
-    selectedCats = Array.isArray(parsed) ? parsed.filter((c: any) => typeof c === 'string' && byCat.has(c)) : []
+    const parsed = extractJSON(String(stage1.data))
+    selectedCats = Array.isArray(parsed) ? parsed.filter(c => typeof c === 'string' && byCat.has(c)) : []
   } catch {
     selectedCats = []
   }
@@ -144,14 +144,14 @@ JSON format:
     throw new Error(result.error || 'AI call failed')
   }
 
-  const parsed = extractJSON(result.data) as { summary?: string; matches?: any[] }
+  const parsed = extractJSON(String(result.data)) as { summary?: unknown; matches?: unknown }
   const summary = typeof parsed.summary === 'string' ? parsed.summary : ''
-  const rawMatches = Array.isArray(parsed.matches) ? parsed.matches : []
+  const rawMatches = Array.isArray(parsed.matches) ? (parsed.matches as Record<string, unknown>[]) : []
 
   // Filter out hallucinated docIds
   const matches: StudyPlanMatch[] = rawMatches
-    .filter((m: any) => m && typeof m.docId === 'string' && validDocIds.has(m.docId))
-    .map((m: any) => ({
+    .filter((m): m is { docId: string; reason?: unknown; priority?: unknown } => !!m && typeof m.docId === 'string' && validDocIds.has(m.docId))
+    .map(m => ({
       docId: m.docId,
       reason: typeof m.reason === 'string' ? m.reason : '',
       priority: m.priority === 'high' || m.priority === 'medium' || m.priority === 'low' ? m.priority : 'medium',

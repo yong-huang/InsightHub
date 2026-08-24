@@ -92,9 +92,9 @@ export async function generateFollowUpSuggestions(
   if (!result.success || !result.data) return []
 
   try {
-    const parsed = extractJSON(result.data)
+    const parsed = extractJSON(String(result.data))
     if (Array.isArray(parsed)) {
-      return parsed.slice(0, 3).map((s: any) => String(s)).filter(s => s.length > 0 && s.length < 100)
+      return parsed.slice(0, 3).map(s => String(s)).filter(s => s.length > 0 && s.length < 100)
     }
     return []
   } catch {

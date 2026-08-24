@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
-import { X, Trash2, Send, Loader2, Square, Pencil, Check } from 'lucide-react'
+import { X, Trash2, Send, Square, Pencil, Check } from 'lucide-react'
 import { renderMarkdown } from '@/utils/markdownRenderer'
 import { chatWithDocument, generateFollowUpSuggestions, type ChatMessage, type ChatContextMode } from '@/services/readerAiService'
 import { storageService } from '@/services/storageService'
@@ -53,7 +53,7 @@ export function ChatPanel({
         docContentRef.current = text
         return text
       }
-    } catch {}
+    } catch { /* cross-origin iframe access denied */ }
     docContentRef.current = documentContent
     return documentContent
   }, [iframeRef, documentContent])
@@ -221,12 +221,12 @@ export function ChatPanel({
       const assistantMsg: ChatMessage = {
         id: `msg-${Date.now()}`,
         role: 'assistant',
-        content: result.data,
+        content: String(result.data),
         timestamp: Date.now(),
       }
       setMessages(prev => [...prev, assistantMsg])
-      lastAssistantAnswerRef.current = result.data
-      generateSuggestions(docCtx, userText, result.data)
+      lastAssistantAnswerRef.current = String(result.data)
+      generateSuggestions(docCtx, userText, String(result.data))
     } else if (!isAborted) {
       const errorMsg: ChatMessage = {
         id: `msg-${Date.now()}`,

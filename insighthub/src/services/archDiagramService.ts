@@ -27,7 +27,7 @@ Format: {"topics":["Topic 1","Topic 2","Topic 3"]}`,
       return { success: false, error: result.error || 'AI call failed' }
     }
 
-    const parsed = extractJSON(result.data)
+    const parsed = extractJSON(String(result.data)) as { topics?: string[] }
     const topics: string[] = (parsed.topics || []).slice(0, 5)
     if (topics.length === 0) {
       return { success: false, error: 'No topics extracted' }

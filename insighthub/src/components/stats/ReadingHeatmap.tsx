@@ -25,7 +25,6 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
   }, [cells])
 
   const colCount = weeks.length
-  const totalCols = 1 + colCount // 1 label column + week columns
 
   // Month labels — positioned at the column where that month starts
   const monthLabels = useMemo(() => {
@@ -86,7 +85,6 @@ export function ReadingHeatmap({ entries, documents, source }: Props) {
         {weeks.map((week, col) =>
           week.map((date, row) => {
             const cell = date ? cellMap.get(date) : null
-            const isEmpty = !cell || cell.level === 0
 
             return (
               <div

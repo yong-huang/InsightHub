@@ -7,11 +7,12 @@ on:
     branches: [master]
 
 jobs:
-  lint-and-build:
+  ci:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        # Vite 8 requires Node ^20.19.0 || >=22.12.0
+        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +31,9 @@ jobs:
 
       - name: Type check
         run: cd insighthub && npx tsc -b --noEmit
+
+      - name: Test
+        run: cd insighthub && npm run test
 
       - name: Build
         run: cd insighthub && npm run build

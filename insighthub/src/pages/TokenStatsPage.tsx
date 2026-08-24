@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Coins, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
 import { ChartCard } from '@/components/stats/ChartCard'
-import { getTokenUsage, clearTokenUsage, type TokenUsageEntry } from '@/services/tokenUsageService'
+import { getTokenUsage, clearTokenUsage } from '@/services/tokenUsageService'
 
 type Period = 'today' | 'week' | 'month' | 'all'
 
@@ -252,7 +252,7 @@ export function TokenStatsPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(value: any) => [fmtCost(Number(value)), 'Cost']}
+                    formatter={(value: unknown) => [fmtCost(Number(value)), 'Cost']}
                   />
                   <Bar dataKey="cost" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -278,8 +278,8 @@ export function TokenStatsPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(value: any, name: any) => [
-                      name === 'tokens' ? formatNum(Number(value)) : value,
+                    formatter={(value: unknown, name: unknown) => [
+                      name === 'tokens' ? formatNum(Number(value)) : String(value),
                       name === 'tokens' ? 'Tokens' : 'Calls',
                     ]}
                   />

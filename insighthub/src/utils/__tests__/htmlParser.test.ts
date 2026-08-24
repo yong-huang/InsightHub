@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseHtmlDocument } from '../htmlParser'
-import type { DocumentManifestEntry } from '@/services/documentManifest'
+import type { DocumentManifestEntry } from '@/utils/documentManifest'
 
 function makeEntry(overrides: Partial<DocumentManifestEntry> = {}): DocumentManifestEntry {
   return {

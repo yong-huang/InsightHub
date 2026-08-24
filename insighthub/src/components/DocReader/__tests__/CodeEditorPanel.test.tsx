@@ -1,16 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import { CodeEditorPanel } from '../CodeEditorPanel'
 
 // Mock AI services
 const mockCallAIStream = vi.fn()
 vi.mock('@/services/aiService', () => ({
-  callAIStream: (...args: any[]) => mockCallAIStream(...args),
+  callAIStream: (...args: unknown[]) => mockCallAIStream(...args),
 }))
 
 const mockRecordUsage = vi.fn()
 vi.mock('@/services/tokenUsageService', () => ({
-  recordUsage: (...args: any[]) => mockRecordUsage(...args),
+  recordUsage: (...args: unknown[]) => mockRecordUsage(...args),
 }))
 
 // Mock document store
@@ -18,14 +18,14 @@ const mockEnsureContentText = vi.fn()
 vi.mock('@/stores/documentStore', () => ({
   useDocumentStore: {
     getState: () => ({
-      ensureContentText: (...args: any[]) => mockEnsureContentText(...args),
+      ensureContentText: (...args: unknown[]) => mockEnsureContentText(...args),
     }),
   },
 }))
 
 // Mock CodeMirror — forward onChange on input events so the component's handleCodeChange fires
 vi.mock('@uiw/react-codemirror', () => ({
-  default: (props: any) => (
+  default: (props: { onChange?: (v: string) => void }) => (
     <div
       data-testid="codemirror"
       className="cm-content"
@@ -38,7 +38,7 @@ vi.mock('@uiw/react-codemirror', () => ({
 }))
 
 // Mock fetch for runtimes
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
 describe('CodeEditorPanel', () => {
   beforeEach(() => {
@@ -46,7 +46,7 @@ describe('CodeEditorPanel', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     localStorage.clear()
     mockEnsureContentText.mockResolvedValue({ contentText: 'Reference code from document.' })
-    ;(global.fetch as any).mockResolvedValue({ json: () => Promise.resolve([]) })
+    ;(globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ json: () => Promise.resolve([]) })
     mockCallAIStream.mockResolvedValue({
       success: true,
       data: 'AI response text',

@@ -86,7 +86,7 @@ export function QuizPerformancePanel({ data }: Props) {
                   color: colors.textPrimary,
                   fontSize: '13px',
                 }}
-                formatter={((v: number) => [`${Math.round(v)} pts`, 'Average Score']) as any}
+                formatter={(v: unknown) => [`${Math.round(Number(v))} pts`, 'Average Score']}
               />
             </LineChart>
           </ResponsiveContainer>

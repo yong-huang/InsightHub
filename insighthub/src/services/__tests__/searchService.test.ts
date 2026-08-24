@@ -6,7 +6,7 @@ import {
   applyFilters,
   extendCategoryMap,
 } from '../searchService'
-import type { SearchResult, SearchFilters } from '@/types'
+import type { SearchResult } from '@/types'
 
 describe('parseSearchQuery', () => {
   it('returns plain text when no filters', () => {

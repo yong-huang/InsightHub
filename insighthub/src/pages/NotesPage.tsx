@@ -41,20 +41,20 @@ export function NotesPage() {
 
   const titleLookup = useMemo(() => buildTitleLookup(documents), [documents])
 
-  const getDocTitle = (docId: string) => {
+  const getDocTitle = useCallback((docId: string) => {
     const doc = documents.get(docId)
     if (doc) return doc.title
     const wsPrefix = getPrefix(activeWorkspace, workspaces)
     const rest = wsPrefix ? docId.slice(wsPrefix.length) : docId
     return rest.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  }
+  }, [documents, activeWorkspace, workspaces])
 
-  const isWorkspaceMatch = (docId: string) => {
+  const isWorkspaceMatch = useCallback((docId: string) => {
     const doc = documents.get(docId)
     if (doc) return doc.source === activeWorkspace
     const wsPrefix = getPrefix(activeWorkspace, workspaces) || ''
     return docId.startsWith(wsPrefix)
-  }
+  }, [documents, activeWorkspace, workspaces])
 
   // Base annotations filtered by workspace, type, search, and document
   const baseAnnotations = useMemo(() => {
@@ -74,7 +74,7 @@ export function NotesPage() {
       })
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
-  }, [annotations, activeWorkspace, filter, searchQuery, docFilter, documents])
+  }, [annotations, isWorkspaceMatch, filter, searchQuery, docFilter, documents])
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(baseAnnotations.length / PAGE_SIZE))
@@ -115,7 +115,7 @@ export function NotesPage() {
       group.annotations.push(ann)
     }
     return Array.from(map.values())
-  }, [pagedAnnotations, documents])
+  }, [pagedAnnotations, documents, getDocTitle])
 
   // Document options for dropdown (only docs that have annotations in workspace)
   const docOptions = useMemo(() => {
@@ -126,23 +126,23 @@ export function NotesPage() {
     return Array.from(idSet)
       .map(id => ({ id, title: getDocTitle(id) }))
       .sort((a, b) => a.title.localeCompare(b.title))
-  }, [annotations, activeWorkspace, documents, workspaces])
+  }, [annotations, isWorkspaceMatch, getDocTitle])
 
   const totalCount = useMemo(() => {
     return annotations.filter(a => isWorkspaceMatch(a.documentId)).length
-  }, [annotations, documents, activeWorkspace])
+  }, [annotations, isWorkspaceMatch])
 
   const highlightCount = useMemo(() => {
     return annotations.filter(a =>
       a.type === 'highlight' && isWorkspaceMatch(a.documentId)
     ).length
-  }, [annotations, documents, activeWorkspace])
+  }, [annotations, isWorkspaceMatch])
 
   const commentCount = useMemo(() => {
     return annotations.filter(a =>
       a.type === 'comment' && isWorkspaceMatch(a.documentId)
     ).length
-  }, [annotations, documents, activeWorkspace])
+  }, [annotations, isWorkspaceMatch])
 
   const tabs: { key: NoteFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: totalCount },

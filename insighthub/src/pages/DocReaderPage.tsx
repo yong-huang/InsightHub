@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   ArrowLeft, CheckCircle2, BookOpen,
@@ -22,7 +22,6 @@ import { storageService } from '@/services/storageService'
 import { fetchImportedDocHtml } from '@/services/importService'
 import { MoveDocumentDialog } from '@/components/Import/MoveDocumentDialog'
 import { getShortLabel, getSourceColor, getSourceColorBg } from '@/utils/workspaceUtils'
-import type { Source } from '@/types'
 import { AnnotationBar } from '@/components/DocReader/AnnotationBar'
 import { CommentDialog } from '@/components/DocReader/CommentDialog'
 import { RatingDialog } from '@/components/DocReader/RatingDialog'
@@ -46,7 +45,7 @@ import { ImageViewer } from '@/components/DocReader/ImageViewer'
 import { ImageAnalysisPanel } from '@/components/DocReader/ImageAnalysisPanel'
 import { explainConcept, translateText, generateInception } from '@/services/readerAiService'
 import { buildTitleLookup, findBacklinks } from '@/utils/bidirectionalLinks'
-import { extractConcepts, createConceptCard } from '@/services/conceptService'
+import { extractConcepts, createConceptCard, type RawConcept } from '@/services/conceptService'
 import { useConceptCardStore } from '@/stores/conceptCardStore'
 
 /** Wrapper that ensures contentText is loaded before rendering the diagram panel */
@@ -69,7 +68,10 @@ export function DocReaderPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const fromPath = (location.state as { from?: string; scrollToAnnotation?: string } | null)?.from
-  const fromState = (location.state as Record<string, any>) || {}
+  const fromState = useMemo(
+    () => (location.state as Record<string, unknown>) || {},
+    [location.state],
+  )
   const scrollToAnnotationId = (location.state as { scrollToAnnotation?: string } | null)?.scrollToAnnotation
   const allDocuments = useDocumentStore(s => s.documents)
   const doc = allDocuments.get(docId || '')
@@ -101,7 +103,7 @@ export function DocReaderPage() {
         replace: true,
       })
     }
-  }, [docId, doc, allDocuments, navigate, fromPath, scrollToAnnotationId])
+  }, [docId, doc, allDocuments, navigate, fromPath, scrollToAnnotationId, fromState])
   const markAsRead = useDocumentStore(s => s.markAsRead)
   const toggleRead = useDocumentStore(s => s.toggleRead)
   const updateRating = useDocumentStore(s => s.updateRating)
@@ -235,9 +237,7 @@ export function DocReaderPage() {
   // Concept extraction
   const conceptCards = useConceptCardStore(s => s.cards)
   const conceptAddCards = useConceptCardStore(s => s.addCards)
-  const conceptRemoveCard = useConceptCardStore(s => s.removeCard)
   const extractingDocIds = useConceptCardStore(s => s.extractingDocIds)
-  const extractingErrors = useConceptCardStore(s => s.extractingErrors)
   const setExtractingDocId = useConceptCardStore(s => s.setExtractingDocId)
   const setExtractingError = useConceptCardStore(s => s.setExtractingError)
   const isExtractingConcepts = !!docId && extractingDocIds.has(docId)
@@ -247,7 +247,10 @@ export function DocReaderPage() {
   )
 
   const docArchDiagramCount = useMemo(
-    () => docId ? storageService.getArchDiagrams().filter((d: any) => d.documentId === docId).length : 0,
+    () => {
+      void diagramVersion // re-compute whenever a diagram is added/removed
+      return docId ? storageService.getArchDiagrams().filter(d => d.documentId === docId).length : 0
+    },
     [docId, diagramVersion],
   )
 
@@ -395,8 +398,10 @@ export function DocReaderPage() {
         if (d.fileName === filename) { target = d; break }
       }
       if (!target) return
-      // Navigate to the linked document with current tab state
-      const { from, scrollToAnnotation, ...rest } = fromState
+      // Navigate to the linked document with current tab state (minus nav helpers)
+      const rest = { ...fromState }
+      delete rest.from
+      delete rest.scrollToAnnotation
       navigate(`/doc/${target.id}`, {
         state: Object.keys(rest).length > 0 ? rest : undefined,
       })
@@ -481,7 +486,7 @@ export function DocReaderPage() {
       setEvalResult(null)
       setIsBookmarked(false)
     }
-  }, [docId])
+  }, [docId, scriptLang, scriptDuration])
 
   // Track generation state (used by toolbar to show completion status)
   useEffect(() => {
@@ -505,7 +510,7 @@ export function DocReaderPage() {
           if (win) {
             storageService.saveReadingPosition(docId, win.scrollY, win.document.documentElement.scrollHeight)
           }
-        } catch {}
+        } catch { /* cross-origin iframe */ }
       }, 500)
     }
     try {
@@ -516,7 +521,7 @@ export function DocReaderPage() {
         try { win?.removeEventListener('scroll', onScroll) } catch { /* cross-origin */ }
         if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current)
       }
-    } catch {}
+    } catch { /* cross-origin iframe */ }
   }, [docId])
 
   // Save position when leaving the page
@@ -527,7 +532,7 @@ export function DocReaderPage() {
         const doc = iframeRef.current?.contentDocument
         const win = doc?.defaultView
         if (win) storageService.saveReadingPosition(docId, win.scrollY, win.document.documentElement.scrollHeight)
-      } catch {}
+      } catch { /* cross-origin iframe */ }
     }
     window.addEventListener('beforeunload', save)
     return () => {
@@ -579,8 +584,8 @@ export function DocReaderPage() {
     if (!result.success) {
       setSummaryError(result.error || 'Generation failed')
     } else if (result.data && docId) {
-      setSummaryText(result.data)
-      storageService.saveSummary(docId, result.data)
+      setSummaryText(String(result.data))
+      storageService.saveSummary(docId, String(result.data))
     }
   }, [doc, docId])
 
@@ -601,8 +606,8 @@ export function DocReaderPage() {
     if (!result.success) {
       setEvalError(result.error || 'Evaluation failed')
     } else if (result.data && docId) {
-      setEvalResult(result.data)
-      storageService.saveSummary(`eval-${docId}`, result.data)
+      setEvalResult(String(result.data))
+      storageService.saveSummary(`eval-${docId}`, String(result.data))
     }
   }, [doc, docId])
 
@@ -625,8 +630,8 @@ export function DocReaderPage() {
     if (!result.success) {
       setScriptError(result.error || 'Generation failed')
     } else if (result.data && docId) {
-      setScriptText(result.data)
-      storageService.saveScript(`${docId}:${scriptLang}:${scriptDuration}`, result.data)
+      setScriptText(String(result.data))
+      storageService.saveScript(`${docId}:${scriptLang}:${scriptDuration}`, String(result.data))
     }
   }, [doc, docId, scriptLang, scriptDuration])
 
@@ -646,6 +651,8 @@ export function DocReaderPage() {
         handleGenerateScript()
       }
     }
+    // Intentional partial deps: re-run only when the script format changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptLang, scriptDuration])
 
   const handleGenerateInception = useCallback(async () => {
@@ -665,8 +672,8 @@ export function DocReaderPage() {
     if (!result.success) {
       setInceptionError(result.error || 'Generation failed')
     } else if (result.data && docId) {
-      setInceptionText(result.data)
-      storageService.saveInception(docId, result.data)
+      setInceptionText(String(result.data))
+      storageService.saveInception(docId, String(result.data))
     }
   }, [doc, docId])
 
@@ -699,7 +706,7 @@ export function DocReaderPage() {
     if (!result.success) {
       setExtractingError(docId, result.error || 'Extraction failed')
     } else if (Array.isArray(result.data)) {
-      const cards = (result.data as any[])
+      const cards = (result.data as RawConcept[])
         .filter(c => c.conceptName && c.definition)
         .map(c => createConceptCard(c, docId))
       if (cards.length > 0) conceptAddCards(cards)
@@ -716,7 +723,7 @@ export function DocReaderPage() {
       surroundingText = selectionInfo.range.commonAncestorContainer instanceof Text
         ? selectionInfo.range.commonAncestorContainer.parentElement?.closest('p,div,li,td,th')?.textContent || ''
         : (selectionInfo.range.commonAncestorContainer as HTMLElement).closest('p,div,li,td,th')?.textContent || ''
-    } catch {}
+    } catch { /* cross-origin iframe */ }
     clearSelection()
     setExplainState({ text: selectedText, streamingText: '', isStreaming: true, error: null, rect })
     explainConcept(selectedText, surroundingText, (chunk) => {
@@ -753,15 +760,6 @@ export function DocReaderPage() {
     setChatSelectedText(undefined)
   }, [])
 
-  const handleChallengeFromSelection = useCallback(async () => {
-    if (!selectionInfo) return
-    const text = selectionInfo.text
-    clearSelection()
-    setChallengeSelectedText(text)
-    if (doc) await useDocumentStore.getState().ensureContentText(doc.id)
-    setShowChallengePanel(true)
-  }, [selectionInfo, clearSelection, doc])
-
   const handleAddTag = () => {
     if (!tagName.trim() || !docId || !doc) return
     const existingTag = useTagStore.getState().tags.find(t => t.name === tagName.trim())
@@ -783,7 +781,7 @@ export function DocReaderPage() {
       if (!doc) return true
       return t.documentIds.some(id => allDocuments.get(id)?.source === doc.source)
     }),
-    [allTags, docId, allDocuments, workspaces]
+    [allTags, docId, allDocuments]
   )
 
   if (!doc) {
@@ -838,7 +836,9 @@ export function DocReaderPage() {
       <div className="doc-reader-toolbar">
         <button className="btn btn-ghost btn-sm" onClick={() => {
           const target = fromPath || `/${doc.source}`
-          const { from, scrollToAnnotation, ...rest } = fromState
+          const rest = { ...fromState }
+          delete rest.from
+          delete rest.scrollToAnnotation
           navigate(target, { state: Object.keys(rest).length > 0 ? rest : undefined })
         }}>
           <ArrowLeft size={18} /> Back

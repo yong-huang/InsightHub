@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { Send, RotateCcw, Trophy, ChevronLeft, ChevronRight, Sparkles, AlertTriangle, Code2, Trash2, X } from 'lucide-react'
 import { useQuizStore } from '@/stores/quizStore'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -52,7 +52,7 @@ export function QuizPanel({ docId, onClose }: QuizPanelProps) {
     } else {
       setError('Quiz not found. Please generate a quiz first.')
     }
-  }, [docId, savedQuizzes])
+  }, [docId, savedQuizzes, setCurrentQuiz, setCurrentAttempt, setError])
 
   const handleAnswer = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
@@ -65,8 +65,8 @@ export function QuizPanel({ docId, onClose }: QuizPanelProps) {
       const attempt = await gradeQuiz(currentQuiz, answers)
       setCurrentAttempt(attempt)
       useQuizStore.getState().saveAttempt(attempt)
-    } catch (e: any) {
-      setError(e.message || 'Grading failed')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Grading failed')
     } finally {
       setGrading(false)
     }
@@ -274,9 +274,6 @@ export function QuizPanel({ docId, onClose }: QuizPanelProps) {
                 ? ['true', 'false']
                 : currentQuestion.options || []
               ).map((opt: string, i: number) => {
-                const optLetter = currentQuestion.type === 'choice'
-                  ? String.fromCharCode(65 + i)
-                  : opt === 'true' ? 'T' : 'F'
                 const value = currentQuestion.type === 'truefalse'
                   ? opt
                   : String.fromCharCode(65 + i)

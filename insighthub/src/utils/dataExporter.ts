@@ -3,8 +3,8 @@ import { storageKeys } from '@/services/storageService'
 export interface ExportData {
   version: 1
   exportedAt: number
-  localStorage: Record<string, any>
-  server: Record<string, any>
+  localStorage: Record<string, unknown>
+  server: Record<string, unknown>
 }
 
 const SERVER_ENDPOINTS = [
@@ -20,7 +20,7 @@ const SERVER_ENDPOINTS = [
 
 export async function exportAllData(): Promise<void> {
   // Collect localStorage data
-  const localData: Record<string, any> = {}
+  const localData: Record<string, unknown> = {}
   for (const key of Object.values(storageKeys)) {
     const raw = localStorage.getItem(key)
     if (raw !== null) {
@@ -33,7 +33,7 @@ export async function exportAllData(): Promise<void> {
   }
 
   // Collect server data in parallel
-  const serverData: Record<string, any> = {}
+  const serverData: Record<string, unknown> = {}
   await Promise.all(
     SERVER_ENDPOINTS.map(async ({ key, url }) => {
       try {
@@ -41,7 +41,7 @@ export async function exportAllData(): Promise<void> {
         if (res.ok) {
           serverData[key] = await res.json()
         }
-      } catch {}
+      } catch { /* endpoint unavailable — skip */ }
     }),
   )
 
@@ -82,7 +82,7 @@ export async function importAllData(
   const s = data.server || {}
 
   // Array endpoints: full overwrite
-  const arrayEndpoints: { data: any; url: string }[] = [
+  const arrayEndpoints: { data: unknown; url: string }[] = [
     { data: s.tags, url: '/api/tags' },
     { data: s.annotations, url: '/api/annotations' },
     { data: s.conceptCards, url: '/api/concept-cards' },
@@ -101,7 +101,7 @@ export async function importAllData(
 
   // read-meta: object, POST each entry
   if (s.readMeta && typeof s.readMeta === 'object') {
-    for (const entry of Object.values(s.readMeta) as any[]) {
+    for (const entry of Object.values(s.readMeta) as Record<string, unknown>[]) {
       if (entry?.id) {
         await fetch('/api/read-meta', {
           method: 'POST',
@@ -115,7 +115,7 @@ export async function importAllData(
 
   // quizzes: object keyed by documentId, POST each
   if (s.quizzes && typeof s.quizzes === 'object') {
-    for (const quiz of Object.values(s.quizzes) as any[]) {
+    for (const quiz of Object.values(s.quizzes) as Record<string, unknown>[]) {
       if (quiz?.documentId) {
         await fetch('/api/quizzes', {
           method: 'POST',

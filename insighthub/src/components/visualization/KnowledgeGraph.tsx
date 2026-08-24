@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force'
 import { buildGraphData, type GraphNode, type GraphOptions } from '@/utils/graphBuilder'
-import type { Document, Tag, Source } from '@/types'
+import type { Document, Tag } from '@/types'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { getSourceColor, getWorkspaceConfig } from '@/utils/workspaceUtils'
 
@@ -51,7 +51,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
 
   const graphData = useMemo(
     () => buildGraphData(documents, tags, { ...(externalOptions || { filterSource: 'all', showDocuments: true }), workspaces }),
-    [documents, tags, externalOptions],
+    [documents, tags, externalOptions, workspaces],
   )
 
   const [simNodes, setSimNodes] = useState<SimNode[]>([])
@@ -109,8 +109,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
   const connectedIds = useCallback((nodeId: string): Set<string> => {
     const ids = new Set<string>([nodeId])
     for (const link of graphData.links) {
-      const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
-      const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
+      const sid = typeof link.source === 'string' ? link.source : (link.source as { id: string }).id
+      const tid = typeof link.target === 'string' ? link.target : (link.target as { id: string }).id
       if (sid === nodeId) ids.add(tid)
       if (tid === nodeId) ids.add(sid)
     }
@@ -276,7 +276,7 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
     } else if (node.type === 'tag' && node.data?.tagId) {
       navigate(`/tag/${node.data.tagId}`)
     }
-  }, [navigate])
+  }, [navigate, location.pathname])
 
   if (graphData.nodes.length === 0) {
     return <div className="stats-empty">No graph data yet. Read some documents first.</div>
@@ -309,8 +309,8 @@ export function KnowledgeGraph({ documents, tags, options: externalOptions }: Pr
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* Links */}
           {graphData.links.map((link, i) => {
-            const sid = typeof link.source === 'string' ? link.source : (link.source as any).id
-            const tid = typeof link.target === 'string' ? link.target : (link.target as any).id
+            const sid = typeof link.source === 'string' ? link.source : (link.source as { id: string }).id
+            const tid = typeof link.target === 'string' ? link.target : (link.target as { id: string }).id
             const sn = simNodes.find(n => n.id === sid)
             const tn = simNodes.find(n => n.id === tid)
             if (!sn || !tn) return null

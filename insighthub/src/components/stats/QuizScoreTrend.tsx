@@ -47,8 +47,8 @@ export function QuizScoreTrend({ attempts, documents, source }: Props) {
               color: colors.textPrimary,
               fontSize: '13px',
             }}
-            formatter={((value: number) => [`${(value as number).toFixed(1)} pts`, 'Average Score']) as any}
-            labelFormatter={((label: any) => String(label)) as any}
+            formatter={(value: unknown) => [`${Number(value).toFixed(1)} pts`, 'Average Score']}
+            labelFormatter={(label: unknown) => String(label)}
           />
           <Line
             type="monotone"

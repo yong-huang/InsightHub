@@ -26,7 +26,7 @@ export function HomePage() {
   )
 
   // Single-pass: compute stats + build docId set + category set
-  const { stats, workspaceDocIds, workspaceTags } = useMemo(() => {
+  const { stats, workspaceTags } = useMemo(() => {
     const docIds = new Set<string>()
     const cats = new Set<string>()
     let readCount = 0
@@ -49,7 +49,7 @@ export function HomePage() {
       }))
       .filter(tag => tag.documentIds.length > 0)
       .sort((a, b) => b.documentIds.length - a.documentIds.length)
-    return { stats: s, workspaceDocIds: docIds, workspaceTags: wsTags }
+    return { stats: s, workspaceTags: wsTags }
   }, [documents, activeWorkspace, tags])
 
   const workspaceDocs = useMemo(

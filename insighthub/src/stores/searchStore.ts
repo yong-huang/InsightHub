@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { SearchResult } from '@/types'
-import { search as flexSearch, parseSearchQuery, suggestTitles, applyFilters } from '@/services/searchService'
+import { search as flexSearch, parseSearchQuery, suggestTitles } from '@/services/searchService'
 import { storageService } from '@/services/storageService'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'

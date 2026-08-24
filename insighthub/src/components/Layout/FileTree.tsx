@@ -283,7 +283,7 @@ export function FileTree() {
   const [moveDocTarget, setMoveDocTarget] = useState<string | null>(null)
   const [deleteArmedCategory, setDeleteArmedCategory] = useState<string | null>(null)
   const [deleteArmedDoc, setDeleteArmedDoc] = useState<string | null>(null)
-  const deleteArmTimer = useRef<ReturnType<typeof setTimeout>>()
+  const deleteArmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Auto-disarm delete after 3s
   useEffect(() => {
@@ -342,18 +342,21 @@ export function FileTree() {
     return tree.filter(node => !deprecatedCats.has(`${activeWorkspace}:${node.path}`))
   }, [tree, deprecatedCats, activeWorkspace])
 
-  // Load saved expanded paths when workspace changes; auto-expand first level if no saved state
+  // Load saved expanded paths when workspace changes; auto-expand first level if no saved state.
+  // setExpandedPaths is deferred to a microtask to avoid synchronous setState inside the effect body.
   const hasAutoExpanded = useRef<string | null>(null)
   useEffect(() => {
     if (tree.length === 0 || !activeWorkspace) return
     const saved = usePreferenceStore.getState().expandedTreePaths[activeWorkspace]
     if (saved?.length > 0) {
       expandedPathsWs.current = activeWorkspace
-      setExpandedPaths(new Set(saved))
+      const next = new Set(saved)
+      queueMicrotask(() => setExpandedPaths(next))
     } else if (hasAutoExpanded.current !== activeWorkspace && tree.length === 1 && tree[0].isDir) {
       hasAutoExpanded.current = activeWorkspace
       expandedPathsWs.current = activeWorkspace
-      setExpandedPaths(new Set([tree[0].path]))
+      const next = new Set([tree[0].path])
+      queueMicrotask(() => setExpandedPaths(next))
       usePreferenceStore.getState().setExpandedTreePaths(activeWorkspace, [tree[0].path])
     }
   }, [tree, activeWorkspace])

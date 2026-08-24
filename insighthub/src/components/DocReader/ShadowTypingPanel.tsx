@@ -5,7 +5,6 @@ import { recordUsage } from '@/services/tokenUsageService'
 import { useDocumentStore } from '@/stores/documentStore'
 import { type TutorMessage, parseRefs, validateRefs, loadShadowHistory, saveShadowHistory, clearShadowHistory, loadShadowData, saveShadowData } from './shadowTypingUtils'
 
-const DEFAULT_SIZE = { width: 480, height: 460 }
 const MIN_W = 340
 const MIN_H = 260
 
@@ -49,7 +48,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
   const panelRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const conversationRef = useRef<{ role: string; content: string }[]>([])
+  const conversationRef = useRef<{ role: 'system' | 'user' | 'assistant'; content: string }[]>([])
   const docContentRef = useRef('')
 
   // Set initial position/size
@@ -98,7 +97,7 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const callAI = useCallback(async (messages: { role: string; content: string }[], onChunk: (text: string) => void) => {
+  const callAI = useCallback(async (messages: { role: 'system' | 'user' | 'assistant'; content: string }[], onChunk: (text: string) => void) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -140,8 +139,8 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
       // Send full document (up to 12k chars) so AI can cover all sections
       const truncated = docContent.slice(0, 12000)
 
-      const systemMsg = { role: 'system', content: SYSTEM_PROMPT }
-      const userMsg = { role: 'user', content: `Here is the FULL document the student has been studying:\n\`\`\`\n${truncated}\n\`\`\`\n${docContent.length > 12000 ? `\n(Document truncated at 12000 chars, total ${docContent.length} chars.)\n` : ''}Please start the interactive English typing exercise. Cover different sections of the document progressively — do NOT stay on the first section.` }
+      const systemMsg = { role: 'system' as const, content: SYSTEM_PROMPT }
+      const userMsg = { role: 'user' as const, content: `Here is the FULL document the student has been studying:\n\`\`\`\n${truncated}\n\`\`\`\n${docContent.length > 12000 ? `\n(Document truncated at 12000 chars, total ${docContent.length} chars.)\n` : ''}Please start the interactive English typing exercise. Cover different sections of the document progressively — do NOT stay on the first section.` }
 
       conversationRef.current = [systemMsg, userMsg]
 
@@ -190,14 +189,14 @@ export function ShadowTypingPanel({ docId, onClose, onScrollToText }: ShadowTypi
 
     // Call AI with full conversation
     const allMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system' as const, content: SYSTEM_PROMPT },
       ...conversationRef.current.filter(m => m.role !== 'system'),
     ]
 
     await callAI(allMessages, (text) => {
       setStreamingContent(text)
     })
-  }, [inputText, isStreaming, callAI])
+  }, [inputText, isStreaming, callAI, docId])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {

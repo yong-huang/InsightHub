@@ -35,6 +35,9 @@ function getStorageKey(src: string) {
 }
 
 export function ImageAnalysisPanel({ imageSrc, onClose }: ImageAnalysisPanelProps) {
+  const loadSaved = useCallback((): SavedResult | null => {
+    try { return JSON.parse(localStorage.getItem(getStorageKey(imageSrc)) || 'null') } catch { return null }
+  }, [imageSrc])
   const [mode, setMode] = useState<AnalysisMode>(() => {
     const saved = loadSaved()
     return saved?.mode || 'describe'
@@ -59,10 +62,6 @@ export function ImageAnalysisPanel({ imageSrc, onClose }: ImageAnalysisPanelProp
   const streamingTextRef = useRef('')
   const navigate = useNavigate()
 
-  function loadSaved(): SavedResult | null {
-    try { return JSON.parse(localStorage.getItem(getStorageKey(imageSrc)) || 'null') } catch { return null }
-  }
-
   // Check if vision profile is configured
   useEffect(() => {
     checkVisionConfigured().then(ok => setVisionConfigured(ok))
@@ -84,7 +83,7 @@ export function ImageAnalysisPanel({ imageSrc, onClose }: ImageAnalysisPanelProp
     chatAbortRef.current?.abort()
     abortRef.current = null
     chatAbortRef.current = null
-  }, [imageSrc])
+  }, [imageSrc, loadSaved])
 
   // Keep streaming text ref in sync
   useEffect(() => {

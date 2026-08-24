@@ -5,7 +5,6 @@ import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDynamicCategories } from '@/hooks/useDynamicCategories'
 import { moveDocumentToWorkspace } from '@/services/importService'
 import { storageService } from '@/services/storageService'
-import { getShortLabel } from '@/utils/workspaceUtils'
 import type { Document } from '@/types'
 
 interface MoveDocumentDialogProps {
@@ -16,7 +15,6 @@ interface MoveDocumentDialogProps {
 
 export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialogProps) {
   const workspaces = usePreferenceStore(s => s.workspaces)
-  const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const reloadDocuments = useDocumentStore(s => s.reloadDocuments)
 
   const allWorkspaces = workspaces
@@ -29,7 +27,6 @@ export function MoveDocumentDialog({ doc, onClose, onMoved }: MoveDocumentDialog
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const currentWsLabel = workspaces.find(ws => ws.id === doc.source)?.label || doc.source
-  const targetWsLabel = workspaces.find(ws => ws.id === targetWorkspaceId)?.label || targetWorkspaceId
 
   // Disable move button when source and target are the same
   const isSameCategory = targetWorkspaceId === doc.source && (targetCategory === '__custom__' ? customCategory.trim() === doc.category : targetCategory === doc.category)

@@ -2,7 +2,7 @@ import { callAIStream, extractJSON } from '@/services/aiService'
 import { recordUsage } from '@/services/tokenUsageService'
 import type { ConceptCard } from '@/types'
 
-interface RawConcept {
+export interface RawConcept {
   conceptName: string
   definition: string
   examples?: string[]
@@ -58,11 +58,11 @@ Return ONLY the JSON array. No markdown, no commentary, no "here are the concept
   if (!result.success || !result.data) return result
 
   try {
-    const parsed = extractJSON(result.data)
+    const parsed = extractJSON(String(result.data)) as { concepts?: RawConcept[] }
     const concepts: RawConcept[] = (parsed.concepts || []).slice(0, maxCount)
     result.data = concepts
-  } catch (e: any) {
-    return { success: false as const, error: e.message }
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : String(e) }
   }
   return result
 }

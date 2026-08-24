@@ -30,7 +30,7 @@ interface SessionState {
 }
 
 function loadSession(docId: string): SessionState | null {
-  return storageService.getChallengeSession(docId)
+  return storageService.getChallengeSession(docId) as SessionState | null
 }
 
 function saveSession(docId: string, state: SessionState) {
@@ -41,28 +41,19 @@ function clearSession(docId: string) {
   storageService.clearChallengeSession(docId)
 }
 
-const defaultSession: SessionState = {
-  phase: 'setup',
-  concept: '',
-  challenge: null,
-  currentChallengeText: '',
-  userResponse: '',
-  currentScore: 0,
-  currentFeedback: '',
-}
-
 export function ChallengePanel({
   documentId, documentContent, selectedText, onClose, onSelectionUsed,
 }: ChallengePanelProps) {
-  const saved = useRef(loadSession(documentId))
-  const [phase, setPhase] = useState<Phase>(saved.current?.phase ?? 'setup')
-  const [concept, setConcept] = useState(selectedText || (saved.current?.concept ?? ''))
-  const [challenge, setChallenge] = useState<ConceptChallenge | null>(saved.current?.challenge ?? null)
-  const [currentChallengeText, setCurrentChallengeText] = useState(saved.current?.currentChallengeText ?? '')
+  // Load persisted session once on mount (lazy initializer runs during first render only)
+  const [saved] = useState(() => loadSession(documentId))
+  const [phase, setPhase] = useState<Phase>(saved?.phase ?? 'setup')
+  const [concept, setConcept] = useState(selectedText || (saved?.concept ?? ''))
+  const [challenge, setChallenge] = useState<ConceptChallenge | null>(saved?.challenge ?? null)
+  const [currentChallengeText, setCurrentChallengeText] = useState(saved?.currentChallengeText ?? '')
   const [streamingText, setStreamingText] = useState<string | null>(null)
-  const [userResponse, setUserResponse] = useState(saved.current?.userResponse ?? '')
-  const [currentScore, setCurrentScore] = useState(saved.current?.currentScore ?? 0)
-  const [currentFeedback, setCurrentFeedback] = useState(saved.current?.currentFeedback ?? '')
+  const [userResponse, setUserResponse] = useState(saved?.userResponse ?? '')
+  const [currentScore, setCurrentScore] = useState(saved?.currentScore ?? 0)
+  const [currentFeedback, setCurrentFeedback] = useState(saved?.currentFeedback ?? '')
   const [error, setError] = useState<string | null>(null)
 
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -74,10 +65,6 @@ export function ChallengePanel({
     .filter(c => c.sourceDocId === documentId)
     .slice(0, 5)
 
-  // Persist session to localStorage on every state change
-  const sessionRef = useRef({ phase, concept, challenge, currentChallengeText, userResponse, currentScore, currentFeedback })
-  sessionRef.current = { phase, concept, challenge, currentChallengeText, userResponse, currentScore, currentFeedback }
-
   const initialLoadRef = useRef(true)
   useEffect(() => {
     if (initialLoadRef.current) {
@@ -86,15 +73,15 @@ export function ChallengePanel({
     }
     // Don't persist streaming/evaluating — those are transient
     if (phase === 'challenging' || phase === 'evaluating') return
-    saveSession(documentId, sessionRef.current)
+    saveSession(documentId, { phase, concept, challenge, currentChallengeText, userResponse, currentScore, currentFeedback })
   }, [phase, concept, challenge, currentChallengeText, userResponse, currentScore, currentFeedback, documentId])
 
   // If restored session was in 'responding' phase, auto-focus textarea
   useEffect(() => {
-    if (phase === 'responding' && saved.current?.phase === 'responding') {
+    if (phase === 'responding' && saved?.phase === 'responding') {
       setTimeout(() => responseAreaRef.current?.focus(), 100)
     }
-  }, [phase])
+  }, [phase, saved])
 
   const handleStart = useCallback(async () => {
     if (!concept.trim()) return
@@ -120,7 +107,7 @@ export function ChallengePanel({
     setStreamingText(null)
 
     if (result.success && result.data) {
-      setCurrentChallengeText(result.data)
+      setCurrentChallengeText(String(result.data))
       setPhase('responding')
       setTimeout(() => responseAreaRef.current?.focus(), 100)
     } else if (!controller.signal.aborted) {
@@ -216,7 +203,7 @@ export function ChallengePanel({
     setStreamingText(null)
 
     if (result.success && result.data) {
-      setCurrentChallengeText(result.data)
+      setCurrentChallengeText(String(result.data))
       setPhase('responding')
       setTimeout(() => responseAreaRef.current?.focus(), 100)
     } else if (!controller.signal.aborted) {

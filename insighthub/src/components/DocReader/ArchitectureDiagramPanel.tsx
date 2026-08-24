@@ -219,7 +219,7 @@ export function ArchitectureDiagramPanel({ docId, docTitle, docContent, initialS
     if (!url) return
     // Basic URL validation
     if (!/^https?:\/\//i.test(url)) return
-    const fakeImg: SearchImageResult = { url, title: 'Manual URL', sourceUrl: '' }
+    const fakeImg: SearchImageResult = { url, thumbnail: url, title: 'Manual URL', source: 'manual', sourceUrl: '' }
     handleSaveDiagram(fakeImg, 'manual')
     setUrlInput('')
   }

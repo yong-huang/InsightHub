@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { ZoomIn, ZoomOut, Maximize, RotateCcw, ImageOff } from 'lucide-react'
 
 interface ImageViewerProps {
@@ -14,12 +14,15 @@ export function ImageViewer({ src, title }: ImageViewerProps) {
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Reset error and zoom when image source changes
-  useEffect(() => {
+  // Reset error and zoom when image source changes (render-time state adjustment,
+  // see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [prevSrc, setPrevSrc] = useState(src)
+  if (prevSrc !== src) {
+    setPrevSrc(src)
     setLoadError(false)
     setScale(1)
     setTranslate({ x: 0, y: 0 })
-  }, [src])
+  }
 
   const isZoomed = scale !== 1
 

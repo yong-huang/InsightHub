@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Tag } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDocumentStore } from '@/stores/documentStore'

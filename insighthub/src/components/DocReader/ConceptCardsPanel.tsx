@@ -41,6 +41,13 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
   const workspaces = usePreferenceStore(s => s.workspaces)
 
+  // Snapshot of "now" for due-card filtering — refreshed every minute (keeps render pure)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
   const workspaceCards = useMemo(() =>
     cards.filter(c => {
       if (!c.conceptName || !c.definition) return false
@@ -81,28 +88,29 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
   }, [isLoaded, loadCards])
 
   const dueCards = useMemo(() => {
-    const now = Date.now()
     return workspaceCards
       .filter(c => c.nextReview <= now)
       .sort((a, b) => a.nextReview - b.nextReview)
-  }, [workspaceCards])
+  }, [workspaceCards, now])
 
   useEffect(() => {
-    if (isLoaded && sessionQueue.length === 0 && dueCards.length > 0) {
-      setSessionQueue(dueCards)
-    }
+    // Auto-seed the review queue once cards finish loading.
+    // Deferred to a microtask so we don't setState synchronously inside the effect body.
+    if (!isLoaded || sessionQueue.length > 0 || dueCards.length === 0) return
+    const q = dueCards
+    queueMicrotask(() => setSessionQueue(q))
   }, [isLoaded, dueCards, sessionQueue.length])
 
   const stats = useMemo(() => {
     let due = 0, newCount = 0, learning = 0, mastered = 0
     for (const c of workspaceCards) {
-      if (c.nextReview <= Date.now()) due++
+      if (c.nextReview <= now) due++
       if (c.lastReview === 0) newCount++
       else if (c.interval < 21) learning++
       else mastered++
     }
     return { total: workspaceCards.length, due, new: newCount, learning, mastered }
-  }, [workspaceCards])
+  }, [workspaceCards, now])
 
   const currentCard = sessionQueue[currentIdx] ?? null
 
@@ -170,7 +178,6 @@ export function ConceptCardsPanel({ docId, onClose }: ConceptCardsPanelProps) {
 
   // List mode
   if (viewMode === 'list') {
-    const now = Date.now()
     const dueList = workspaceCards.filter(c => c.nextReview <= now)
     const familiarList = workspaceCards.filter(c => c.nextReview > now)
     const allList = [...dueList, ...familiarList]

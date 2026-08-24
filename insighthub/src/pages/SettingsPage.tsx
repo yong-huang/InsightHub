@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  CheckCircle2, AlertTriangle, Zap, KeyRound,
-  Loader2, ArrowLeft, Database, Plus, Trash2, FolderOpen, Folder, FileText,
+  CheckCircle2, AlertTriangle, Zap,
+  Loader2, Database, Plus, Trash2, FolderOpen, Folder, FileText,
   ChevronRight, ChevronDown, ArrowRightLeft,
 } from 'lucide-react'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -129,8 +128,8 @@ function DocumentMigrationCard() {
       })
 
       setMappings(autoMappings)
-    } catch (e: any) {
-      setResultMsg({ ok: false, msg: `Scan failed: ${e.message}` })
+    } catch (e) {
+      setResultMsg({ ok: false, msg: `Scan failed: ${e instanceof Error ? e.message : String(e)}` })
     } finally {
       setScanning(false)
     }
@@ -171,8 +170,8 @@ function DocumentMigrationCard() {
       setResultMsg({ ok: true, msg: `Migration complete. Rewrote ${data.rewritten} server + ${localCount} client records.` })
       setOrphanedIds([])
       setMappings([])
-    } catch (e: any) {
-      setResultMsg({ ok: false, msg: `Migration failed: ${e.message}` })
+    } catch (e) {
+      setResultMsg({ ok: false, msg: `Migration failed: ${e instanceof Error ? e.message : String(e)}` })
     } finally {
       setMigrating(false)
     }
@@ -285,8 +284,8 @@ function SimplifiedIdMigrationCard() {
         // Reload after a brief delay so the user sees the success message
         setTimeout(() => window.location.reload(), 1500)
       }
-    } catch (e: any) {
-      setResultMsg({ ok: false, msg: `Migration failed: ${e.message}` })
+    } catch (e) {
+      setResultMsg({ ok: false, msg: `Migration failed: ${e instanceof Error ? e.message : String(e)}` })
     } finally {
       setMigrating(false)
     }
@@ -348,8 +347,6 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const navigate = useNavigate()
-
   // Workspace editing state
   const [editingWs, setEditingWs] = useState<WorkspaceConfig | null>(null)
   const [isNewWs, setIsNewWs] = useState(false)
@@ -401,7 +398,7 @@ export function SettingsPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [setQuizDifficulty, setQuizQuestionCount])
 
   const refreshFromResponse = async (res: Response) => {
     if (!res.ok) return
@@ -422,7 +419,7 @@ export function SettingsPage() {
       await refreshFromResponse(res)
       const target = profiles.find(p => p.id === profileId)
       populateForm(target, target?.aiApiKey)
-    } catch {}
+    } catch { /* keep form state on network failure */ }
     setSaving(false)
   }
 
@@ -459,7 +456,7 @@ export function SettingsPage() {
         const active = (cfg.profiles || []).find((p: AIProfile) => p.id === cfg.activeProfileId)
         populateForm(active, active?.aiApiKey)
       }
-    } catch {}
+    } catch { /* keep form state on network failure */ }
     setSaving(false)
   }
 
@@ -472,7 +469,7 @@ export function SettingsPage() {
         body: JSON.stringify({ action: 'setVisionProfile', visionProfileId: id }),
       })
       await refreshFromResponse(res)
-    } catch {}
+    } catch { /* keep form state on network failure */ }
     setSaving(false)
   }
 
@@ -504,7 +501,7 @@ export function SettingsPage() {
         }
         setIsNewProfile(false)
       }
-    } catch {}
+    } catch { /* keep form state on network failure */ }
     setSaving(false)
   }
 
@@ -545,14 +542,14 @@ export function SettingsPage() {
       if (!modelsRes.ok) {
         const errText = await modelsRes.text().catch(() => '')
         let errMsg = `HTTP ${modelsRes.status}`
-        try { const e = JSON.parse(errText); errMsg = e.error || errMsg } catch {}
+        try { const e = JSON.parse(errText) as { error?: string }; errMsg = e.error || errMsg } catch { /* not JSON */ }
         setTestResult({ ok: false, msg: `Connection failed: ${errMsg}` })
         return
       }
-      const modelsData = await modelsRes.json()
-      const modelIds: string[] = (modelsData.data || modelsData.models || [])
-        .map((m: any) => m.id || m.name || m)
-        .filter((id: any) => typeof id === 'string')
+      const modelsData = await modelsRes.json() as { data?: unknown; models?: unknown }
+      const modelIds: string[] = ((modelsData.data || modelsData.models || []) as Array<Record<string, unknown>>)
+        .map(m => m.id ?? m.name ?? m)
+        .filter((id): id is string => typeof id === 'string')
         .sort((a: string, b: string) => a.localeCompare(b))
       setAvailableModels(modelIds)
       if (modelIds.length > 0) {
@@ -560,15 +557,15 @@ export function SettingsPage() {
       } else {
         setTestResult({ ok: true, msg: 'Connected! No model list returned, please enter manually.' })
       }
-    } catch (e: any) {
-      setTestResult({ ok: false, msg: e.name === 'AbortError' ? 'Connection timed out' : `Connection failed: ${e.message}` })
+    } catch (e) {
+      setTestResult({ ok: false, msg: e instanceof Error && e.name === 'AbortError' ? 'Connection timed out' : `Connection failed: ${e instanceof Error ? e.message : String(e)}` })
     } finally {
       setTesting(false)
     }
   }
 
   /** Sync quiz/concept settings to server (fire-and-forget) */
-  const syncQuizToServer = (partial: Record<string, any>) => {
+  const syncQuizToServer = (partial: Record<string, unknown>) => {
     fetch('/api/ai/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -619,7 +616,7 @@ export function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ws),
       })
-    } catch {}
+    } catch { /* server sync best-effort */ }
   }
 
   const handleNewWorkspace = () => {
@@ -645,7 +642,7 @@ export function SettingsPage() {
       const data = await res.json()
       setBrowsePath(data.currentPath)
       setBrowseEntries(data.entries || [])
-    } catch {}
+    } catch { /* keep previous listing */ }
     setBrowseLoading(false)
   }
 
@@ -656,7 +653,7 @@ export function SettingsPage() {
       const data = await res.json()
       setBrowsePath(data.currentPath)
       setBrowseEntries(data.entries || [])
-    } catch {}
+    } catch { /* keep previous listing */ }
     setBrowseLoading(false)
   }
 
@@ -1131,8 +1128,8 @@ export function SettingsPage() {
                 try {
                   await exportAllData()
                   setDataMsg({ ok: true, msg: 'Export successful!' })
-                } catch (e: any) {
-                  setDataMsg({ ok: false, msg: `Export failed: ${e.message}` })
+                } catch (e) {
+                  setDataMsg({ ok: false, msg: `Export failed: ${e instanceof Error ? e.message : String(e)}` })
                 } finally {
                   setExporting(false)
                 }
@@ -1171,8 +1168,8 @@ export function SettingsPage() {
                   const result = await importAllData(data)
                   setDataMsg({ ok: true, msg: `Import successful! Restored ${result.localKeys} local items and ${result.serverEndpoints} server items.` })
                   setTimeout(() => window.location.reload(), 1500)
-                } catch (err: any) {
-                  setDataMsg({ ok: false, msg: `Import failed: ${err.message}` })
+                } catch (err) {
+                  setDataMsg({ ok: false, msg: `Import failed: ${err instanceof Error ? err.message : String(err)}` })
                 } finally {
                   setImporting(false)
                   e.target.value = ''

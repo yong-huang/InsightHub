@@ -26,7 +26,7 @@ export interface UsageInfo {
 
 export interface AIResponse {
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
   usage?: UsageInfo
 }
@@ -93,15 +93,15 @@ export async function callAI(messages: ChatMessage[], timeout = TIMEOUT_MS, maxT
         totalTokens: u.total_tokens || 0,
       } : undefined,
     }
-  } catch (e: any) {
+  } catch (e) {
     clearTimeout(timeoutId)
-    if (e.name === 'AbortError') {
+    if (e instanceof Error && e.name === 'AbortError') {
       return { success: false, error: 'Request timed out, please try again later' }
     }
     if (e instanceof TypeError && e.message.includes('fetch')) {
       return { success: false, error: 'AI service unavailable. Please make sure the local model service is running.' }
     }
-    return { success: false, error: `Request failed: ${e.message}` }
+    return { success: false, error: `Request failed: ${e instanceof Error ? e.message : String(e)}` }
   }
 }
 
@@ -151,7 +151,7 @@ export async function callAIStream(
     let buffer = ''
 
     // Idle timeout: reset every time we receive data
-    let idleTimer: ReturnType<typeof setTimeout> = undefined as any
+    let idleTimer: ReturnType<typeof setTimeout> | undefined = undefined
     const resetIdle = () => {
       clearTimeout(idleTimer)
       idleTimer = setTimeout(() => { abortedByTimeout = true; controller.abort() }, IDLE_TIMEOUT_MS)
@@ -189,7 +189,7 @@ export async function callAIStream(
               // Model is thinking — accumulate but don't stream to UI
               resetIdle()
             }
-          } catch {}
+          } catch { /* skip malformed SSE chunk */ }
         }
       }
     } finally {
@@ -222,8 +222,8 @@ export async function callAIStream(
     }
 
     return { success: true, data: content, usage }
-  } catch (e: any) {
-    if (e.name === 'AbortError') {
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
       // External abort → treat accumulated content as valid result
       // Timeout abort → report error
       if (externalSignal?.aborted && !abortedByTimeout) {
@@ -243,11 +243,11 @@ export async function callAIStream(
     if (e instanceof TypeError && e.message.includes('fetch')) {
       return { success: false, error: 'AI service unavailable. Please make sure the local model service is running.' }
     }
-    return { success: false, error: `Request failed: ${e.message}` }
+    return { success: false, error: `Request failed: ${e instanceof Error ? e.message : String(e)}` }
   }
 }
 
-export function extractJSON(text: string): any {
+export function extractJSON(text: string): unknown {
   // Strip <think...>...</think/> blocks (Qwen thinking mode)
   let cleaned = text.trim().replace(/<think[\s\S]*?<\/think>\s*/g, '').trim()
 
@@ -265,7 +265,7 @@ export function extractJSON(text: string): any {
   }
 
   // Try direct parse first
-  try { return JSON.parse(cleaned) } catch {}
+  try { return JSON.parse(cleaned) } catch { /* fall through to brace matching */ }
 
   // Find the outermost JSON object by brace-matching (handles truncated output)
   const objStart = cleaned.indexOf('{')
@@ -316,7 +316,7 @@ export function extractJSON(text: string): any {
   }
 
   // Try to parse as-is
-  try { return JSON.parse(raw) } catch {}
+  try { return JSON.parse(raw) } catch { /* fall through to repair */ }
 
   // Repair pipeline: process in a single string-aware pass
   let fixed = raw
@@ -385,7 +385,7 @@ export function extractJSON(text: string): any {
   fixed = fixed.replace(/\}\s*\{/g, '},{')
   fixed = fixed.replace(/\]\s*\[/g, '],[')
 
-  try { return JSON.parse(fixed) } catch {}
+  try { return JSON.parse(fixed) } catch { /* unrepairable */ }
 
   throw new Error('Failed to extract JSON from AI response')
 }
@@ -483,15 +483,16 @@ Format:
     }
 
     try {
-      const parsed = extractJSON(result.data)
-      const questions: any[] = (parsed.questions || []).map((q: any, i: number) => ({
+      const parsed = extractJSON(String(result.data)) as { questions?: Record<string, unknown>[] }
+      const questions = (parsed.questions || []).map((q, i) => ({
         ...q,
         id: `q${i + 1}`,
       }))
       if (questions.length === 0) throw new Error('No questions found in parsed JSON')
       return { success: true, data: { questions } }
-    } catch (e: any) {
-      console.warn(`[generateQuizQuestions] JSON parse failed (attempt ${attempt + 1}):`, e.message)
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e)
+      console.warn(`[generateQuizQuestions] JSON parse failed (attempt ${attempt + 1}):`, errMsg)
       console.warn(`[generateQuizQuestions] raw content (first 500):`, String(result.data).slice(0, 500))
 
       // On second attempt failure, try regex fallback before giving up
@@ -500,19 +501,19 @@ Format:
         const questionPattern = /\{\s*"id"\s*:\s*"[^"]*"\s*,\s*"type"\s*:\s*"(?:choice|truefalse|fill_blank|short_answer|code_completion)"[\s\S]*?"correctAnswer"[\s\S]*?\}/g
         const matches = text.match(questionPattern)
         if (matches && matches.length > 0) {
-          const fallbackQuestions: any[] = []
+          const fallbackQuestions: Record<string, unknown>[] = []
           for (const m of matches) {
             try {
-              const q = JSON.parse(m)
+              const q = JSON.parse(m) as Record<string, unknown>
               fallbackQuestions.push(q)
-            } catch {}
+            } catch { /* skip malformed match */ }
           }
           if (fallbackQuestions.length > 0) {
             console.warn(`[generateQuizQuestions] fallback: extracted ${fallbackQuestions.length} questions via regex`)
             return { success: true, data: { questions: fallbackQuestions } }
           }
         }
-        return { success: false, error: e.message }
+        return { success: false, error: errMsg }
       }
       // First attempt failed — retry
     }
@@ -559,7 +560,7 @@ Return strict JSON format:
   if (result.usage) recordUsage('grade', result.usage)
   if (result.success && result.data) {
     try {
-      result.data = extractJSON(result.data)
+      result.data = extractJSON(String(result.data))
     } catch {
       return { success: false, error: 'Failed to parse AI grading results' }
     }

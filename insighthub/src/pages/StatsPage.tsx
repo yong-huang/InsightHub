@@ -58,7 +58,7 @@ export function StatsPage() {
         if (cancelled) return
 
         const manifest = await manifestRes.json()
-        const readMeta = await readMetaRes.json()
+        const readMeta = await readMetaRes.json() as Record<string, { isRead?: boolean }>
         const readHistory = await readHistoryRes.json()
         const annotations = await annotationsRes.json()
         const quizHistory = await quizHistoryRes.json()

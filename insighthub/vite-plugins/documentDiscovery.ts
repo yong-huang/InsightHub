@@ -4,6 +4,7 @@ import * as path from 'path'
 import { execSync, exec } from 'child_process'
 import * as os from 'os'
 import { Readable } from 'stream'
+import type { ReadableStream as NodeWebReadableStream } from 'stream/web'
 import type { WorkspaceEntry } from '../src/types'
 import { scanWorkspaces } from '../scripts/lib/scanDocuments'
 import { generateIdWithConflictResolution } from '../scripts/lib/idGenerator'
@@ -22,6 +23,20 @@ interface AIProfile {
   aiApiUrl: string
   aiModel: string
   aiApiKey: string
+}
+
+/** Generic JSON object parsed from request bodies or storage files */
+type JsonRecord = Record<string, unknown>
+/** Stored read-history entry (documentId is the dedup key) */
+interface ReadHistoryRecord {
+  documentId?: string
+  [key: string]: unknown
+}
+/** Stored quiz attempt (id is the dedup key) */
+interface QuizAttemptRecord {
+  id?: string
+  documentId?: string
+  [key: string]: unknown
 }
 
 interface TTSConfig {
@@ -161,7 +176,7 @@ function sendFile(res: import('http').ServerResponse, absPath: string): void {
 }
 
 /** Migrate legacy flat config to profiles format */
-function migrateToProfiles(saved: any, defaults: AppConfig): AppConfig {
+function migrateToProfiles(saved: Partial<AppConfig>, defaults: AppConfig): AppConfig {
   const merged = { ...defaults, ...saved }
   // Already has profiles — ensure activeProfileId is valid
   if (saved.profiles && Array.isArray(saved.profiles) && saved.profiles.length > 0) {
@@ -205,7 +220,7 @@ function loadAppConfig(configPath: string, defaults: AppConfig): AppConfig {
       fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8')
       return cfg
     }
-  } catch {}
+  } catch { /* ignore */ }
   // First run: create default profile and write to disk
   const profile: AIProfile = {
     id: generateProfileId(),
@@ -283,15 +298,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const filePath = path.resolve(DATA_DIR, file)
           if (!fs.existsSync(filePath)) continue
           try {
-            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, any>
+            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>
             let changed = false
-            const rewritten: Record<string, any> = {}
+            const rewritten: Record<string, unknown> = {}
             for (const [k, v] of Object.entries(obj)) {
               const newK = rewriteDocId(k)
               // Also rewrite inner 'id' field if present
-              if (v && typeof v === 'object' && v.id) {
-                const newId = rewriteDocId(v.id)
-                if (newId !== v.id) { v.id = newId; changed = true }
+              if (v && typeof v === 'object' && 'id' in v) {
+                const rec = v as { id: string }
+                const newId = rewriteDocId(rec.id)
+                if (newId !== rec.id) { rec.id = newId; changed = true }
               }
               rewritten[newK] = v
               if (newK !== k) changed = true
@@ -312,7 +328,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const filePath = path.resolve(DATA_DIR, file)
           if (!fs.existsSync(filePath)) continue
           try {
-            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as any[]
+            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Array<Record<string, string>>
             let changed = false
             for (const item of arr) {
               const newId = rewriteDocId(item[idField])
@@ -329,13 +345,13 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         const clientStoragePath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
         if (fs.existsSync(clientStoragePath)) {
           try {
-            const obj = JSON.parse(fs.readFileSync(clientStoragePath, 'utf-8')) as Record<string, any>
+            const obj = JSON.parse(fs.readFileSync(clientStoragePath, 'utf-8')) as Record<string, unknown>
             let changed = false
             for (const [key, value] of Object.entries(obj)) {
               if (typeof value === 'object' && value !== null) {
                 // Check if it's an object store (docId keys)
                 if (!Array.isArray(value) && needsRewrite(Object.keys(value)[0] || '')) {
-                  const rewritten: Record<string, any> = {}
+                  const rewritten: Record<string, unknown> = {}
                   for (const [k, v] of Object.entries(value)) {
                     const newK = rewriteDocId(k)
                     rewritten[newK] = v
@@ -442,12 +458,12 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   }
                 }
               } else if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-                const rewritten: Record<string, any> = {}
-                for (const [k, v] of Object.entries(data as Record<string, any>)) {
+                const rewritten: Record<string, unknown> = {}
+                for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
                   if (REMAP_PREFIXES.some(p => k.startsWith(p))) {
                     const newK = findNewId(k)
                     if (newK) {
-                      if (v && typeof v === 'object' && v.id) v.id = newK
+                      if (v && typeof v === 'object' && 'id' in v) (v as { id: string }).id = newK
                       rewritten[newK] = v
                       changed = true
                       continue
@@ -487,7 +503,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(workspacesConfigPath, 'utf-8'))
             if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
@@ -547,7 +563,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 if (ws.path && path.isAbsolute(ws.path)) {
                   try {
                     ws.path = path.relative(BASE_DIR, ws.path)
-                  } catch {}
+                  } catch { /* ignore */ }
                 }
                 return ws
               })
@@ -605,9 +621,9 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               return a.name.localeCompare(b.name)
             })
           res.end(JSON.stringify({ currentPath: resolved, entries }))
-        } catch (e: any) {
+        } catch (e) {
           res.statusCode = 403
-          res.end(JSON.stringify({ error: e.message }))
+          res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
         }
       })
 
@@ -628,13 +644,13 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         quizQuestionCount: 5,
         tts: { ttsApiUrl: '', ttsModel: '', ttsVoice: '' },
       }
-      let appConfig = loadAppConfig(configPath, defaultConfig)
+      const appConfig = loadAppConfig(configPath, defaultConfig)
 
       function persistConfig(): void {
         fs.writeFileSync(configPath, JSON.stringify(appConfig, null, 2), 'utf-8')
       }
 
-      function configGetResponse(): Record<string, any> {
+            function configGetResponse(): Record<string, unknown> {
         return {
           profiles: appConfig.profiles.map(p => ({
             ...p,
@@ -819,9 +835,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           }
           const data = await aiRes.json()
           res.end(JSON.stringify(data))
-        } catch (e: any) {
+        } catch (e) {
           res.statusCode = 502
-          const reason = e.cause?.code === 'ECONNREFUSED' ? 'Connection refused, please make sure the service is running' : e.message
+          const causeCode = (e as { cause?: { code?: string } }).cause?.code
+          const reason = causeCode === 'ECONNREFUSED' ? 'Connection refused, please make sure the service is running' : e instanceof Error ? e.message : String(e)
           res.end(JSON.stringify({ error: `Unable to connect to ${baseUrl}: ${reason}` }))
         }
       })
@@ -850,7 +867,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         let effectiveApiUrl = active?.aiApiUrl || appConfig.aiApiUrl
 
         try {
-          const preParse: any = JSON.parse(rawBody.toString())
+          const preParse = JSON.parse(rawBody.toString()) as { purpose?: string }
           if (preParse.purpose === 'vision' && appConfig.visionProfileId) {
             const visionProfile = appConfig.profiles.find(p => p.id === appConfig.visionProfileId)
             if (visionProfile) {
@@ -871,8 +888,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         }
 
         try {
-          let parsed: any
-          try { parsed = JSON.parse(rawBody.toString()) } catch {}
+          let parsed: Record<string, unknown> | null
+          try { parsed = JSON.parse(rawBody.toString()) as Record<string, unknown> } catch { parsed = null }
           if (!parsed) { res.statusCode = 400; res.end('{"error":"Invalid JSON"}'); return }
 
           // Remove purpose field before forwarding
@@ -883,18 +900,18 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           // If request includes `think` param AND server is Ollama, use native API
           const useOllamaNative = 'think' in parsed && await isOllamaServer(baseUrl)
           if (useOllamaNative) {
-            console.log(`[AI proxy] Ollama detected → using native API, model=${parsed.model}, stream=${!!parsed.stream}, think=${parsed.think}`)
+            console.log(`[AI proxy] Ollama detected → using native API, model=${String(parsed.model)}, stream=${!!parsed.stream}, think=${String(parsed.think)}`)
             const isStream = !!parsed.stream
-            const ollamaBody: Record<string, any> = {
+            const ollamaOptions: Record<string, unknown> = {}
+            if (parsed.temperature != null) ollamaOptions.temperature = parsed.temperature
+            if (parsed.max_tokens != null) ollamaOptions.num_predict = parsed.max_tokens
+            const ollamaBody: Record<string, unknown> = {
               model: effectiveModel,
               messages: parsed.messages,
               stream: isStream,
               think: parsed.think,
             }
-            if (parsed.temperature != null) ollamaBody.options = { temperature: parsed.temperature }
-            if (parsed.max_tokens != null) {
-              ollamaBody.options = { ...ollamaBody.options, num_predict: parsed.max_tokens }
-            }
+            if (Object.keys(ollamaOptions).length > 0) ollamaBody.options = ollamaOptions
 
             const aiRes = await fetch(`${baseUrl}/api/chat`, {
               method: 'POST',
@@ -927,7 +944,12 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
             if (!isStream) {
               // Non-streaming: convert Ollama response → OpenAI format
-              const ollamaData: any = await aiRes.json()
+              const ollamaData = await aiRes.json() as {
+                message?: { role?: string; content?: string }
+                done?: boolean
+                prompt_eval_count?: number
+                eval_count?: number
+              }
               const openaiRes = {
                 id: `chatcmpl-${Date.now()}`,
                 object: 'chat.completion',
@@ -974,7 +996,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                         }],
                       }
                       res.write(`data: ${JSON.stringify(sseData)}\n\n`)
-                    } catch {}
+                    } catch { /* ignore */ }
                   }
                 }
               } finally {
@@ -1014,11 +1036,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           }
 
           res.end()
-        } catch (e: any) {
+        } catch (e) {
           if (!res.headersSent) {
             res.writeHead(502, { 'Content-Type': 'application/json' })
           }
-          res.end(JSON.stringify({ error: `AI proxy error: ${e.message}` }))
+          res.end(JSON.stringify({ error: `AI proxy error: ${e instanceof Error ? e.message : String(e)}` }))
         }
       })
 
@@ -1044,8 +1066,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         for await (const chunk of req) reqChunks.push(chunk as Buffer)
         const rawBody = Buffer.concat(reqChunks)
 
-        let parsed: any
-        try { parsed = JSON.parse(rawBody.toString()) } catch {
+        let parsed: JsonRecord
+        try { parsed = JSON.parse(rawBody.toString()) as JsonRecord } catch {
           res.statusCode = 400
           res.end(JSON.stringify({ error: 'Invalid JSON' }))
           return
@@ -1100,27 +1122,27 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             }
           }
           res.end()
-        } catch (e: any) {
+        } catch (e) {
           if (!res.headersSent) {
             res.writeHead(502, { 'Content-Type': 'application/json' })
           }
-          res.end(JSON.stringify({ error: `TTS proxy error: ${e.message}` }))
+          res.end(JSON.stringify({ error: `TTS proxy error: ${e instanceof Error ? e.message : String(e)}` }))
         }
       })
 
       // Quiz persistence: shared across all LAN clients via data/.insighthub-quizzes.json
       const quizzesPath = path.resolve(DATA_DIR, '.insighthub-quizzes.json')
 
-      function loadQuizzesFile(): Record<string, any> {
+      function loadQuizzesFile(): Record<string, unknown> {
         try {
           if (fs.existsSync(quizzesPath)) {
             return JSON.parse(fs.readFileSync(quizzesPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return {}
       }
 
-      function saveQuizzesFile(quizzes: Record<string, any>): void {
+      function saveQuizzesFile(quizzes: Record<string, unknown>): void {
         fs.writeFileSync(quizzesPath, JSON.stringify(quizzes, null, 2), 'utf-8')
       }
 
@@ -1137,7 +1159,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const quiz: any = JSON.parse(Buffer.concat(chunks).toString())
+              const quiz: JsonRecord & { documentId?: string } = JSON.parse(Buffer.concat(chunks).toString())
               if (!quiz || !quiz.documentId) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing documentId' }))
@@ -1190,10 +1212,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const filePath = path.resolve(DATA_DIR, file)
           if (!fs.existsSync(filePath)) continue
           try {
-            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, any>
+            const obj = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, unknown>
             if (!obj[oldId]) continue
             const entry = obj[oldId]
-            if (entry && typeof entry === 'object' && entry.id) entry.id = newId
+            if (entry && typeof entry === 'object' && 'id' in entry) (entry as { id: string }).id = newId
             obj[newId] = entry
             delete obj[oldId]
             fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf-8')
@@ -1211,7 +1233,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           const filePath = path.resolve(DATA_DIR, file)
           if (!fs.existsSync(filePath)) continue
           try {
-            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as any[]
+            const arr = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Array<Record<string, string>>
             let changed = false
             for (const item of arr) {
               if (item[idField] === oldId) { item[idField] = newId; changed = true }
@@ -1224,16 +1246,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Read meta persistence: shared across all LAN clients via data/.insighthub-read-meta.json
       const readMetaPath = path.resolve(DATA_DIR, '.insighthub-read-meta.json')
 
-      function loadReadMetaFile(): Record<string, any> {
+      function loadReadMetaFile(): Record<string, unknown> {
         try {
           if (fs.existsSync(readMetaPath)) {
             return JSON.parse(fs.readFileSync(readMetaPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return {}
       }
 
-      function saveReadMetaFile(meta: Record<string, any>): void {
+      function saveReadMetaFile(meta: Record<string, unknown>): void {
         fs.writeFileSync(readMetaPath, JSON.stringify(meta, null, 2), 'utf-8')
       }
 
@@ -1250,7 +1272,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const update: any = JSON.parse(Buffer.concat(chunks).toString())
+              const update: JsonRecord & { id?: string } = JSON.parse(Buffer.concat(chunks).toString())
               if (!update || !update.id) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing id' }))
@@ -1289,16 +1311,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Read history persistence: shared across all LAN clients via data/.insighthub-read-history.json
       const readHistoryPath = path.resolve(DATA_DIR, '.insighthub-read-history.json')
 
-      function loadReadHistoryFile(): any[] {
+            function loadReadHistoryFile(): ReadHistoryRecord[] {
         try {
           if (fs.existsSync(readHistoryPath)) {
             return JSON.parse(fs.readFileSync(readHistoryPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
-      function saveReadHistoryFile(history: any[]): void {
+      function saveReadHistoryFile(history: unknown[]): void {
         fs.writeFileSync(readHistoryPath, JSON.stringify(history, null, 2), 'utf-8')
       }
 
@@ -1315,7 +1337,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const entry: any = JSON.parse(Buffer.concat(chunks).toString())
+              const entry: ReadHistoryRecord = JSON.parse(Buffer.concat(chunks).toString())
               if (!entry || !entry.documentId) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing documentId' }))
@@ -1323,7 +1345,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               }
               const history = loadReadHistoryFile()
               // Deduplicate and prepend
-              const filtered = history.filter((h: any) => h.documentId !== entry.documentId)
+              const filtered = history.filter(h => h.documentId !== entry.documentId)
               filtered.unshift(entry)
               saveReadHistoryFile(filtered)
               res.end(JSON.stringify({ ok: true }))
@@ -1343,7 +1365,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             return
           }
           const history = loadReadHistoryFile()
-          const filtered = history.filter((h: any) => h.documentId !== documentId)
+          const filtered = history.filter(h => h.documentId !== documentId)
           saveReadHistoryFile(filtered)
           res.end(JSON.stringify({ ok: true }))
           return
@@ -1356,16 +1378,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Quiz history persistence: shared across all LAN clients via data/.insighthub-quiz-history.json
       const quizHistoryPath = path.resolve(DATA_DIR, '.insighthub-quiz-history.json')
 
-      function loadQuizHistoryFile(): any[] {
+      function loadQuizHistoryFile(): QuizAttemptRecord[] {
         try {
           if (fs.existsSync(quizHistoryPath)) {
             return JSON.parse(fs.readFileSync(quizHistoryPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
-      function saveQuizHistoryFile(history: any[]): void {
+      function saveQuizHistoryFile(history: unknown[]): void {
         fs.writeFileSync(quizHistoryPath, JSON.stringify(history, null, 2), 'utf-8')
       }
 
@@ -1382,7 +1404,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const attempt: any = JSON.parse(Buffer.concat(chunks).toString())
+              const attempt: QuizAttemptRecord = JSON.parse(Buffer.concat(chunks).toString())
               if (!attempt) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing attempt data' }))
@@ -1390,7 +1412,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               }
               const history = loadQuizHistoryFile()
               // Dedup: skip if an entry with the same id already exists
-              if (attempt.id && history.some((h: any) => h.id === attempt.id)) {
+              if (attempt.id && history.some(h => h.id === attempt.id)) {
                 res.end(JSON.stringify({ ok: true }))
                 return
               }
@@ -1412,16 +1434,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Tags persistence: shared across all LAN clients via data/.insighthub-tags.json
       const tagsPath = path.resolve(DATA_DIR, '.insighthub-tags.json')
 
-      function loadTagsFile(): any[] {
+            function loadTagsFile(): unknown[] {
         try {
           if (fs.existsSync(tagsPath)) {
             return JSON.parse(fs.readFileSync(tagsPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
-      function saveTagsFile(tags: any[]): void {
+      function saveTagsFile(tags: unknown[]): void {
         fs.writeFileSync(tagsPath, JSON.stringify(tags, null, 2), 'utf-8')
       }
 
@@ -1438,7 +1460,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const tags: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              const tags: unknown[] = JSON.parse(Buffer.concat(chunks).toString())
               if (!Array.isArray(tags)) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Expected array' }))
@@ -1461,16 +1483,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Annotations persistence: shared across all LAN clients via data/.insighthub-annotations.json
       const annotationsPath = path.resolve(DATA_DIR, '.insighthub-annotations.json')
 
-      function loadAnnotationsFile(): any[] {
+            function loadAnnotationsFile(): unknown[] {
         try {
           if (fs.existsSync(annotationsPath)) {
             return JSON.parse(fs.readFileSync(annotationsPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
-      function saveAnnotationsFile(annotations: any[]): void {
+      function saveAnnotationsFile(annotations: unknown[]): void {
         fs.writeFileSync(annotationsPath, JSON.stringify(annotations, null, 2), 'utf-8')
       }
 
@@ -1487,7 +1509,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const annotations: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              const annotations: unknown[] = JSON.parse(Buffer.concat(chunks).toString())
               if (!Array.isArray(annotations)) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Expected array' }))
@@ -1531,7 +1553,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const cards: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              const cards: unknown[] = JSON.parse(Buffer.concat(chunks).toString())
               if (!Array.isArray(cards)) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Expected array' }))
@@ -1575,7 +1597,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const diagrams: any[] = JSON.parse(Buffer.concat(chunks).toString())
+              const diagrams: unknown[] = JSON.parse(Buffer.concat(chunks).toString())
               if (!Array.isArray(diagrams)) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Expected array' }))
@@ -1607,7 +1629,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         req.on('data', (chunk: Buffer) => chunks.push(chunk))
         req.on('end', async () => {
           try {
-            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const body: JsonRecord = JSON.parse(Buffer.concat(chunks).toString())
             const query = typeof body.query === 'string' ? body.query.trim() : ''
             const engine = typeof body.engine === 'string' ? body.engine : 'bing'
             const page = typeof body.page === 'number' ? Math.max(0, body.page) : 0
@@ -1783,11 +1805,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             }
 
             res.end(JSON.stringify({ success: true, results }))
-          } catch (e: any) {
-            if (e.name === 'AbortError') {
+          } catch (e) {
+            if (e instanceof Error && e.name === 'AbortError') {
               res.end(JSON.stringify({ success: false, error: 'Search timed out (15s)' }))
             } else {
-              res.end(JSON.stringify({ success: false, error: e.message || 'Unknown error' }))
+              res.end(JSON.stringify({ success: false, error: (e instanceof Error ? e.message : String(e)) || 'Unknown error' }))
             }
           }
         })
@@ -1863,7 +1885,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             res.setHeader('Cache-Control', 'public, max-age=86400')
             res.setHeader('Access-Control-Allow-Origin', '*')
             if (retryRes.body) {
-              Readable.fromWeb(retryRes.body as any).pipe(res)
+              Readable.fromWeb(retryRes.body as unknown as NodeWebReadableStream).pipe(res)
             } else {
               res.end()
             }
@@ -1874,17 +1896,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           res.setHeader('Cache-Control', 'public, max-age=86400')
           res.setHeader('Access-Control-Allow-Origin', '*')
           if (imgRes.body) {
-            Readable.fromWeb(imgRes.body as any).pipe(res)
+            Readable.fromWeb(imgRes.body as unknown as NodeWebReadableStream).pipe(res)
           } else {
             res.end()
           }
-        } catch (e: any) {
-          if (e.name === 'AbortError') {
+        } catch (e) {
+          if (e instanceof Error && e.name === 'AbortError') {
             res.statusCode = 504
             res.end('Timeout')
           } else {
             res.statusCode = 502
-            res.end(e.message || 'Proxy error')
+            res.end((e instanceof Error ? e.message : String(e)) || 'Proxy error')
           }
         }
       })
@@ -1911,7 +1933,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           if (fs.existsSync(importedDocsPath)) {
             return JSON.parse(fs.readFileSync(importedDocsPath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return []
       }
 
@@ -1937,7 +1959,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         req.on('data', (chunk: Buffer) => chunks.push(chunk))
         req.on('end', async () => {
           try {
-            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const body: JsonRecord = JSON.parse(Buffer.concat(chunks).toString())
             const url = typeof body.url === 'string' ? body.url.trim() : ''
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
               res.statusCode = 400
@@ -1968,7 +1990,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: 'Private/internal addresses are not allowed' }))
                 return
               }
-            } catch (dnsErr: any) {
+            } catch (_dnsErr) {
               res.statusCode = 400
               res.end(JSON.stringify({ error: 'Failed to resolve hostname' }))
               return
@@ -2033,8 +2055,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   : baseTag + processedHtml
 
               res.end(JSON.stringify({ html: processedHtml, title }))
-            } catch (fetchErr: any) {
-              const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
+            } catch (fetchErr) {
+              const msg = (fetchErr as { name?: string })?.name === 'AbortError' ? 'Request timed out (10s)' : ((fetchErr instanceof Error ? fetchErr.message : String(fetchErr)) || 'Failed to fetch URL')
               res.statusCode = 400
               res.end(JSON.stringify({ error: msg }))
             }
@@ -2057,7 +2079,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         req.on('data', (chunk: Buffer) => chunks.push(chunk))
         req.on('end', async () => {
           try {
-            const body: any = JSON.parse(Buffer.concat(chunks).toString())
+            const body: JsonRecord = JSON.parse(Buffer.concat(chunks).toString())
             const url = typeof body.url === 'string' ? body.url.trim() : ''
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
               res.statusCode = 400
@@ -2086,7 +2108,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 res.end(JSON.stringify({ error: 'Private/internal addresses are not allowed' }))
                 return
               }
-            } catch (dnsErr: any) {
+            } catch (_dnsErr) {
               res.statusCode = 400
               res.end(JSON.stringify({ error: 'Failed to resolve hostname' }))
               return
@@ -2134,8 +2156,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 return entities[e] || e
               })
 
-              const source = body.source || ''
-              const category = body.category || ''
+              const source = typeof body.source === 'string' ? body.source : ''
+              const category = typeof body.category === 'string' ? body.category : ''
               const id = `imported-${Date.now()}`
 
               if (hasFrameAncestorsBlock || hasXFrameBlock) {
@@ -2197,8 +2219,8 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
 
                 res.end(JSON.stringify({ id, title: decodedTitle, wordCount: meta.wordCount, language: meta.language }))
               }
-            } catch (fetchErr: any) {
-              const msg = fetchErr?.name === 'AbortError' ? 'Request timed out (10s)' : (fetchErr?.message || 'Failed to fetch URL')
+            } catch (fetchErr) {
+              const msg = (fetchErr as { name?: string })?.name === 'AbortError' ? 'Request timed out (10s)' : ((fetchErr instanceof Error ? fetchErr.message : String(fetchErr)) || 'Failed to fetch URL')
               res.statusCode = 400
               res.end(JSON.stringify({ error: msg }))
             }
@@ -2225,7 +2247,12 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           req.on('data', (chunk: Buffer) => chunks.push(chunk))
           req.on('end', () => {
             try {
-              const body: any = JSON.parse(Buffer.concat(chunks).toString())
+              const body = JSON.parse(Buffer.concat(chunks).toString()) as {
+                htmlContent?: string
+                fileName?: string
+                source?: string
+                category?: string
+              }
               if (!body.htmlContent || !body.fileName) {
                 res.statusCode = 400
                 res.end(JSON.stringify({ error: 'Missing required fields' }))
@@ -2340,7 +2367,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 }
                 break
               }
-            } catch {}
+            } catch { /* ignore */ }
           }
           if (!found) {
             res.statusCode = 404
@@ -2392,7 +2419,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   }
                   idSet.delete(entry.id)
                 }
-              } catch {}
+              } catch { /* ignore */ }
               if (idSet.size === 0) break
             }
 
@@ -2448,7 +2475,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                     }
                     break
                   }
-                } catch {}
+                } catch { /* ignore */ }
               }
 
               if (!sourceFilePath) {
@@ -2531,7 +2558,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   deletedIds.push(e.id)
                 }
               }
-            } catch {}
+            } catch { /* ignore */ }
 
             // Delete the directory
             if (fs.existsSync(categoryDir)) {
@@ -2600,7 +2627,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                   fileName: e.fileName || path.basename(e.filePath),
                   filePath: e.filePath,
                 }))
-              } catch {}
+              } catch { /* ignore */ }
 
               if (entries.length === 0) {
                 res.statusCode = 404
@@ -2672,16 +2699,16 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       // Keys that already have dedicated sync endpoints are excluded on the client side.
       const clientStoragePath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
 
-      function loadClientStorageFile(): Record<string, any> {
+      function loadClientStorageFile(): Record<string, unknown> {
         try {
           if (fs.existsSync(clientStoragePath)) {
             return JSON.parse(fs.readFileSync(clientStoragePath, 'utf-8'))
           }
-        } catch {}
+        } catch { /* ignore */ }
         return {}
       }
 
-      function saveClientStorageFile(data: Record<string, any>): void {
+      function saveClientStorageFile(data: Record<string, unknown>): void {
         fs.writeFileSync(clientStoragePath, JSON.stringify(data, null, 2), 'utf-8')
       }
 
@@ -2791,7 +2818,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
       }
       const availableRuntimes = new Set<string>()
       for (const [lang, info] of Object.entries(RUNTIME_MAP)) {
-        try { execSync(`which ${info.command} 2>/dev/null`, { timeout: 2000 }); availableRuntimes.add(lang) } catch {}
+        try { execSync(`which ${info.command} 2>/dev/null`, { timeout: 2000 }); availableRuntimes.add(lang) } catch { /* ignore */ }
       }
 
       // GET /api/code-runtimes — return list of available language runtimes
@@ -2827,7 +2854,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const fp = path.resolve(DATA_DIR, file)
               if (!fs.existsSync(fp)) continue
               try {
-                const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, unknown>
                 for (const key of Object.keys(obj)) {
                   if (!currentIdSet.has(key)) orphanedIds.add(key)
                 }
@@ -2846,7 +2873,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const fp = path.resolve(DATA_DIR, file)
               if (!fs.existsSync(fp)) continue
               try {
-                const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Array<Record<string, unknown>>
                 for (const item of arr) {
                   const id = item[idField]
                   if (typeof id === 'string' && !currentIdSet.has(id)) orphanedIds.add(id)
@@ -2858,7 +2885,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
             if (fs.existsSync(csPath)) {
               try {
-                const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, unknown>
                 for (const [, value] of Object.entries(obj)) {
                   if (typeof value !== 'object' || value === null) continue
                   if (!Array.isArray(value)) {
@@ -2907,14 +2934,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 const fp = path.resolve(DATA_DIR, file)
                 if (!fs.existsSync(fp)) continue
                 try {
-                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, unknown>
                   let changed = false
-                  const rewritten: Record<string, any> = {}
+                  const rewritten: Record<string, unknown> = {}
                   for (const [k, v] of Object.entries(obj)) {
                     const newK = mappings[k] || k
-                    if (v && typeof v === 'object' && v.id && mappings[v.id]) {
-                      v.id = mappings[v.id]
-                      changed = true
+                    if (v && typeof v === 'object' && 'id' in v) {
+                      const rec = v as { id: string }
+                      if (rec.id && mappings[rec.id]) {
+                        rec.id = mappings[rec.id]
+                        changed = true
+                      }
                     }
                     rewritten[newK] = v
                     if (newK !== k) changed = true
@@ -2939,7 +2969,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 const fp = path.resolve(DATA_DIR, file)
                 if (!fs.existsSync(fp)) continue
                 try {
-                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Array<Record<string, string | undefined>>
                   let changed = false
                   for (const item of arr) {
                     const oldId = item[idField]
@@ -2957,13 +2987,13 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
               if (fs.existsSync(csPath)) {
                 try {
-                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, unknown>
                   let changed = false
                   for (const [key, value] of Object.entries(obj)) {
                     if (typeof value !== 'object' || value === null) continue
                     if (!Array.isArray(value)) {
                       // Object store: docId keys
-                      const rewritten: Record<string, any> = {}
+                      const rewritten: Record<string, unknown> = {}
                       for (const [k, v] of Object.entries(value)) {
                         const newK = mappings[k] || k
                         rewritten[newK] = v
@@ -3070,14 +3100,17 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 const fp = path.resolve(DATA_DIR, file)
                 if (!fs.existsSync(fp)) continue
                 try {
-                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, any>
+                  const obj = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Record<string, unknown>
                   let changed = false
-                  const rewritten: Record<string, any> = {}
+                  const rewritten: Record<string, unknown> = {}
                   for (const [k, v] of Object.entries(obj)) {
                     const newK = mappings[k] || k
-                    if (v && typeof v === 'object' && v.id && mappings[v.id]) {
-                      v.id = mappings[v.id]
-                      changed = true
+                    if (v && typeof v === 'object' && 'id' in v) {
+                      const rec = v as { id: string }
+                      if (rec.id && mappings[rec.id]) {
+                        rec.id = mappings[rec.id]
+                        changed = true
+                      }
                     }
                     rewritten[newK] = v
                     if (newK !== k) changed = true
@@ -3098,7 +3131,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
                 const fp = path.resolve(DATA_DIR, file)
                 if (!fs.existsSync(fp)) continue
                 try {
-                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as any[]
+                  const arr = JSON.parse(fs.readFileSync(fp, 'utf-8')) as Array<Record<string, string | undefined>>
                   let changed = false
                   for (const item of arr) {
                     const oldId = item[idField]
@@ -3115,11 +3148,11 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const tagsPath = path.resolve(DATA_DIR, '.insighthub-tags.json')
               if (fs.existsSync(tagsPath)) {
                 try {
-                  const tagsArr = JSON.parse(fs.readFileSync(tagsPath, 'utf-8')) as any[]
+                  const tagsArr = JSON.parse(fs.readFileSync(tagsPath, 'utf-8')) as Array<{ documentIds?: string[] }>
                   let changed = false
                   for (const tag of tagsArr) {
                     if (Array.isArray(tag.documentIds)) {
-                      tag.documentIds = tag.documentIds.map((id: string) => mappings[id] || id)
+                      tag.documentIds = tag.documentIds.map(id => mappings[id] || id)
                       changed = true
                     }
                   }
@@ -3131,13 +3164,13 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
               const csPath = path.resolve(DATA_DIR, '.insighthub-client-storage.json')
               if (fs.existsSync(csPath)) {
                 try {
-                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, any>
+                  const obj = JSON.parse(fs.readFileSync(csPath, 'utf-8')) as Record<string, unknown>
                   let changed = false
                   for (const [key, value] of Object.entries(obj)) {
                     if (typeof value !== 'object' || value === null) continue
                     if (!Array.isArray(value)) {
                       // Object store: docId keys
-                      const rewritten: Record<string, any> = {}
+                      const rewritten: Record<string, unknown> = {}
                       for (const [k, v] of Object.entries(value)) {
                         const newK = mappings[k] || k
                         rewritten[newK] = v
@@ -3200,7 +3233,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
         const sendEvent = (data: string) => res.write(`data: ${JSON.stringify(data)}\n\n`)
 
         let command: string
-        let needsCleanup: string[] = []
+        const needsCleanup: string[] = []
 
         try {
           switch (language) {
@@ -3265,7 +3298,7 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
             if (done) return
             done = true
             res.end()
-            for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch {} }
+            for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch { /* ignore */ } }
           }
 
           proc.stdout?.on('data', (d: Buffer) => sendEvent(d.toString()))
@@ -3273,10 +3306,10 @@ export function documentDiscovery(options: DocumentDiscoveryOptions): Plugin {
           proc.on('error', (err) => { sendEvent(`\n[Error] ${err.message}\n`); finish() })
           proc.on('close', (code) => { if (code) sendEvent(`\n[Exit ${code}]\n`); finish() })
           req.on('close', () => { proc.kill(); finish() })
-        } catch (err: any) {
-          sendEvent(`\n[Error] ${err.message}\n`)
+        } catch (err) {
+          sendEvent(`\n[Error] ${err instanceof Error ? err.message : String(err)}\n`)
           res.end()
-          for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch {} }
+          for (const f of needsCleanup) { try { fs.unlinkSync(f) } catch { /* ignore */ } }
         }
       })
     },

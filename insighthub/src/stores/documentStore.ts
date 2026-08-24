@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { Document, ImportedDocumentRecord, SearchFilters, Source, WorkspaceConfig } from '@/types'
+import type { Document, SearchFilters, Source, WorkspaceConfig } from '@/types'
 import { fetchDocumentManifest, clearManifestCache } from '@/utils/documentManifest'
-import { fetchAndParseDocument, parseHtmlDocument, stripTitleSuffix } from '@/utils/htmlParser'
+import { parseHtmlDocument, stripTitleSuffix } from '@/utils/htmlParser'
 import { storageService, type DocumentMeta, type ReadHistoryEntry } from '@/services/storageService'
 import { indexDocument, clearIndex, setIsIndexing } from '@/services/searchService'
 import { useTagStore } from '@/stores/tagStore'
@@ -89,12 +89,12 @@ export function cleanupMigratedLocalData(): void {
   try {
     const raw = localStorage.getItem(`${PREFIX}read-history`)
     if (raw) {
-      const arr = JSON.parse(raw) as any[]
-      const cleaned = arr.map((h: any) => {
+      const arr = JSON.parse(raw) as ReadHistoryEntry[]
+      const cleaned = arr.map(h => {
         const newId = rewriteId(h.documentId)
         return newId !== h.documentId ? { ...h, documentId: newId } : h
       })
-      const seen = new Map<string, any>()
+      const seen = new Map<string, ReadHistoryEntry>()
       for (const e of cleaned) {
         const prev = seen.get(e.documentId)
         if (!prev || e.readAt > prev.readAt) seen.set(e.documentId, e)
@@ -124,7 +124,7 @@ export function cleanupMigratedLocalData(): void {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) continue
-      const arr = JSON.parse(raw) as any[]
+      const arr = JSON.parse(raw) as Array<Record<string, string>>
       const cleaned = arr.map(item => {
         const newId = rewriteId(item[idField])
         return newId !== item[idField] ? { ...item, [idField]: newId } : item
@@ -137,8 +137,8 @@ export function cleanupMigratedLocalData(): void {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) continue
-      const obj = JSON.parse(raw) as Record<string, any>
-      const cleaned: Record<string, any> = {}
+      const obj = JSON.parse(raw) as Record<string, unknown>
+      const cleaned: Record<string, unknown> = {}
       for (const [k, v] of Object.entries(obj)) {
         const newK = rewriteId(k)
         cleaned[newK] = v
@@ -230,7 +230,7 @@ async function loadAllDocuments(
   }
   if (Array.isArray(serverHistory) && serverHistory.length > 0) {
     const localHistory = storageService.getReadHistory()
-    const localMap = new Map(localHistory.map((h: any) => [h.documentId, h]))
+    const localMap = new Map(localHistory.map(h => [h.documentId, h]))
     let changed = false
     for (const entry of serverHistory) {
       const local = localMap.get(entry.documentId)
@@ -544,7 +544,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: workspaceIds }),
         })
-      } catch {}
+      } catch { /* server sync best-effort */ }
     }
 
     storageService.clearTrash()
@@ -689,7 +689,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const importedMeta = await fetchImportedDocs()
       if (importedMeta.length === 0) return
 
-      const { documents, categoryCounts, stats } = get()
+      const { documents, categoryCounts } = get()
       const updatedDocs = new Map(documents)
       const updatedCounts = { ...categoryCounts }
       let newCount = 0
@@ -838,7 +838,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       indexedAt: Date.now(),
     }
 
-    const { documents, categoryCounts, stats } = get()
+    const { documents, categoryCounts } = get()
     const updatedDocs = new Map(documents)
     updatedDocs.set(doc.id, doc)
     const updatedCounts = { ...categoryCounts }
@@ -868,7 +868,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   removeDocument: async (docId) => {
     if (!docId.startsWith('imported-')) return
 
-    const { documents, categoryCounts, stats } = get()
+    const { documents, categoryCounts } = get()
     const doc = documents.get(docId)
     if (!doc) return
 

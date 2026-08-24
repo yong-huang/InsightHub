@@ -97,12 +97,14 @@ export function KnowledgeTree() {
     return { totalDocs, totalConcepts }
   }, [tree])
 
-  // Default-expand category nodes on first load
+  // Default-expand category nodes on first load (deferred to a microtask to avoid
+  // synchronous setState inside the effect body)
   const initializedRef = useRef(false)
   useEffect(() => {
     if (initializedRef.current || tree.length === 0) return
     initializedRef.current = true
-    setOpenNodes(new Set(catAndDocIds.filter(id => id.startsWith('cat:'))))
+    const ids = catAndDocIds.filter(id => id.startsWith('cat:'))
+    queueMicrotask(() => setOpenNodes(new Set(ids)))
   }, [tree, catAndDocIds])
 
   const isAllExpanded = catAndDocIds.length > 0 && catAndDocIds.every(id => openNodes.has(id))

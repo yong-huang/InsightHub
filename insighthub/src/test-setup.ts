@@ -26,7 +26,7 @@ if (typeof window.localStorage?.clear !== 'function') {
 // Mock scrollIntoView (not implemented in jsdom)
 if (typeof Element.prototype.scrollIntoView !== 'function') {
   Object.defineProperty(Element.prototype, 'scrollIntoView', {
-    value: function (_options?: any) {},
+    value: function (_options?: unknown) {},
     writable: true,
     configurable: true,
   })

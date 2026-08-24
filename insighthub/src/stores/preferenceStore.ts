@@ -26,11 +26,13 @@ interface PreferenceState extends UserPreferences {
   removeWorkspace: (id: string) => void
   setDiagramSearchEngine: (engine: 'google' | 'bing') => void
   setEnabledFeatures: (f: Record<FeatureKey, boolean>) => void
+  expandedTreePaths: Record<string, string[]>
+  setExpandedTreePaths: (ws: string, paths: string[]) => void
   loadQuizSettingsFromServer: () => Promise<void>
   loadWorkspacesFromServer: () => Promise<void>
 }
 
-function savePrefs(partial: Record<string, any>) {
+function savePrefs(partial: Record<string, unknown>) {
   const prefs = storageService.getPreferences()
   storageService.setPreferences({ ...prefs, ...partial })
 }
@@ -47,9 +49,9 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
   conceptMaxCount: storageService.getPreferences().conceptMaxCount,
   quizEnabledTypes: (storageService.getPreferences().quizEnabledTypes || ['choice', 'truefalse', 'fill_blank', 'short_answer', 'code_completion']) as QuestionType[],
   workspaces: storageService.getPreferences().workspaces,
-  diagramSearchEngine: ((storageService.getPreferences() as any).diagramSearchEngine as 'google' | 'bing') || 'bing',
+  diagramSearchEngine: ((storageService.getPreferences() as Record<string, unknown>).diagramSearchEngine as 'google' | 'bing') || 'bing',
   enabledFeatures: (() => {
-    const raw = storageService.getPreferences() as Record<string, any>
+    const raw = storageService.getPreferences() as Record<string, unknown>
     const stored = raw.enabledFeatures as Record<FeatureKey, boolean> | undefined
     const defaults: Partial<Record<FeatureKey, boolean>> = { aiSummary: false, aiEvaluation: false, aiScript: false }
     if (!stored) return Object.fromEntries(ALL_FEATURES.map(k => [k, defaults[k] ?? true])) as Record<FeatureKey, boolean>
@@ -156,10 +158,9 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
         savePrefs({ quizQuestionCount: cfg.quizQuestionCount })
         set({ quizQuestionCount: cfg.quizQuestionCount })
       }
-    } catch {}
+    } catch { /* server unavailable — keep local settings */ }
   },
 
-  /** Load workspaces from server and merge into local state (server wins) */
   expandedTreePaths: (() => {
     try { return JSON.parse(localStorage.getItem('insighthub:file-tree-expanded') || '{}') } catch { return {} }
   })() as Record<string, string[]>,
@@ -169,6 +170,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     set({ expandedTreePaths: updated })
   },
 
+  /** Load workspaces from server and merge into local state (server wins) */
   loadWorkspacesFromServer: async () => {
     try {
       const res = await fetch('/api/workspaces')

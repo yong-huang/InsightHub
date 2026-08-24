@@ -65,7 +65,7 @@ export function KnowledgeGraphPage() {
       } else if (document.fullscreenElement) {
         await document.exitFullscreen()
       }
-    } catch {}
+    } catch { /* fullscreen request denied */ }
   }, [isFullscreen])
 
   // KnowledgeGraph options

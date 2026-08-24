@@ -75,9 +75,9 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   loadHistory: () => {
     fetch('/api/quiz-history')
       .then(r => r.json())
-      .then((serverHistory: any[]) => {
+      .then((serverHistory: QuizAttempt[]) => {
         const seen = new Set<string>()
-        const deduped: any[] = []
+        const deduped: QuizAttempt[] = []
         for (const entry of serverHistory) {
           const key = entry.id || `${entry.documentId}-${entry.completedAt}`
           if (!seen.has(key)) { seen.add(key); deduped.push(entry) }
@@ -105,7 +105,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   loadSavedQuizzes: () => {
     fetch('/api/quizzes')
       .then(r => r.json())
-      .then((serverQuizzes: Record<string, any>) => {
+      .then((serverQuizzes: Record<string, Quiz>) => {
         set({ savedQuizzes: serverQuizzes })
       })
       .catch(() => {})
@@ -121,7 +121,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     })
     try {
       const { quiz, error: err } = await createQuiz(
-        doc as any,
+        doc,
         difficulty,
         count,
         enabledTypes,
@@ -155,8 +155,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         set({ savedQuizzes: { ...get().savedQuizzes, [docId]: quiz } })
         syncQuizToServer(quiz)
       }
-    } catch (e: any) {
-      set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: e.message || 'Generation failed' } }))
+    } catch (e) {
+      set(s => ({ generatingErrors: { ...s.generatingErrors, [docId]: (e instanceof Error ? e.message : String(e)) || 'Generation failed' } }))
     } finally {
       set(s => {
         const ids = new Set(s.generatingDocIds)

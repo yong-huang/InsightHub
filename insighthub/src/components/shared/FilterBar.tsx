@@ -28,7 +28,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
           <select
             className="filter-select"
             value={filters.source || ''}
-            onChange={e => onFilterChange({ source: (e.target.value || undefined) as any })}
+            onChange={e => onFilterChange({ source: e.target.value || undefined })}
           >
             <option value="">All Sources</option>
             {workspaces.map(ws => (
@@ -85,7 +85,7 @@ export function FilterBar({ filters, onFilterChange, onReset, showCategoryFilter
         <select
           className="filter-select"
           value={filters.tag || ''}
-          onChange={e => onFilterChange({ tag: (e.target.value || undefined) as any })}
+          onChange={e => onFilterChange({ tag: e.target.value || undefined })}
         >
           <option value="">All Tags</option>
           {tags.filter(t => t.documentIds.length > 0).map(tag => (

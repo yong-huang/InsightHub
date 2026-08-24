@@ -54,15 +54,16 @@ export function LearningPathPage() {
   const documents = useDocumentStore(s => s.documents)
   const annotations = useAnnotationStore(s => s.annotations)
   const quizHistory = useQuizStore(s => s.quizHistory)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('tree')
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    // Restore initial tab from navigation state (e.g. returning from doc reader)
+    const tab = (location.state as { tab?: string } | null)?.tab
+    return tab === 'study-plan' || tab === 'tree' || tab === 'path' || tab === 'timeline' ? tab : 'tree'
+  })
   const [typeFilter, setTypeFilter] = useState<TimelineTypeFilter>('all')
 
-  // Restore tab from navigation state (e.g. returning from doc reader)
+  // Clear the restored tab state so it isn't re-applied on in-page navigation
   useEffect(() => {
-    const tab = (location.state as { tab?: string } | null)?.tab
-    if (tab === 'study-plan' || tab === 'tree' || tab === 'path' || tab === 'timeline') {
-      setActiveTab(tab)
-      // Clear the state so tab isn't restored again on in-page navigation
+    if ((location.state as { tab?: string } | null)?.tab) {
       window.history.replaceState({ ...location.state, tab: undefined }, '')
     }
   }, [location.state])

@@ -138,7 +138,7 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
   const outputBodyRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const coachBodyRef = useRef<HTMLDivElement>(null)
-  const coachTimer = useRef<ReturnType<typeof setTimeout>>()
+  const coachTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const coachAbortRef = useRef<AbortController | null>(null)
   const [themeKey, setThemeKey] = useState(0)
 
@@ -283,9 +283,9 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
           }
         }
       }
-    } catch (e: any) {
+    } catch (e) {
       if (!controller.signal.aborted) {
-        setRunOutput(prev => prev + `\n[Error] ${e.message}\n`)
+        setRunOutput(prev => prev + `\n[Error] ${e instanceof Error ? e.message : String(e)}\n`)
       }
     } finally {
       if (runAbortRef.current === controller) setIsRunning(false)
@@ -322,10 +322,6 @@ export function CodeEditorPanel({ docId, initialText, onClose }: CodeEditorPanel
       markdown: '<!-- -->', xml: '<!-- -->', plaintext: '//',
     }
     const cs = commentStyle[language] || '//'
-    const commentBlock = language === 'python'
-      ? '# REVIEW: ...'
-      : language === 'sql' || language === 'html' || language === 'xml' || language === 'markdown'
-        ? '-- REVIEW: ...' : '// REVIEW: ...'
     try {
       const result = await callAIStream([
         { role: 'system', content: `You are a senior code reviewer reviewing ${langLabel} code.
@@ -339,7 +335,7 @@ Rules:
         { role: 'user', content: `\`\`\`${language}\n${code}\n\`\`\`` },
       ])
       if (result.data) {
-        let reviewed = result.data
+        let reviewed = String(result.data)
         // Strip markdown code fences if the model wraps output in them
         reviewed = reviewed.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '')
         setCode(reviewed)
@@ -347,7 +343,7 @@ Rules:
       if (result.usage) recordUsage('code-review', result.usage, docId)
     } catch { /* ignore AI errors */ }
     finally { setIsReviewing(false) }
-  }, [code, language, isReviewing])
+  }, [code, language, isReviewing, docId])
 
   // Drag via pointer capture
   const onTitleBarPointerDown = useCallback((e: React.PointerEvent) => {
@@ -544,7 +540,6 @@ Rules:
                 closeBrackets: true,
                 indentOnInput: true,
                 tabSize: 4,
-                indentUnit: 4,
               }}
             />
           </div>

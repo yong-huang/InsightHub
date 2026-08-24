@@ -1,9 +1,9 @@
 import type { Quiz, QuizAttempt, Question, Difficulty, QuestionType } from '@/types'
 import { generateQuizQuestions, gradeShortAnswers } from './aiService'
-import type { Document } from '@/types'
 
-export function parseQuizResponse(data: any, documentId: string, documentTitle: string): Quiz {
-  const questions: Question[] = (data.questions || []).map((q: any, i: number) => ({
+export function parseQuizResponse(data: unknown, documentId: string, documentTitle: string): Quiz {
+  const d = (data || {}) as { questions?: Partial<Question>[] }
+  const questions: Question[] = (d.questions || []).map((q, i) => ({
     id: q.id || `q${i + 1}`,
     type: (q.type || 'choice') as QuestionType,
     difficulty: q.difficulty || 'medium',
@@ -27,7 +27,7 @@ export function parseQuizResponse(data: any, documentId: string, documentTitle: 
 }
 
 export async function createQuiz(
-  doc: Document,
+  doc: { id: string; title: string; contentText: string },
   difficulty: Difficulty,
   questionCount: number,
   enabledTypes?: QuestionType[]
@@ -124,15 +124,18 @@ export async function gradeQuiz(
       })),
       answers
     )
-    if (result.success && result.data?.scores) {
-      for (const [qId, s] of Object.entries(result.data.scores)) {
+    const scores = result.success && result.data
+      ? (result.data as { scores?: Record<string, { score?: number; feedback?: string }> }).scores
+      : undefined
+    if (scores) {
+      for (const [qId, s] of Object.entries(scores)) {
         const idx = quiz.questions.findIndex(q => q.id === qId)
         const pq = idx >= 0 ? getPerQuestion(idx) : Math.round(100 / quiz.questions.length)
-        const raw = (s as any).score ?? 0
+        const raw = s.score ?? 0
         aiScores[qId] = {
           score: Math.round(raw / 100 * pq),
           maxScore: pq,
-          feedback: (s as any).feedback,
+          feedback: s.feedback,
         }
       }
     } else {

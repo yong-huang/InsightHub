@@ -9,15 +9,15 @@ const PROJECT_DIR = path.resolve(__dirname)
 // Read workspace paths from config
 function loadWorkspacePaths(): string[] {
   const configPath = path.resolve(PROJECT_DIR, '.insighthub-workspaces.json')
-  let workspaces: any[] = []
+  let workspaces: { path: string }[] = []
   try {
     if (fs.existsSync(configPath)) {
       const wsConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
       if (Array.isArray(wsConfig)) workspaces = wsConfig
     }
-  } catch {}
+  } catch { /* missing or invalid config — fall back to defaults */ }
   return workspaces
-    .map((ws: any) => ws.path)
+    .map((ws: { path: string }) => ws.path)
     .filter(Boolean)
     .map((p: string) => path.isAbsolute(p) ? p : path.resolve(PROJECT_DIR, p))
 }

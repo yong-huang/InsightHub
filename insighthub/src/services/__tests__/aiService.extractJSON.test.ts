@@ -35,7 +35,7 @@ describe('extractJSON', () => {
 
   it('handles truncated JSON via brace matching', () => {
     const truncated = '{"questions": [{"id": "q1", "type": "choice"'
-    const result = extractJSON(truncated)
+    const result = extractJSON(truncated) as { questions: { id: string }[] }
     // Should repair by closing unclosed brackets
     expect(result.questions).toBeDefined()
     expect(result.questions[0].id).toBe('q1')
@@ -58,7 +58,7 @@ describe('extractJSON', () => {
 
   it('escapes newlines in strings', () => {
     const input = '{"text": "hello\nworld"}'
-    const result = extractJSON(input)
+    const result = extractJSON(input) as { text: string }
     expect(result.text).toBe('hello\nworld')
   })
 
@@ -86,7 +86,7 @@ describe('extractJSON', () => {
 
   it('inserts missing commas between adjacent objects', () => {
     const input = '{"items": [{"id": 1}{"id": 2}]}'
-    const result = extractJSON(input)
+    const result = extractJSON(input) as { items: unknown[] }
     expect(result.items).toHaveLength(2)
   })
 

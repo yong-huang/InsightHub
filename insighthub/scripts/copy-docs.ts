@@ -17,7 +17,7 @@ function loadWorkspaces(): WorkspaceEntry[] {
       const wsConfig: WorkspaceEntry[] = JSON.parse(fs.readFileSync(WORKSPACES_CONFIG, 'utf-8'))
       if (Array.isArray(wsConfig) && wsConfig.length > 0) return wsConfig
     }
-  } catch {}
+  } catch { /* missing or invalid config */ }
   return []
 }
 

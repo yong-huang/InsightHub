@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   FolderOpen,
   FileText,
@@ -16,7 +16,6 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { TreeNode } from './TreeNode'
 import { startGeneration, getOngoingGeneration, loadStudyPlans, deleteStudyPlan } from '@/services/studyPlanService'
-import type { StudyPlanResult } from '@/services/studyPlanService'
 
 /** Cached uppercase labels — avoids repeated .toUpperCase() calls per render */
 const upperCache = new Map<string, string>()
@@ -37,7 +36,6 @@ function formatTime(ts: number): string {
 
 export function StudyPlanTree() {
   const navigate = useNavigate()
-  const location = useLocation()
   const fromPath = '/learning-path'
   const navState = { from: fromPath, tab: 'study-plan' as const }
   const activeWorkspace = usePreferenceStore(s => s.activeWorkspace)
@@ -50,7 +48,10 @@ export function StudyPlanTree() {
   const [openNodes, setOpenNodes] = useState<Set<string>>(new Set())
 
   // Load all plans for current workspace
-  const plans = useMemo(() => loadStudyPlans(activeWorkspace), [activeWorkspace, isLoading])
+  const plans = useMemo(() => {
+    void isLoading // re-read plans after a generation completes
+    return loadStudyPlans(activeWorkspace)
+  }, [activeWorkspace, isLoading])
   const result = plans.find(p => p.id === activePlanId) ?? null
 
   // Restore state on mount: re-attach to ongoing generation or select most recent plan
@@ -133,8 +134,8 @@ export function StudyPlanTree() {
     try {
       const plan = await startGeneration(trimmed, documents, activeWorkspace)
       setActivePlanId(plan.id)
-    } catch (e: any) {
-      setError(e.message || 'Failed to generate study plan')
+    } catch (e) {
+      setError((e instanceof Error ? e.message : String(e)) || 'Failed to generate study plan')
     } finally {
       setIsLoading(false)
     }

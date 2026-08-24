@@ -148,7 +148,7 @@ export function buildPersonalMapData(
   const sortedCats = Array.from(categoryAgg.entries())
     .sort(([, a], [, b]) => getEngagementScore(b.metrics) - getEngagementScore(a.metrics))
 
-  for (const [catKey, { metrics, docs }] of sortedCats) {
+  for (const [catKey, { metrics }] of sortedCats) {
     const eng = getEngagementScore(metrics)
     const size = Math.max(14, Math.min(28, 10 + eng * 0.5))
     const color = metrics.bestQuizScore >= 0 ? getMasteryColor(metrics.bestQuizScore) : '#a78bfa'

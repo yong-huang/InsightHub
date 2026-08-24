@@ -7,12 +7,6 @@ import { storageService } from '@/services/storageService'
 import { getCategoryInfo } from '@/utils/categoryMap'
 import { getShortLabel } from '@/utils/workspaceUtils'
 
-function formatTime(ts: number): string {
-  const d = new Date(ts)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 export function HiddenDocsPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -35,10 +29,7 @@ export function HiddenDocsPage() {
   // Parse deprecated categories for current workspace
   const hiddenCategories = useMemo(() => {
     return catKeys
-      .filter(key => {
-        const [source, category] = key.split(':')
-        return source === activeWorkspace
-      })
+      .filter(key => key.split(':')[0] === activeWorkspace)
       .map(key => {
         const [, category] = key.split(':')
         const catInfo = getCategoryInfo(category)

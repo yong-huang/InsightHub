@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { X, Loader, ArrowRightLeft, AlertCircle } from 'lucide-react'
+import { X, ArrowRightLeft, AlertCircle } from 'lucide-react'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
 import { useDynamicCategories } from '@/hooks/useDynamicCategories'

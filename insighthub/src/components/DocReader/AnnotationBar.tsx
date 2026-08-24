@@ -32,7 +32,7 @@ export function AnnotationBar({ selectionInfo, onHighlight, onComment, onExplain
 
   // Close on pointerdown outside the bar or on scroll
   useEffect(() => {
-    const handlePointerDown = (e: PointerEvent) => {
+    const handlePointerDown = (e: PointerEvent | TouchEvent) => {
       if (barRef.current && !barRef.current.contains(e.target as Node)) {
         onClose()
       }

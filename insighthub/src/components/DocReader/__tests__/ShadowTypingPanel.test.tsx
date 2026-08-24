@@ -6,12 +6,12 @@ import { ShadowTypingPanel } from '../ShadowTypingPanel'
 // Mock AI services
 const mockCallAIStream = vi.fn()
 vi.mock('@/services/aiService', () => ({
-  callAIStream: (...args: any[]) => mockCallAIStream(...args),
+  callAIStream: (...args: unknown[]) => mockCallAIStream(...args),
 }))
 
 const mockRecordUsage = vi.fn()
 vi.mock('@/services/tokenUsageService', () => ({
-  recordUsage: (...args: any[]) => mockRecordUsage(...args),
+  recordUsage: (...args: unknown[]) => mockRecordUsage(...args),
 }))
 
 // Mock document store
@@ -19,14 +19,14 @@ const mockEnsureContentText = vi.fn()
 vi.mock('@/stores/documentStore', () => ({
   useDocumentStore: {
     getState: () => ({
-      ensureContentText: (...args: any[]) => mockEnsureContentText(...args),
+      ensureContentText: (...args: unknown[]) => mockEnsureContentText(...args),
     }),
   },
 }))
 
 // Helper: create a streaming mock that calls onChunk synchronously and resolves
 function mockStreamResponse(text: string, usage = { promptTokens: 100, completionTokens: 50, totalTokens: 150 }) {
-  return async (_messages: any[], onChunk: (t: string) => void, _signal?: AbortSignal) => {
+  return async (_messages: unknown[], onChunk: (t: string) => void, _signal?: AbortSignal) => {
     onChunk(text)
     return { success: true, data: text, usage }
   }
@@ -138,11 +138,11 @@ describe('ShadowTypingPanel', () => {
 
   it('submits user message and triggers AI on send', async () => {
     let onChunkRef: ((t: string) => void) | undefined
-    let streamResolve: (v: any) => void
+    let streamResolve: (v: unknown) => void
     let callCount = 0
-    mockCallAIStream.mockImplementation(async (...args: any[]) => {
+    mockCallAIStream.mockImplementation(async (...args: unknown[]) => {
       callCount++
-      const onChunk = args[1]
+      const onChunk = args[1] as ((t: string) => void) | undefined
       if (callCount === 1) {
         // First call (initial session) — resolve immediately
         onChunk?.('Initial AI message')
@@ -181,14 +181,14 @@ describe('ShadowTypingPanel', () => {
 
   it('submits with Cmd+Enter', async () => {
     let callCount = 0
-    mockCallAIStream.mockImplementation(async (...args: any[]) => {
+    mockCallAIStream.mockImplementation(async (...args: unknown[]) => {
       callCount++
       if (callCount === 1) {
-        const onChunk = args[1]
+        const onChunk = args[1] as ((t: string) => void) | undefined
         onChunk?.('Initial AI message')
         return { success: true, data: 'Initial AI message', usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } }
       }
-      const onChunk = args[1]
+      const onChunk = args[1] as ((t: string) => void) | undefined
       onChunk?.('AI response')
       return { success: true, data: 'AI response', usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } }
     })
@@ -263,8 +263,8 @@ describe('ShadowTypingPanel', () => {
   })
 
   it('disables restart button during streaming', async () => {
-    let streamResolve: (v: any) => void
-    mockCallAIStream.mockImplementation(async (...args: any[]) => {
+    let streamResolve: (v: unknown) => void
+    mockCallAIStream.mockImplementation(async (..._args: unknown[]) => {
       // Hang until resolved — keeps isStreaming true
       return await new Promise(r => { streamResolve = r })
     })

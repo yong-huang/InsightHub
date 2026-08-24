@@ -1,7 +1,9 @@
 const PREFIX = 'insighthub:'
 
-import type { WorkspaceConfig } from '@/types'
+import type { WorkspaceConfig, Quiz, QuizAttempt, Question, Annotation, ConceptCard, ConceptChallenge, SavedDiagram } from '@/types'
 import type { StudyPlanResult } from '@/services/studyPlanService'
+import type { TokenUsageEntry } from './tokenUsageService'
+import type { ChatMessage } from './readerAiService'
 
 export const DEFAULT_WORKSPACES: WorkspaceConfig[] = []
 
@@ -134,7 +136,7 @@ export const storageService = {
     try {
       const res = await fetch('/api/client-storage')
       if (!res.ok) return
-      const serverData: Record<string, any> = await res.json()
+      const serverData: Record<string, unknown> = await res.json()
       for (const [key, value] of Object.entries(serverData)) {
         if (key.startsWith(PREFIX) && !DEDICATED_SYNC_KEYS.has(key)) {
           localStorage.setItem(key, JSON.stringify(value))
@@ -146,7 +148,7 @@ export const storageService = {
   },
 
   getPreferences: () => {
-    const stored = getItem<Record<string, any>>(storageKeys.PREFERENCES, {})
+    const stored = getItem<Record<string, unknown>>(storageKeys.PREFERENCES, {})
     return {
       theme: 'light',
       quizDifficulty: 'medium',
@@ -163,7 +165,7 @@ export const storageService = {
     }
   },
 
-  setPreferences: (prefs: Record<string, any>) =>
+  setPreferences: (prefs: Record<string, unknown>) =>
     setItem(storageKeys.PREFERENCES, prefs),
 
   getDocumentMeta: () => getItem<Record<string, DocumentMeta>>(storageKeys.DOCUMENT_META, {}),
@@ -195,11 +197,11 @@ export const storageService = {
   setTags: (tags: { id: string; name: string; color: string; documentIds: string[] }[]) =>
     setItem(storageKeys.TAGS, tags),
 
-  getQuizHistory: () => getItem<any[]>(storageKeys.QUIZ_HISTORY, []),
+  getQuizHistory: () => getItem<QuizAttempt[]>(storageKeys.QUIZ_HISTORY, []),
 
-  setQuizHistory: (history: any[]) => setItem(storageKeys.QUIZ_HISTORY, history),
+  setQuizHistory: (history: QuizAttempt[]) => setItem(storageKeys.QUIZ_HISTORY, history),
 
-  addQuizAttempt: (attempt: any) => {
+  addQuizAttempt: (attempt: QuizAttempt) => {
     const history = storageService.getQuizHistory()
     history.unshift(attempt)
     setItem(storageKeys.QUIZ_HISTORY, history)
@@ -221,9 +223,9 @@ export const storageService = {
     setItem(storageKeys.SEARCH_HISTORY, history.filter((h: string) => h !== query))
   },
 
-  getQuizzes: () => getItem<Record<string, any>>(storageKeys.QUIZZES, {}),
+  getQuizzes: () => getItem<Record<string, Quiz>>(storageKeys.QUIZZES, {}),
 
-  saveQuiz: (quiz: any) => {
+  saveQuiz: (quiz: Quiz) => {
     const quizzes = storageService.getQuizzes()
     quizzes[quiz.documentId] = quiz
     return setItem(storageKeys.QUIZZES, quizzes)
@@ -236,24 +238,24 @@ export const storageService = {
   },
 
   /** Save entire quizzes object at once (avoids N individual writes) */
-  saveQuizzesBulk: (quizzes: Record<string, any>) =>
+  saveQuizzesBulk: (quizzes: Record<string, Quiz>) =>
     setItem(storageKeys.QUIZZES, quizzes),
 
-  appendQuizQuestions: (documentId: string, newQuestions: any[]) => {
+  appendQuizQuestions: (documentId: string, newQuestions: Question[]) => {
     const quizzes = storageService.getQuizzes()
     const existing = quizzes[documentId]
     if (!existing) return false
-    const existingIds = new Set(existing.questions.map((q: any) => q.id))
-    const unique = newQuestions.filter((q: any) => !existingIds.has(q.id))
+    const existingIds = new Set(existing.questions.map(q => q.id))
+    const unique = newQuestions.filter(q => !existingIds.has(q.id))
     existing.questions.push(...unique)
     existing.maxScore = existing.questions.length * 100
     existing.createdAt = Date.now()
     return setItem(storageKeys.QUIZZES, quizzes)
   },
 
-  getAnnotations: () => getItem<any[]>(storageKeys.ANNOTATIONS, []),
+  getAnnotations: () => getItem<Annotation[]>(storageKeys.ANNOTATIONS, []),
 
-  setAnnotations: (annotations: any[]) => setItem(storageKeys.ANNOTATIONS, annotations),
+  setAnnotations: (annotations: Annotation[]) => setItem(storageKeys.ANNOTATIONS, annotations),
 
   getSummaries: () => getItem<Record<string, string>>(storageKeys.SUMMARIES, {}),
 
@@ -314,13 +316,13 @@ export const storageService = {
     setItem(storageKeys.ACHIEVEMENTS, state),
 
   // Chat history per document
-  getChatHistory: (docId: string) => {
-    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+  getChatHistory: (docId: string): ChatMessage[] => {
+    const all = getItem<Record<string, ChatMessage[]>>(storageKeys.CHAT_HISTORY, {})
     return all[docId] || []
   },
 
-  saveChatHistory: (docId: string, messages: any[]) => {
-    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+  saveChatHistory: (docId: string, messages: ChatMessage[]) => {
+    const all = getItem<Record<string, ChatMessage[]>>(storageKeys.CHAT_HISTORY, {})
     // Cap at 50 messages per document to prevent localStorage bloat
     all[docId] = messages.slice(-50)
     // Keep at most 30 documents' history
@@ -332,22 +334,22 @@ export const storageService = {
   },
 
   deleteChatHistory: (docId: string) => {
-    const all = getItem<Record<string, any[]>>(storageKeys.CHAT_HISTORY, {})
+    const all = getItem<Record<string, ChatMessage[]>>(storageKeys.CHAT_HISTORY, {})
     delete all[docId]
     setItem(storageKeys.CHAT_HISTORY, all)
   },
 
   // Concept cards
-  getConceptCards: () => getItem<any[]>(storageKeys.CONCEPT_CARDS, []),
+  getConceptCards: () => getItem<ConceptCard[]>(storageKeys.CONCEPT_CARDS, []),
 
-  setConceptCards: (cards: any[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
+  setConceptCards: (cards: ConceptCard[]) => setItem(storageKeys.CONCEPT_CARDS, cards),
 
   // Concept challenge history
-  getChallengeHistory: () => getItem<any[]>(storageKeys.CHALLENGE_HISTORY, []),
+  getChallengeHistory: () => getItem<ConceptChallenge[]>(storageKeys.CHALLENGE_HISTORY, []),
 
-  saveChallenge: (challenge: any) => {
+  saveChallenge: (challenge: ConceptChallenge) => {
     const history = storageService.getChallengeHistory()
-    const idx = history.findIndex((c: any) => c.id === challenge.id)
+    const idx = history.findIndex(c => c.id === challenge.id)
     if (idx >= 0) {
       history[idx] = challenge
     } else {
@@ -358,7 +360,7 @@ export const storageService = {
 
   deleteChallenge: (challengeId: string) => {
     const history = storageService.getChallengeHistory()
-    setItem(storageKeys.CHALLENGE_HISTORY, history.filter((c: any) => c.id !== challengeId))
+    setItem(storageKeys.CHALLENGE_HISTORY, history.filter(c => c.id !== challengeId))
   },
 
   // Migrate legacy data: if CHALLENGE_HISTORY was corrupted by session writes,
@@ -373,7 +375,7 @@ export const storageService = {
         // Extract any __session_* keys to the new sessions key
         const sessionKeys = Object.keys(data).filter(k => k.startsWith('__session_'))
         if (sessionKeys.length > 0) {
-          const sessions = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
+          const sessions = getItem<Record<string, unknown>>(storageKeys.CHALLENGE_SESSIONS, {})
           for (const k of sessionKeys) sessions[k] = data[k]
           setItem(storageKeys.CHALLENGE_SESSIONS, sessions)
         }
@@ -384,17 +386,17 @@ export const storageService = {
   },
 
   // Active challenge session (per document) — survives panel toggle / page switch
-  getChallengeSession: (docId: string) =>
-    getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})[`__session_${docId}`] ?? null,
+  getChallengeSession: (docId: string): unknown =>
+    getItem<Record<string, unknown>>(storageKeys.CHALLENGE_SESSIONS, {})[`__session_${docId}`] ?? null,
 
-  saveChallengeSession: (docId: string, session: any) => {
-    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
+  saveChallengeSession: (docId: string, session: unknown) => {
+    const data = getItem<Record<string, unknown>>(storageKeys.CHALLENGE_SESSIONS, {})
     data[`__session_${docId}`] = session
     setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
 
   clearChallengeSession: (docId: string) => {
-    const data = getItem<Record<string, any>>(storageKeys.CHALLENGE_SESSIONS, {})
+    const data = getItem<Record<string, unknown>>(storageKeys.CHALLENGE_SESSIONS, {})
     delete data[`__session_${docId}`]
     setItem(storageKeys.CHALLENGE_SESSIONS, data)
   },
@@ -437,9 +439,9 @@ export const storageService = {
   _setStudyPlans: (plans: StudyPlanResult[]) => setItem(storageKeys.STUDY_PLANS, plans),
 
   // Token usage tracking
-  getTokenUsage: () => getItem<any[]>(storageKeys.TOKEN_USAGE, []),
+  getTokenUsage: () => getItem<TokenUsageEntry[]>(storageKeys.TOKEN_USAGE, []),
 
-  _setTokenUsage: (entries: any[]) => setItem(storageKeys.TOKEN_USAGE, entries),
+  _setTokenUsage: (entries: TokenUsageEntry[]) => setItem(storageKeys.TOKEN_USAGE, entries),
 
   saveStudyPlan: (plan: StudyPlanResult) => {
     const plans = storageService.getStudyPlans()
@@ -509,21 +511,21 @@ export const storageService = {
   },
 
   // Architecture diagrams
-  getArchDiagrams: () => getItem<any[]>(storageKeys.ARCH_DIAGRAMS, []),
+  getArchDiagrams: () => getItem<SavedDiagram[]>(storageKeys.ARCH_DIAGRAMS, []),
 
-  setArchDiagrams: (diagrams: any[]) => setItem(storageKeys.ARCH_DIAGRAMS, diagrams),
+  setArchDiagrams: (diagrams: SavedDiagram[]) => setItem(storageKeys.ARCH_DIAGRAMS, diagrams),
 
-  addArchDiagram: (diagram: any) => {
+  addArchDiagram: (diagram: SavedDiagram) => {
     const diagrams = storageService.getArchDiagrams()
     // Dedup by docId+url
-    if (diagrams.some((d: any) => d.documentId === diagram.documentId && d.url === diagram.url)) return false
+    if (diagrams.some(d => d.documentId === diagram.documentId && d.url === diagram.url)) return false
     diagrams.unshift(diagram)
     storageService.setArchDiagrams(diagrams.slice(0, 200))
     return true
   },
 
   removeArchDiagram: (id: string) => {
-    const diagrams = storageService.getArchDiagrams().filter((d: any) => d.id !== id)
+    const diagrams = storageService.getArchDiagrams().filter(d => d.id !== id)
     storageService.setArchDiagrams(diagrams)
   },
 
@@ -535,8 +537,8 @@ export const storageService = {
     try {
       const raw = localStorage.getItem(`${PREFIX}read-history`)
       if (raw) {
-        const arr = JSON.parse(raw) as any[]
-        const cleaned = arr.map((h: any) =>
+        const arr = JSON.parse(raw) as ReadHistoryEntry[]
+        const cleaned = arr.map(h =>
           h.documentId === oldId ? { ...h, documentId: newId } : h
         )
         localStorage.setItem(`${PREFIX}read-history`, JSON.stringify(cleaned))
@@ -554,7 +556,7 @@ export const storageService = {
       try {
         const raw = localStorage.getItem(key)
         if (!raw) continue
-        const arr = JSON.parse(raw) as any[]
+        const arr = JSON.parse(raw) as Array<Record<string, unknown>>
         const cleaned = arr.map(item =>
           item[idField] === oldId ? { ...item, [idField]: newId } : item
         )
@@ -577,7 +579,7 @@ export const storageService = {
       try {
         const raw = localStorage.getItem(key)
         if (!raw) continue
-        const obj = JSON.parse(raw) as Record<string, any>
+        const obj = JSON.parse(raw) as Record<string, unknown>
         if (obj[oldId] !== undefined) {
           obj[newId] = obj[oldId]
           delete obj[oldId]

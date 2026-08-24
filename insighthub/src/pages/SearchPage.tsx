@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Search, Clock } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useSearchStore } from '@/stores/searchStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { usePreferenceStore } from '@/stores/preferenceStore'
@@ -21,7 +21,7 @@ export function SearchPage() {
     } else {
       performSearch('')
     }
-  }, [initialQuery])
+  }, [initialQuery, performSearch])
 
   const plainQuery = useMemo(() => parseSearchQuery(query).text, [query])
 
@@ -39,8 +39,6 @@ export function SearchPage() {
     () => getRecentReads().filter(d => d.source === activeWorkspace),
     [getRecentReads, activeWorkspace],
   )
-  const navigate = useNavigate()
-
   const title = !query ? 'Recent Reads' : `Search: ${query}`
 
   return (
