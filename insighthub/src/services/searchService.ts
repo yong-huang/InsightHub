@@ -1,15 +1,39 @@
-import { Document } from 'flexsearch'
+import { Document, Encoder } from 'flexsearch'
 import type { SearchResult, SearchFilters, Source, Document as AppDocument } from '@/types'
 
+// Prefix index (forward): "22" also recalls "220" — used for broad candidate recall
 let searchIndex: Document | null = null
+// Exact index (strict): "22" only matches the full token "22" — used to rank
+// exact matches ("#22") above prefix matches ("#220", "#221")
+let exactIndex: Document | null = null
+
 export let isIndexing = false
 
 export function setIsIndexing(value: boolean): void {
   isIndexing = value
 }
 
-function createIndex(): Document {
-  const index = new Document({
+// The default FlexSearch encoder collapses consecutive duplicate characters
+// (dedupe), which mangles numbers: "22" → "2", "220" → "20", "222" → "2".
+// That makes "#22" indistinguishable from "#220"/"#221" at the token level.
+// Disabling dedupe keeps numeric tokens precise; word behavior is unchanged.
+const encoder = new Encoder({ dedupe: false })
+
+function createIndex(tokenize: 'strict' | 'forward'): Document {
+  if (tokenize === 'strict') {
+    return new Document({
+      encoder,
+      tokenize: 'strict',
+      cache: 100,
+      document: {
+        id: 'id',
+        index: ['title', 'content'],
+        store: ['title', 'category', 'source', 'snippet'],
+      },
+    })
+  }
+  return new Document({
+    encoder,
     tokenize: 'forward',
     cache: 100,
     document: {
@@ -23,7 +47,6 @@ function createIndex(): Document {
       bidirectional: true,
     },
   })
-  return index
 }
 
 // Amount of content to keep in FlexSearch store for snippet generation (~200 chars per doc)
@@ -37,20 +60,27 @@ export async function indexDocument(doc: {
   source: Source
 }): Promise<void> {
   if (!searchIndex) {
-    searchIndex = createIndex()
+    searchIndex = createIndex('forward')
+  }
+  if (!exactIndex) {
+    exactIndex = createIndex('strict')
   }
   const truncatedContent = doc.contentText.slice(0, 8000)
   // Store a short excerpt for snippet generation instead of full content
   const storeSnippet = truncatedContent.length > STORE_SNIPPET_LENGTH
     ? truncatedContent.slice(0, STORE_SNIPPET_LENGTH) + '...'
     : truncatedContent
-  await searchIndex.add(doc.id, {
+  const entry = {
     title: doc.title,
     content: truncatedContent,
     category: doc.category,
     source: doc.source,
     snippet: storeSnippet,
-  })
+  }
+  await Promise.all([
+    searchIndex.add(doc.id, entry),
+    exactIndex.add(doc.id, entry),
+  ])
 }
 
 // Build reverse map: label→key for category matching
@@ -131,69 +161,81 @@ export function parseSearchQuery(raw: string): ParsedQuery {
   return { text: textParts.join(' '), filters }
 }
 
+/** Internal candidate pool per index query — large enough that a flood of
+ *  prefix matches ("220", "221", …) can't crowd an exact match out of the
+ *  pool before tier ranking applies. Final results are still sliced to `limit`. */
+const SEARCH_POOL = 150
+
+interface SearchTier {
+  index: Document | null
+  field: string
+  score: number
+  /** Queries to run for this tier — usually just the original query */
+  queries: string[]
+}
+
 export async function search(
   query: string,
   limit = 20
 ): Promise<SearchResult[]> {
-  if (!searchIndex) return []
-  if (!query.trim()) return []
+  if ((!searchIndex && !exactIndex) || !query.trim()) return []
 
   try {
-    const results: SearchResult[] = []
+    const results = new Map<string, SearchResult>()
+    // A doc keeps the score of the best tier it appears in.
 
-    // Search title
-    const titleResults = await searchIndex.search(query, {
-      index: 'title',
-      limit: limit,
-      enrich: true,
-    })
-    if (Array.isArray(titleResults) && titleResults.length > 0) {
-      for (const group of titleResults) {
-        for (const result of group.result) {
-          const id = String(result.id)
-          const doc = result.doc as Record<string, string | undefined> | undefined
-          if (!results.find(r => r.id === id)) {
-            const snippet: string = doc?.snippet || ''
-            results.push({
+    // Numeric queries ("#22", "220"): docs whose number STARTS WITH the query
+    // ("220", "2200" for "22") are part of what the user is looking for, so
+    // they get their own tiers between exact matches and generic matches.
+    // Without this, generic docs that merely mention "22" (chapter refs, code,
+    // …) flood the exact tier and push the whole "22x" family out of the cut.
+    const core = query.trim().replace(/^#+/, '')
+    const tiers: SearchTier[] = [
+      { index: exactIndex, field: 'title', score: 100, queries: [query] },
+      { index: exactIndex, field: 'content', score: 80, queries: [query] },
+    ]
+    if (/^\d+$/.test(core) && searchIndex) {
+      tiers.push(
+        { index: searchIndex, field: 'title', score: 90, queries: Array.from({ length: 10 }, (_, d) => core + d) },
+        { index: searchIndex, field: 'content', score: 72, queries: Array.from({ length: 10 }, (_, d) => core + d) },
+      )
+    }
+    tiers.push(
+      { index: searchIndex, field: 'title', score: 50, queries: [query] },
+      { index: searchIndex, field: 'content', score: 30, queries: [query] },
+    )
+
+    for (const tier of tiers) {
+      if (!tier.index) continue
+      for (const tierQuery of tier.queries) {
+        const groups = await tier.index.search(tierQuery, {
+          index: tier.field,
+          limit: SEARCH_POOL,
+          enrich: true,
+        })
+        if (!Array.isArray(groups) || groups.length === 0) continue
+        for (const group of groups) {
+          for (const result of group.result) {
+            const id = String(result.id)
+            if (results.has(id)) continue
+            const doc = result.doc as Record<string, string | undefined> | undefined
+            results.set(id, {
               id,
               title: doc?.title || id,
               category: doc?.category || '',
               source: doc?.source || '',
-              score: 10,
-              snippet: generateSnippet(snippet, query),
+              score: tier.score,
+              snippet: generateSnippet(doc?.snippet || '', query),
             })
           }
         }
       }
     }
 
-    // Search content
-    const contentResults = await searchIndex.search(query, {
-      index: 'content',
-      limit: limit,
-      enrich: true,
-    })
-    if (Array.isArray(contentResults) && contentResults.length > 0) {
-      for (const group of contentResults) {
-        for (const result of group.result) {
-          const id = String(result.id)
-          const doc = result.doc as Record<string, string | undefined> | undefined
-          if (!results.find(r => r.id === id)) {
-            const snippet: string = doc?.snippet || ''
-            results.push({
-              id,
-              title: doc?.title || id,
-              category: doc?.category || '',
-              source: doc?.source || '',
-              score: 5,
-              snippet: generateSnippet(snippet, query),
-            })
-          }
-        }
-      }
-    }
-
-    return results.slice(0, limit)
+    // Sort by tier score; stable sort keeps FlexSearch relevance order within a tier
+    return Array.from(results.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
   } catch (e) {
     console.error('Search error:', e)
     return []
@@ -268,4 +310,5 @@ export async function suggestTitles(query: string, limit = 5): Promise<string[]>
 
 export function clearIndex(): void {
   searchIndex = null
+  exactIndex = null
 }
