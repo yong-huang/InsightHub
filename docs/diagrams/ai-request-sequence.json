@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "InsightHub AI 请求时序（流式）",
+    "output": "ai-request-sequence.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1080,
+      600
+    ]
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "读者",
+      "sublabel": "DocReader / Quiz 面板"
+    },
+    {
+      "id": "svc",
+      "type": "frontend",
+      "label": "aiService",
+      "sublabel": "callAI / callAIStream"
+    },
+    {
+      "id": "proxy",
+      "type": "backend",
+      "label": "AI 代理",
+      "sublabel": "/api/ai/chat/completions"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "本地 LLM",
+      "sublabel": "OpenAI 兼容 :7001"
+    },
+    {
+      "id": "usage",
+      "type": "frontend",
+      "label": "tokenUsageService",
+      "sublabel": "用量记录"
+    }
+  ],
+  "messages": [
+    {
+      "from": "user",
+      "to": "svc",
+      "y": 160,
+      "label": "提问 / 摘要 / 出题",
+      "variant": "emphasis"
+    },
+    {
+      "from": "svc",
+      "to": "proxy",
+      "y": 204,
+      "label": "POST /api/ai/chat/completions（stream）",
+      "variant": "emphasis"
+    },
+    {
+      "from": "proxy",
+      "to": "llm",
+      "y": 248,
+      "label": "转发 OpenAI 格式请求"
+    },
+    {
+      "from": "llm",
+      "to": "proxy",
+      "y": 292,
+      "label": "SSE 增量 chunk",
+      "variant": "return"
+    },
+    {
+      "from": "proxy",
+      "to": "svc",
+      "y": 336,
+      "label": "SSE 流式转发",
+      "variant": "emphasis"
+    },
+    {
+      "from": "svc",
+      "to": "user",
+      "y": 380,
+      "label": "增量渲染 Markdown",
+      "variant": "return"
+    },
+    {
+      "from": "llm",
+      "to": "proxy",
+      "y": 428,
+      "label": "usage 统计 + [DONE]",
+      "variant": "return"
+    },
+    {
+      "from": "proxy",
+      "to": "svc",
+      "y": 472,
+      "label": "完成事件 + token 数",
+      "variant": "return"
+    },
+    {
+      "from": "svc",
+      "to": "usage",
+      "y": 516,
+      "label": "记录 token 用量",
+      "variant": "dashed"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "svc",
+      "from": 154,
+      "to": 524,
+      "type": "frontend"
+    },
+    {
+      "participant": "proxy",
+      "from": 198,
+      "to": 480,
+      "type": "backend"
+    },
+    {
+      "participant": "llm",
+      "from": 242,
+      "to": 428,
+      "type": "external"
+    },
+    {
+      "participant": "usage",
+      "from": 510,
+      "to": 530,
+      "type": "frontend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "流式优先",
+      "items": [
+        "callAIStream 走 SSE，响应按增量渲染为 Markdown",
+        "非流式 callAI 设有 120s 请求超时与 180s 空闲超时",
+        "两条路径都会捕获 token 用量"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "单一代理入口",
+      "items": [
+        "浏览器只访问 /api/ai/chat/completions，由 Vite 插件转发，规避 CORS",
+        "AI Profile（地址 / 模型 / Key）在 Settings 中维护并持久化到服务端",
+        "兼容 llama.cpp / Ollama / vLLM / LM Studio 等任意 OpenAI 兼容服务"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "用量可观测",
+      "items": [
+        "tokenUsageService 记录每次调用的 prompt / completion token",
+        "/token-stats 页面按模型与日期汇总并估算成本",
+        "reading、quiz、概念提取等场景共用同一计量管道"
+      ]
+    }
+  ]
+}

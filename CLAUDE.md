@@ -15,6 +15,8 @@ npm run build     # Runs prebuild (copy-docs.ts) → tsc -b → vite build
 npm run lint      # ESLint (flat config, no --fix flag available)
 npm run test      # Vitest run (unit tests in __tests__ directories)
 npm run test:watch # Vitest in watch mode
+npm run test:e2e  # Playwright e2e smoke tests (spawns dev server on :5600; specs in e2e/)
+npm run test:all  # Unit tests + e2e
 npx vitest run src/services/__tests__/aiService.test.ts  # Run a single test file
 npm run preview   # Preview production build
 ```
@@ -37,19 +39,21 @@ npm run preview   # Preview production build
 
 Documents are discovered dynamically via a Vite plugin (`vite-plugins/documentDiscovery.ts`) that scans workspace source directories:
 
-1. **Dev mode**: Plugin scans workspace directories, provides `/api/documents` (manifest, 1s cache) and `/dev-docs/` (serves files from source). `useInitializeApp` fetches manifest, parses each HTML via DOMParser (`src/utils/htmlParser.ts`), stores in `documentStore`, builds FlexSearch index. Batch loading (50 docs/batch) with progress tracking.
+1. **Dev mode**: Plugin scans workspace directories (`scripts/lib/scanDocuments.ts` pre-extracts title, word count, sections, and content snippet), provides `/api/documents` (enriched manifest, 1s cache) and `/dev-docs/` (serves files from source). `useInitializeApp` fetches the manifest and builds the Document Map directly from it — zero content fetches. UI becomes interactive first, then `indexAllDocs` builds the FlexSearch index in the background (50 docs/batch, `contentText` freed after indexing). DOMParser (`src/utils/htmlParser.ts`) is only used for imported documents on demand.
 2. **Production**: `npm run prebuild` runs `scripts/copy-docs.ts` to copy all docs into `public/docs/`. `useDocumentUrl` hook switches between `/dev-docs/` (dev) and `/docs/` (prod) via `import.meta.env.DEV`. Imported docs (prefixed `imported-`) use `/api/imported-doc/` endpoint.
 
 ### Data Flow
 
 ```
 useInitializeApp (hook)
-  → preferenceStore.setTheme (apply theme to <html>)
-  → documentStore.initializeDocuments (fetch /api/documents → parse HTMLs → build FlexSearch index)
-  → tagStore.loadTags / searchStore.loadHistory / quizStore.loadHistory
-  → annotationStore.loadAnnotations (restore from localStorage + merge from server)
-  → conceptCardStore.loadCards (restore from localStorage, migrate if needed)
-  → Server sync: tags, annotations, concept cards, read-meta
+  → documentStore.initializeDocuments
+      (fetch /api/documents enriched manifest → build Document Map
+       → merge read-meta/read-history → UI interactive
+       → Phase 2 background: FlexSearch index, 50 docs/batch)
+  → parallel: tagStore / searchStore / quizStore / annotationStore /
+    conceptCardStore load (localStorage first, then merge from server)
+  → storageService.syncFromServer → preferenceStore.loadWorkspacesFromServer
+  → registerDynamicCategories + extendCategoryMap
 ```
 
 ### Routing (React Router v7, `App.tsx`)
@@ -63,7 +67,7 @@ All routes use `React.lazy()` for code splitting, wrapped in `<Layout />`, `<Sus
 - `/notes` — Notes management (all comments across documents, grouped by doc)
 - `/stats` — Learning analytics with charts (heatmap, radar, quiz performance, token usage)
 - `/read-later` — Read-later reading list
-- `/achievements` — Achievement gallery with 44 unlockable milestones
+- `/achievements` — Achievement gallery with 48 unlockable milestones
 - `/knowledge-graph` — Tabbed: D3-force knowledge graph / personal map / collapsible knowledge tree
 - `/learning-path` — Tabbed: knowledge tree / milestones / activity timeline / AI study plan
 - `/spaced-repetition` — SM-2 concept card review with 3D flip animation
@@ -160,7 +164,7 @@ CSS files: `globals.css` (variables + resets), `layout.css` (app shell + sidebar
 
 ### Component Groups (`src/components/`)
 
-- **DocReader/** — 19 panel components for the document reader (annotation, AI chat, quiz, code editor, whiteboard, etc.)
+- **DocReader/** — 22 components for the document reader (13 panels: annotation, AI chat, quiz, code editor, whiteboard, challenge, inception, etc., plus annotation overlay UI and dialogs)
 - **Layout/** — `Layout`, `Sidebar` (workspace switcher), `Navbar` (search), `FileTree`
 - **visualization/** — 12 D3/Recharts visualization components (knowledge graph, radar, heatmap, tag cloud, etc.)
 - **stats/** — Chart containers and stat components

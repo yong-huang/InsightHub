@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "InsightHub 数据持久化与 LAN 同步",
+    "output": "persistence-dataflow.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1072,
+      560
+    ]
+  },
+  "stages": [
+    {
+      "label": "状态产生"
+    },
+    {
+      "label": "本地持久化"
+    },
+    {
+      "label": "REST 同步"
+    },
+    {
+      "label": "JSON 落盘"
+    },
+    {
+      "label": "多端合并"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "stores",
+      "type": "frontend",
+      "label": "Zustand Stores",
+      "sublabel": "7 个 store 的状态变更",
+      "stage": 0,
+      "row": 0,
+      "width": 150
+    },
+    {
+      "id": "local",
+      "type": "database",
+      "label": "localStorage",
+      "sublabel": "insighthub:* 键前缀",
+      "stage": 1,
+      "row": 2,
+      "width": 140
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "documentDiscovery REST",
+      "sublabel": "约 25 个 /api 端点",
+      "stage": 2,
+      "row": 0,
+      "width": 170
+    },
+    {
+      "id": "json",
+      "type": "database",
+      "label": "data/*.insighthub-*.json",
+      "sublabel": "tags · annotations · cards 等",
+      "stage": 3,
+      "row": 2,
+      "width": 180
+    },
+    {
+      "id": "peers",
+      "type": "frontend",
+      "label": "LAN 其他客户端",
+      "sublabel": "启动时按 ID / 名称合并",
+      "stage": 4,
+      "row": 2,
+      "width": 150
+    }
+  ],
+  "flows": [
+    {
+      "id": "stores-local",
+      "from": "stores",
+      "to": "local",
+      "label": "即时写入",
+      "classification": "write-through",
+      "variant": "emphasis"
+    },
+    {
+      "id": "local-api",
+      "from": "local",
+      "to": "api",
+      "label": "POST /api/client-storage",
+      "classification": "整包快照"
+    },
+    {
+      "id": "api-json",
+      "from": "api",
+      "to": "json",
+      "label": "写入数据文件",
+      "classification": "原子落盘",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-peers",
+      "from": "api",
+      "to": "peers",
+      "label": "GET 同步到其他端",
+      "classification": "LAN 共享",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          870,
+          157
+        ],
+        [
+          870,
+          385
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "本地优先",
+      "items": [
+        "所有 Store 先写 localStorage（insighthub:* 前缀），离线完全可用",
+        "服务端不可达时应用功能不受影响，仅失去多端同步",
+        "localStorage 数据在启动时最先恢复"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "双通道同步",
+      "items": [
+        "client-storage 承载整包快照，含旧格式自动迁移",
+        "tags / annotations / concept-cards / quizzes 等有端点专属 JSON 文件",
+        "启动时 GET 读回 JSON 文件：annotations 与卡片按 ID，tags 按名称，read-meta 按时间戳合并"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "文件即数据库",
+      "items": [
+        "JSON 文件保存在工作区 data/ 目录，可直接纳入备份与版本管理",
+        "多客户端指向同一目录即可完成 LAN 同步，无中心服务器",
+        "导入文档与工作区移动操作也通过 REST 端点落盘"
+      ]
+    }
+  ]
+}

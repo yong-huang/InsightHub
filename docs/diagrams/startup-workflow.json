@@ -1,0 +1,165 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "InsightHub 启动与文档加载流程",
+    "output": "startup-workflow.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "react",
+      "label": "React 应用（hooks · documentStore）"
+    },
+    {
+      "id": "plugin",
+      "label": "Vite 插件 API"
+    }
+  ],
+  "phases": [
+    {
+      "id": "boot",
+      "label": "启动准备",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "load",
+      "label": "清单加载",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "ready",
+      "label": "索引与就绪",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "mount",
+    "initdocs",
+    "manifest",
+    "build",
+    "interactive",
+    "indexbg"
+  ],
+  "nodes": [
+    {
+      "id": "mount",
+      "lane": "react",
+      "col": 0,
+      "type": "frontend",
+      "label": "应用挂载",
+      "sublabel": "useInitializeApp"
+    },
+    {
+      "id": "initdocs",
+      "lane": "react",
+      "col": 1,
+      "type": "frontend",
+      "label": "初始化文档库",
+      "sublabel": "initializeDocuments"
+    },
+    {
+      "id": "manifest",
+      "lane": "plugin",
+      "col": 2,
+      "type": "backend",
+      "label": "GET /api/documents",
+      "sublabel": "scanWorkspaces · 1s 缓存",
+      "width": 140
+    },
+    {
+      "id": "build",
+      "lane": "react",
+      "col": 3,
+      "type": "frontend",
+      "label": "构建 Document Map",
+      "sublabel": "清单直读 · 0 次内容抓取",
+      "width": 140
+    },
+    {
+      "id": "interactive",
+      "lane": "react",
+      "col": 4,
+      "type": "frontend",
+      "label": "UI 可交互",
+      "sublabel": "applyFilters · 渲染首页"
+    },
+    {
+      "id": "indexbg",
+      "lane": "react",
+      "col": 5,
+      "type": "frontend",
+      "label": "后台建索引",
+      "sublabel": "FlexSearch · 50 篇/批",
+      "tag": "Phase 2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-mount-init",
+      "from": "mount",
+      "to": "initdocs"
+    },
+    {
+      "id": "e-init-manifest",
+      "from": "initdocs",
+      "to": "manifest",
+      "label": "拉取清单",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e-manifest-build",
+      "from": "manifest",
+      "to": "build",
+      "label": "富化元数据",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "e-build-ready",
+      "from": "build",
+      "to": "interactive"
+    },
+    {
+      "id": "e-ready-index",
+      "from": "interactive",
+      "to": "indexbg",
+      "label": "不阻塞 UI",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "清单直读",
+      "items": [
+        "服务端 scanWorkspaces 预先提取标题、字数、章节与内容摘要",
+        "客户端拿到富化清单后零内容抓取，直接构建 Document Map",
+        "UI 在 Phase 1 完成后立即可交互"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "两阶段加载",
+      "items": [
+        "Phase 1：清单构建文档集合并渲染界面",
+        "Phase 2：后台每 50 篇一批构建 FlexSearch 索引",
+        "索引完成后释放 contentText 以节省内存"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "数据合并",
+      "items": [
+        "各 Store 与清单加载并行：localStorage 优先恢复，再合并服务端数据",
+        "tags / quiz / annotations / cards 在启动时一次性恢复"
+      ]
+    }
+  ]
+}

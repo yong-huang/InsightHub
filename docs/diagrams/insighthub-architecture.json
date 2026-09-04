@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "InsightHub 系统总体架构",
+    "output": "insighthub-architecture.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/yong-huang/InsightHub.git",
+      "revision": "15803fd539fe14d4d3e115decee79b0d5ff7678a"
+    },
+    "views": [
+      {
+        "id": "ui-path",
+        "label": "界面交互路径",
+        "focus": [
+          "spa-pages",
+          "spa-stores",
+          "spa-services"
+        ],
+        "note": "页面通过 Zustand 读写状态并调用服务层完成业务。"
+      },
+      {
+        "id": "persist-path",
+        "label": "持久化路径",
+        "focus": [
+          "spa-stores",
+          "local-storage",
+          "vite-plugin",
+          "json-files"
+        ],
+        "note": "localStorage 优先写入，再经 REST 端点落盘为 JSON 文件。"
+      },
+      {
+        "id": "ai-path",
+        "label": "AI 调用链路",
+        "focus": [
+          "spa-services",
+          "vite-plugin",
+          "llm"
+        ],
+        "note": "所有 AI 请求经 Vite 插件代理转发到本地 LLM。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "spa-pages",
+      "type": "frontend",
+      "label": "页面层",
+      "sublabel": "React Router · 16 个路由",
+      "pos": [
+        120,
+        100
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "insighthub/src/pages/HomePage.tsx",
+          "label": "路由页面"
+        }
+      ]
+    },
+    {
+      "id": "spa-stores",
+      "type": "frontend",
+      "label": "Zustand Stores",
+      "sublabel": "7 个全局状态库",
+      "pos": [
+        380,
+        100
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "insighthub/src/stores/documentStore.ts",
+          "line": 146,
+          "label": "loadAllDocuments"
+        }
+      ]
+    },
+    {
+      "id": "spa-services",
+      "type": "frontend",
+      "label": "服务层",
+      "sublabel": "ai · search · quiz · storage",
+      "pos": [
+        640,
+        100
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "insighthub/src/services/aiService.ts",
+          "label": "AI 客户端"
+        }
+      ]
+    },
+    {
+      "id": "local-storage",
+      "type": "database",
+      "label": "localStorage",
+      "sublabel": "insighthub:* 键前缀",
+      "pos": [
+        120,
+        264
+      ],
+      "size": [
+        160,
+        56
+      ],
+      "sources": [
+        {
+          "path": "insighthub/src/services/storageService.ts",
+          "label": "存储服务"
+        }
+      ]
+    },
+    {
+      "id": "vite-plugin",
+      "type": "backend",
+      "label": "documentDiscovery 插件",
+      "sublabel": "约 25 个 /api 端点 · AI 代理",
+      "tag": "Vite Dev Server",
+      "pos": [
+        500,
+        264
+      ],
+      "size": [
+        200,
+        72
+      ],
+      "sources": [
+        {
+          "path": "insighthub/vite-plugins/documentDiscovery.ts",
+          "line": 244,
+          "label": "configureServer"
+        }
+      ]
+    },
+    {
+      "id": "doc-sources",
+      "type": "database",
+      "label": "工作区文档源",
+      "sublabel": "HTML / 图片目录",
+      "pos": [
+        120,
+        428
+      ],
+      "size": [
+        160,
+        56
+      ],
+      "sources": [
+        {
+          "path": "insighthub/scripts/lib/scanDocuments.ts",
+          "line": 55,
+          "label": "scanWorkspaces"
+        }
+      ]
+    },
+    {
+      "id": "json-files",
+      "type": "database",
+      "label": "JSON 数据文件",
+      "sublabel": "data/.insighthub-*.json",
+      "pos": [
+        500,
+        428
+      ],
+      "size": [
+        200,
+        56
+      ],
+      "sources": [
+        {
+          "path": "insighthub/vite-plugins/documentDiscovery.ts",
+          "line": 252,
+          "label": "数据文件清单"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "本地 LLM",
+      "sublabel": "OpenAI 兼容 · 127.0.0.1:7001",
+      "tag": "Qwen3.5-27B-4bit",
+      "pos": [
+        790,
+        264
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "insighthub/src/services/storageService.ts",
+          "line": 157,
+          "label": "默认 AI 地址"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "浏览器 · React 19 SPA",
+      "wraps": [
+        "spa-pages",
+        "spa-stores",
+        "spa-services",
+        "local-storage"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Node 进程 · Vite 8",
+      "wraps": [
+        "vite-plugin"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "pages-stores",
+      "from": "spa-pages",
+      "to": "spa-stores",
+      "label": "读写全局状态"
+    },
+    {
+      "id": "stores-services",
+      "from": "spa-stores",
+      "to": "spa-services",
+      "label": "调用服务"
+    },
+    {
+      "id": "stores-local",
+      "from": "spa-stores",
+      "to": "local-storage",
+      "label": "localStorage 优先持久化"
+    },
+    {
+      "id": "services-plugin",
+      "from": "spa-services",
+      "to": "vite-plugin",
+      "label": "fetch /api/*",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "plugin-docs",
+      "from": "vite-plugin",
+      "to": "doc-sources",
+      "label": "扫描目录 · 托管 /dev-docs/"
+    },
+    {
+      "id": "plugin-json",
+      "from": "vite-plugin",
+      "to": "json-files",
+      "label": "读写 JSON 数据",
+      "labelDy": 24
+    },
+    {
+      "id": "plugin-llm",
+      "from": "vite-plugin",
+      "to": "llm",
+      "label": "代理 chat/completions（SSE）",
+      "variant": "emphasis",
+      "labelAt": [
+        745,
+        350
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "浏览器单页应用",
+      "items": [
+        "React 19 + Vite 8 + TypeScript，无后端服务器、无 UI 组件库",
+        "Zustand 状态与 FlexSearch 全文索引全部构建在浏览器内",
+        "localStorage 是首选持久化，服务端数据仅做启动合并"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "本地服务层",
+      "items": [
+        "documentDiscovery Vite 插件承担文档发现、REST 同步与 AI 代理",
+        "生产构建改为静态托管：prebuild 将文档复制到 public/docs/",
+        "工作区目录经 vite.config.ts 读取并加入 server.fs.allow 白名单"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "外部资源",
+      "items": [
+        "本地 OpenAI 兼容 LLM，支持 llama.cpp / Ollama / vLLM / LM Studio",
+        "文档源目录与 .insighthub-*.json 数据文件都在本机磁盘",
+        "多客户端指向同一 data/ 目录即获得 LAN 同步"
+      ]
+    }
+  ]
+}

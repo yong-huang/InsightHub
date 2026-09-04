@@ -1,5 +1,7 @@
 # InsightHub — Technical Design
 
+> 交互式架构图（总体架构 / 启动流程 / AI 时序 / 数据持久化）见 [ARCHITECTURE.md](ARCHITECTURE.md)。本文件聚焦设计决策与关键算法。
+
 ## Overview
 
 InsightHub is a client-side single-page application built with React 19 and TypeScript. It runs entirely in the browser with no backend server — data persistence uses localStorage with optional LAN sync via a Vite plugin that exposes REST endpoints writing to JSON files.
@@ -14,11 +16,11 @@ InsightHub is a client-side single-page application built with React 19 and Type
 │  Home, DocReader, Quiz, Notes, Stats, SR, etc.  │
 ├─────────────────────────────────────────────────┤
 │              Zustand Stores (State)              │
-│  document · annotation · quiz · tag · flashcard  │
-│  search · preference                             │
+│  document · annotation · quiz · tag · concept   │
+│  card · search · preference                     │
 ├─────────────────────────────────────────────────┤
 │                   Services                       │
-│  AI (SSE) · Quiz · Search · Storage · SR (SM-2) │
+│  AI (SSE) · Quiz · Search · Storage · Token     │
 ├─────────────────────────────────────────────────┤
 │               Custom Vite Plugin                 │
 │  Document Discovery · API Proxy · LAN Sync       │
@@ -45,20 +47,21 @@ InsightHub is a client-side single-page application built with React 19 and Type
 ```
 App mounts
   → useInitializeApp()
-    → preferenceStore.setTheme()
     → documentStore.initializeDocuments()
-      → fetch /api/documents (manifest)
-      → parse each HTML via DOMParser
-      → build FlexSearch index
-    → tagStore.loadTags()
-    → searchStore.loadHistory()
-    → quizStore.loadHistory()
-    → annotationStore.loadAnnotations()
-      → localStorage first
-      → merge from /api/annotations (LAN sync)
-    → flashcardStore.loadCards()
-      → localStorage first + migration
-    → flashcardStore.generateCardsFromAnnotations()
+      → fetch /api/documents (enriched manifest, 1s cache)
+      → build Document Map directly from manifest (no content fetches)
+      → merge /api/read-meta + /api/read-history (fetched in parallel)
+      → UI becomes interactive
+      → Phase 2 (background): indexAllDocs() builds FlexSearch index
+        in batches of 50, freeing contentText afterwards
+    → in parallel: tagStore.loadTags() · searchStore.loadHistory()
+      · quizStore.loadHistory() · quizStore.loadSavedQuizzes()
+      · preferenceStore.loadQuizSettingsFromServer()
+      · annotationStore.loadAnnotations()   → localStorage first, merge server
+      · conceptCardStore.loadCards()        → localStorage first + migration
+    → storageService.syncFromServer()
+      → preferenceStore.loadWorkspacesFromServer()
+    → registerDynamicCategories() + extendCategoryMap()
 ```
 
 ### Annotation Lifecycle
@@ -79,17 +82,16 @@ On page load (restore):
 ### Spaced Repetition Flow
 
 ```
-User creates annotation (highlight/comment)
-  → On next visit to /spaced-repetition:
-    → generateCardsFromAnnotations() scans all annotations
-    → Missing cards auto-created (stripHtml → truncate front/back)
-    → SM-2 algorithm schedules reviews
+Concept cards are AI-extracted from documents (conceptService)
+  → conceptCardStore tracks extraction status/errors per document
+  → Cards sync to localStorage + /api/concept-cards
+  → Deleting an annotation marks its sourced cards as sourceDeleted
 
-Review session:
+Review session (/spaced-repetition):
   → getDueCards() returns cards where nextReview ≤ now
   → User flips card, grades 0-5
-  → reviewCard() updates interval/repetition/efactor
-  → Persisted to localStorage
+  → reviewCard() → sm2Review() updates interval/repetition/efactor
+  → Persisted to localStorage, synced to server
 ```
 
 ### AI Quiz Flow
@@ -97,7 +99,7 @@ Review session:
 ```
 User clicks "Generate Quiz" on DocReaderPage
   → quizStore.startGeneration(docId)
-  → aiService.generateQuiz() calls /api/ai/chat/completions (SSE proxy)
+  → quizService calls aiService.generateQuizQuestions() → /api/ai/chat/completions (SSE proxy)
   → Local LLM streams quiz questions
   → Parsed and stored in quizStore
   → User takes quiz, grades stored in localStorage + /api/quiz-history
@@ -136,8 +138,7 @@ const useStore = create<StoreState>((set, get) => ({
 | documentStore | `Map<string, Document>` | localStorage + read-meta server |
 | annotationStore | `Annotation[]` | localStorage + `/api/annotations` |
 | quizStore | `savedQuizzes`, `quizHistory` | localStorage + `/api/quizzes` |
-| flashcardStore | `Flashcard[]` | localStorage only |
-| conceptCardStore | `ConceptCard[]` | localStorage + `/api/concept-cards` |
+| conceptCardStore | `ConceptCard[]` (SM-2 scheduled) | localStorage + `/api/concept-cards` |
 | tagStore | `Tag[]` | localStorage + `/api/tags` |
 | searchStore | query, results | localStorage (history) |
 | preferenceStore | theme, workspace, sidebar | localStorage |
@@ -173,7 +174,14 @@ On restore, the XPath is resolved to locate the original DOM node. If the docume
 
 ### FlexSearch Full-Text Search
 
-Documents are indexed by title, category, and section headings. FlexSearch provides sub-millisecond search with fuzzy matching. The index is rebuilt on each app load.
+Search maintains two FlexSearch Document indexes over `title` and `content`:
+
+- **forward index** (prefix recall) — "22" also recalls "220", "2210", …
+- **strict index** (exact tokens) — "22" matches only the full token "22"
+
+Both share an `Encoder({ dedupe: false })`: the default encoder collapses consecutive duplicate characters, which mangles numbers ("22" → "2") and makes "#22" indistinguishable from "#220" at the token level.
+
+`parseSearchQuery` peels filters (`#tag`, `@workspace`, `category:`) from the raw query. `search()` then collects candidates in descending score tiers — exact title (100) → numeric-prefix title (90, digits only) → exact content (80) → numeric-prefix content (72) → forward title (50) → forward content (30) — dedupes by document (best tier wins), sorts by tier score, and slices to `limit`. A large candidate pool (150/tier) prevents prefix matches from crowding exact matches out of the cut. The index is rebuilt on each app load.
 
 ## CSS Architecture
 

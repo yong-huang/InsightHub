@@ -52,7 +52,7 @@ InsightHub integrates with any OpenAI-compatible local LLM to bring intelligence
 
 ### Achievement System
 
-44 achievements across 5 categories:
+48 achievements across 5 categories:
 
 - **Reading** (11) — First Read → Million Words
 - **Quiz** (10) — First Quiz → Question Crusher
@@ -69,7 +69,7 @@ InsightHub integrates with any OpenAI-compatible local LLM to bring intelligence
 | **Annotations** | 6-color highlights, threaded comments, click-to-view popup, touch support, XPath persistence with fuzzy restore |
 | **Spaced Repetition** | AI concept cards, SM-2 scheduling, 3D flip cards, keyboard shortcuts |
 | **Visualizations** | Knowledge graph, personal map, knowledge tree, heatmap, radar, quiz dashboard, reading habits, tag cloud, learning path |
-| **Gamification** | 44 achievements across 5 categories, toast notifications |
+| **Gamification** | 48 achievements across 5 categories, toast notifications |
 | **Data & Sync** | localStorage persistence, LAN sync via REST API, workspace isolation, backup/export/import |
 | **UI/UX** | Light/dark theme, sidebar, keyboard shortcuts, iframe reader, feature toggles, multi-profile AI config |
 
@@ -208,6 +208,16 @@ Open `http://localhost:5600`. Add your document workspaces from the Settings pag
 
 > **Without a local LLM**, the app works fully — browsing, search, annotations, and all visualizations function normally. Only AI features (quiz, chat, concept extraction, etc.) require an LLM server.
 
+### Testing
+
+```bash
+npm run test      # Unit tests (Vitest, jsdom)
+npm run test:e2e  # E2E smoke tests (Playwright; spawns the dev server on :5600)
+npm run test:all  # Both
+```
+
+E2E tests adapt to your setup: document-dependent flows (doc reader, search results) are skipped automatically when no document workspaces are configured, and no local LLM is required.
+
 ### Production Build
 
 ```bash
@@ -298,6 +308,12 @@ Full data backup and restore: export all data (localStorage + server endpoints) 
 ### Quiz Configuration
 
 Configure difficulty (easy/medium/hard), question count, and enabled question types (multiple-choice, true/false, short-answer, fill-in-the-blank, code completion).
+
+## Documentation
+
+- [Architecture (架构文档)](docs/ARCHITECTURE.md) — overall architecture with four interactive diagrams (system overview, startup pipeline, AI request sequence, persistence & LAN sync)
+- [Technical Design](docs/DESIGN.md) — design decisions, key algorithms (SM-2, XPath annotation serialization), state management patterns
+- [Deployment Guide](docs/DEPLOY.md) — build, workspace configuration, and deployment
 
 ## License
 
